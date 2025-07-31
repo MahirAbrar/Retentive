@@ -1,9 +1,23 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, CardHeader, CardContent } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
+import { getStudyStats } from '../services/statsService'
 
 export function HomePage() {
   const { user } = useAuth()
+  const [stats, setStats] = useState({
+    overdue: 0,
+    dueToday: 0,
+    upcoming: 0,
+    mastered: 0
+  })
+
+  useEffect(() => {
+    if (user) {
+      getStudyStats(user.id).then(setStats)
+    }
+  }, [user])
 
   return (
     <div>
@@ -20,7 +34,7 @@ export function HomePage() {
           <Card>
             <CardContent>
               <div style={{ textAlign: 'center' }}>
-                <p className="h2" style={{ color: 'var(--color-error)' }}>0</p>
+                <p className="h2" style={{ color: 'var(--color-error)' }}>{stats.overdue}</p>
                 <p className="body-small text-secondary">Overdue</p>
               </div>
             </CardContent>
@@ -28,7 +42,7 @@ export function HomePage() {
           <Card>
             <CardContent>
               <div style={{ textAlign: 'center' }}>
-                <p className="h2" style={{ color: 'var(--color-warning)' }}>0</p>
+                <p className="h2" style={{ color: 'var(--color-warning)' }}>{stats.dueToday}</p>
                 <p className="body-small text-secondary">Due Today</p>
               </div>
             </CardContent>
@@ -36,7 +50,7 @@ export function HomePage() {
           <Card>
             <CardContent>
               <div style={{ textAlign: 'center' }}>
-                <p className="h2" style={{ color: 'var(--color-info)' }}>0</p>
+                <p className="h2" style={{ color: 'var(--color-info)' }}>{stats.upcoming}</p>
                 <p className="body-small text-secondary">Upcoming</p>
               </div>
             </CardContent>
@@ -44,7 +58,7 @@ export function HomePage() {
           <Card>
             <CardContent>
               <div style={{ textAlign: 'center' }}>
-                <p className="h2" style={{ color: 'var(--color-success)' }}>0</p>
+                <p className="h2" style={{ color: 'var(--color-success)' }}>{stats.mastered}</p>
                 <p className="body-small text-secondary">Mastered</p>
               </div>
             </CardContent>
@@ -63,9 +77,9 @@ export function HomePage() {
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               {user ? (
                 <>
-                  <Link to="/study">
+                  <Link to="/topics">
                     <Button variant="primary" size="large">
-                      Start Studying
+                      View Topics
                     </Button>
                   </Link>
                   <Link to="/topics/new">

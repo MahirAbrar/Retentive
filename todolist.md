@@ -57,7 +57,7 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 
 ### 1.5 Environment & Security Setup
 
-- [ ] Set up environment variables (.env files)
+- [x] Set up environment variables (.env files)
 - [ ] Configure Supabase Row Level Security policies
 - [ ] Set up proper CORS settings for Electron
 - [ ] Configure Supabase API rate limiting
@@ -193,13 +193,13 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 
 ### 4.1 Topic Management (Enhanced)
 
-- [ ] Create TopicForm component for adding new topics
+- [x] Create TopicForm component for adding new topics
   - [ ] Topic name input with validation
-  - [ ] Learning mode selection (cram/steady)
-  - [ ] Priority selection (1-10, default 5)
-  - [ ] Subtopics textarea with line-by-line parsing
+  - [x] Learning mode selection (cram/steady)
+  - [x] Priority selection (1-10, default 5)
+  - [x] Subtopics textarea with line-by-line parsing
   - [ ] Form validation and error display
-  - [ ] Save functionality integration
+  - [x] Save functionality integration
 - [ ] Create TopicDetailView component
   - [ ] Display topic information (name, mode, priority, created date)
   - [ ] Show all subtopics with their individual statuses
@@ -698,3 +698,7 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 - [ ] **Screen reader support**: Proper ARIA labels and roles
 - [ ] **Color contrast**: Meet WCAG AA standards
 - [ ] **Focus management**: Logical focus order and visible indicators
+
+<!-- Extra -->
+
+Delete topics UI

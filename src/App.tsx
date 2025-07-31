@@ -2,9 +2,13 @@ import './App.css'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { ToastProvider, Button } from './components/ui'
 import { AuthProvider, useAuth } from './hooks/useAuthFixed'
-import { HomePageSimple } from './pages/HomePageSimple'
+import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPageFixed'
 import { ComponentShowcase } from './components/ComponentShowcase'
+import { TopicsPage } from './pages/TopicsPage'
+import { NewTopicPage } from './pages/NewTopicPage'
+import { TopicDetailView } from './pages/TopicDetailView'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 function Header() {
   const { user, signOut } = useAuth()
@@ -57,9 +61,24 @@ function App() {
         
         <main style={{ padding: 'var(--space-8) var(--space-4)' }}>
           <Routes>
-            <Route path="/" element={<HomePageSimple />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/components" element={<ComponentShowcase />} />
+            <Route path="/topics" element={
+              <ProtectedRoute>
+                <TopicsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/topics/new" element={
+              <ProtectedRoute>
+                <NewTopicPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/topics/:topicId" element={
+              <ProtectedRoute>
+                <TopicDetailView />
+              </ProtectedRoute>
+            } />
           </Routes>
         </main>
       </div>
