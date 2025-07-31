@@ -1,0 +1,63 @@
+/* Alternative Color Schemes for Swiss Design */
+
+/* Option 1: Classic Swiss with Blue Accent */
+.theme-swiss-blue {
+  --color-primary: #0066cc;        /* Strong blue */
+  --color-secondary: #ffffff;      /* White */
+  --color-accent: #ff4444;         /* Red accent */
+  --color-background: #fafafa;     /* Off-white background */
+  --color-text: #1a1a1a;          /* Near black text */
+}
+
+/* Option 2: Modern Dark with Vibrant Accents */
+.theme-modern-dark {
+  --color-primary: #1a1a1a;        /* Rich black */
+  --color-secondary: #ffffff;      
+  --color-accent: #00d4ff;         /* Bright cyan */
+  --color-accent-2: #ff006e;       /* Hot pink */
+  --color-background: #0a0a0a;     /* Deep black */
+  --color-surface: #1a1a1a;        /* Card backgrounds */
+  --color-text: #ffffff;
+}
+
+/* Option 3: Warm Minimalist */
+.theme-warm-minimal {
+  --color-primary: #2c2c2c;        /* Warm gray */
+  --color-secondary: #fffef9;      /* Warm white */
+  --color-accent: #ff6b35;         /* Coral orange */
+  --color-accent-2: #4ecdc4;       /* Teal */
+  --color-background: #fffef9;
+  --color-text: #2c2c2c;
+}
+
+/* Option 4: Swiss Education (Your Learning App) */
+.theme-swiss-education {
+  --color-primary: #2d3748;        /* Dark blue-gray */
+  --color-secondary: #ffffff;
+  --color-accent: #4299e1;         /* Sky blue */
+  --color-accent-2: #48bb78;       /* Green for success */
+  --color-background: #f7fafc;     /* Light blue-gray */
+  --color-surface: #ffffff;
+  --color-text: #2d3748;
+  
+  /* Learning-specific colors */
+  --color-overdue: #f56565;        /* Red */
+  --color-due: #ed8936;            /* Orange */
+  --color-upcoming: #4299e1;       /* Blue */
+  --color-mastered: #48bb78;       /* Green */
+}
+
+/* Option 5: Bold Neo-Swiss */
+.theme-neo-swiss {
+  --color-primary: #000000;
+  --color-secondary: #ffffff;
+  --color-accent: #ff0066;         /* Magenta */
+  --color-accent-2: #00ff88;       /* Mint green */
+  --color-accent-3: #ffdd00;       /* Yellow */
+  --color-background: #ffffff;
+  --color-text: #000000;
+  
+  /* High contrast borders */
+  --color-border: #000000;
+  --border-width: 2px;
+}

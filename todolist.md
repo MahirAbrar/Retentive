@@ -10,9 +10,9 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 
 ### 1.1 Environment Setup
 
-- [ ] Install Node.js (LTS version)
-- [ ] Set up Git repository with proper `.gitignore`
-- [ ] Initialize Vite + React + TypeScript project
+- [x] Install Node.js (LTS version)
+- [x] Set up Git repository with proper `.gitignore`
+- [x] Initialize Vite + React + TypeScript project
 - [ ] Install and configure Electron
 - [ ] Install development dependencies (ESLint, Prettier, etc.)
 - [ ] Set up package.json scripts for dev/build/package
@@ -21,17 +21,17 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 
 ### 1.2 Supabase Project Setup
 
-- [ ] Create new Supabase project
-- [ ] Obtain project URL and anon key
-- [ ] Configure authentication settings
+- [x] Create new Supabase project
+- [x] Obtain project URL and anon key
+- [x] Configure authentication settings
   - [ ] Enable email/password authentication
   - [ ] Set up email templates for verification
   - [ ] Configure password reset flow
   - [ ] Set session timeout preferences
-- [ ] Set up environment variables for Supabase credentials
-- [ ] Test basic Supabase connection from Electron
-- [ ] Create folder structure following separation of concerns
-- [ ] Set up `src/` directory with components, services, hooks, utils
+- [x] Set up environment variables for Supabase credentials
+- [x] Test basic Supabase connection from Electron
+- [x] Create folder structure following separation of concerns
+- [x] Set up `src/` directory with components, services, hooks, utils
 - [ ] Create `electron/` directory for main process code
 - [ ] Set up `assets/` directory for icons and images
 - [ ] Create `styles/` directory for CSS modules/files

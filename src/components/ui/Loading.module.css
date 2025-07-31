@@ -1,0 +1,147 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.fullScreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: var(--z-modal);
+}
+
+/* Dot spinner */
+.spinner {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.dot {
+  background-color: var(--color-primary);
+  border-radius: 50%;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+/* Size variants for dot spinner */
+.spinner.small .dot {
+  width: 6px;
+  height: 6px;
+}
+
+.spinner.medium .dot {
+  width: 8px;
+  height: 8px;
+}
+
+.spinner.large .dot {
+  width: 10px;
+  height: 10px;
+}
+
+/* Ring spinner */
+.spinnerRing {
+  display: inline-block;
+  position: relative;
+}
+
+.spinnerRing div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  animation: ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: var(--color-primary) transparent transparent transparent;
+}
+
+.spinnerRing div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+
+.spinnerRing div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.spinnerRing div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+
+/* Size variants for ring spinner */
+.spinnerRing.small {
+  width: 16px;
+  height: 16px;
+}
+
+.spinnerRing.small div {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.spinnerRing.medium {
+  width: 32px;
+  height: 32px;
+}
+
+.spinnerRing.medium div {
+  width: 32px;
+  height: 32px;
+  border-width: 2px;
+}
+
+.spinnerRing.large {
+  width: 48px;
+  height: 48px;
+}
+
+.spinnerRing.large div {
+  width: 48px;
+  height: 48px;
+  border-width: 3px;
+}
+
+/* Loading text */
+.text {
+  font-size: var(--text-sm);
+  color: var(--color-gray-600);
+  margin: 0;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

@@ -67,3 +67,8 @@ coverage
 # Supabase (for later)
 **/supabase/.branches
 **/supabase/.temp
+
+human-todo.md
+.env.example
+todolist.md
+todolist.md
