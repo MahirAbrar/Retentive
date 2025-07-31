@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, CardHeader, CardContent, Button, Badge, useToast } from '../ui'
-import type { Topic, LearningItem } from '../../types/database'
+import { Card, CardHeader, CardContent, Button, Badge, useToast, ConfirmDialog, Input, Modal } from '../ui'
+import type { Topic, LearningItem, LearningMode } from '../../types/database'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
 import { topicsService } from '../../services/topicsFixed'
 import { supabase } from '../../services/supabase'
@@ -17,9 +17,17 @@ interface TopicListProps {
 export function TopicList({ topics, onDelete, loading }: TopicListProps) {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
   const [topicItems, setTopicItems] = useState<Record<string, LearningItem[]>>({})
-  const [topicStats, setTopicStats] = useState<Record<string, { total: number; due: number }>>({})
+  const [topicStats, setTopicStats] = useState<Record<string, { total: number; due: number; new: number }>>({})
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set())
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set())
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; topicId: string | null; topicName: string }>({ open: false, topicId: null, topicName: '' })
+  const [deleteItemConfirm, setDeleteItemConfirm] = useState<{ open: boolean; item: LearningItem | null }>({ open: false, item: null })
+  const [editingTopic, setEditingTopic] = useState<Topic | null>(null)
+  const [editingItem, setEditingItem] = useState<string | null>(null)
+  const [editItemContent, setEditItemContent] = useState('')
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [addingItemToTopic, setAddingItemToTopic] = useState<string | null>(null)
+  const [newItemContent, setNewItemContent] = useState('')
   const { addToast } = useToast()
   const { user } = useAuth()
 
@@ -30,17 +38,29 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
     })
   }, [topics])
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openMenuId) {
+        setOpenMenuId(null)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [openMenuId])
+
   const loadTopicStats = async (topicId: string) => {
     try {
       const { data, error } = await topicsService.getTopicItems(topicId)
       if (error) throw error
       
       const items = data || []
-      const dueCount = items.filter(item => isDue(item)).length
+      const dueCount = items.filter(item => item.review_count > 0 && isDue(item)).length
+      const newCount = items.filter(item => item.review_count === 0).length
       
       setTopicStats(prev => ({
         ...prev,
-        [topicId]: { total: items.length, due: dueCount }
+        [topicId]: { total: items.length, due: dueCount, new: newCount }
       }))
     } catch (error) {
       console.error('Error loading topic stats:', error)
@@ -67,10 +87,11 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
           
           // Update stats after loading items
           const items = data || []
-          const dueCount = items.filter(item => isDue(item)).length
+          const dueCount = items.filter(item => item.review_count > 0 && isDue(item)).length
+          const newCount = items.filter(item => item.review_count === 0).length
           setTopicStats(prev => ({
             ...prev,
-            [topicId]: { total: items.length, due: dueCount }
+            [topicId]: { total: items.length, due: dueCount, new: newCount }
           }))
         } catch (error) {
           addToast('error', 'Failed to load items')
@@ -139,6 +160,20 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
         )
       }))
 
+      // Update stats
+      const items = topicItems[item.topic_id] || []
+      const updatedItems = items.map(i => 
+        i.id === item.id 
+          ? { ...i, next_review_at: nextReview.next_review_at, review_count: item.review_count + 1 }
+          : i
+      )
+      const dueCount = updatedItems.filter(i => i.review_count > 0 && isDue(i)).length
+      const newCount = updatedItems.filter(i => i.review_count === 0).length
+      setTopicStats(prev => ({
+        ...prev,
+        [item.topic_id]: { total: items.length, due: dueCount, new: newCount }
+      }))
+
       addToast('success', `Done! Next review: ${formatNextReview(nextReview.next_review_at)}`)
     } catch (error) {
       addToast('error', 'Failed to update item')
@@ -167,6 +202,11 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
   }
 
   const getItemStatus = (item: LearningItem) => {
+    // For items that have never been studied, show "Ready to learn" instead of due dates
+    if (item.review_count === 0) {
+      return { label: 'Ready to learn', color: 'var(--color-info)' }
+    }
+    
     if (!item.next_review_at) return { label: 'New', color: 'var(--color-info)' }
     
     const now = new Date()
@@ -178,13 +218,140 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
   }
 
   const isDue = (item: LearningItem) => {
+    // New items (never studied) are not considered "due" - they're ready to learn
+    if (item.review_count === 0) return false
+    
     if (!item.next_review_at) return true
     return new Date(item.next_review_at) <= new Date()
   }
 
-  const countDueItems = (topicId: string) => {
-    const items = topicItems[topicId] || []
-    return items.filter(isDue).length
+  // Removed unused function
+
+  const handleDeleteTopic = async () => {
+    if (!deleteConfirm.topicId || !onDelete) return
+    
+    try {
+      await onDelete(deleteConfirm.topicId)
+      addToast('success', 'Topic deleted successfully')
+      setDeleteConfirm({ open: false, topicId: null, topicName: '' })
+    } catch (error) {
+      addToast('error', 'Failed to delete topic')
+    }
+  }
+
+  const handleEditItem = async (item: LearningItem) => {
+    if (!editItemContent.trim()) {
+      setEditingItem(null)
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('learning_items')
+        .update({ content: editItemContent.trim() })
+        .eq('id', item.id)
+
+      if (error) throw error
+
+      // Update local state
+      setTopicItems(prev => ({
+        ...prev,
+        [item.topic_id]: prev[item.topic_id].map(i => 
+          i.id === item.id ? { ...i, content: editItemContent.trim() } : i
+        )
+      }))
+
+      addToast('success', 'Item updated successfully')
+      setEditingItem(null)
+    } catch (error) {
+      addToast('error', 'Failed to update item')
+    }
+  }
+
+  const handleAddItem = async (topicId: string) => {
+    if (!newItemContent.trim() || !user) return
+
+    try {
+      const topic = topics.find(t => t.id === topicId)
+      if (!topic) return
+
+      const newItem = {
+        topic_id: topicId,
+        user_id: user.id,
+        content: newItemContent.trim(),
+        priority: topic.priority, // Inherit priority from topic
+        learning_mode: topic.learning_mode, // Inherit learning mode from topic
+        review_count: 0,
+        ease_factor: 2.5,
+        interval_days: 0
+      }
+
+      const { data, error } = await supabase
+        .from('learning_items')
+        .insert(newItem)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error adding item:', error)
+        throw error
+      }
+
+      // Update local state
+      setTopicItems(prev => ({
+        ...prev,
+        [topicId]: [...(prev[topicId] || []), data]
+      }))
+
+      // Update stats
+      const items = [...(topicItems[topicId] || []), data]
+      const dueCount = items.filter(item => item.review_count > 0 && isDue(item)).length
+      const newCount = items.filter(item => item.review_count === 0).length
+      setTopicStats(prev => ({
+        ...prev,
+        [topicId]: { total: items.length, due: dueCount, new: newCount }
+      }))
+
+      addToast('success', 'Item added successfully')
+      setAddingItemToTopic(null)
+      setNewItemContent('')
+    } catch (error) {
+      addToast('error', 'Failed to add item')
+    }
+  }
+
+  const handleDeleteItem = async () => {
+    if (!deleteItemConfirm.item) return
+    
+    const item = deleteItemConfirm.item
+    try {
+      const { error } = await supabase
+        .from('learning_items')
+        .delete()
+        .eq('id', item.id)
+
+      if (error) throw error
+
+      // Update local state
+      setTopicItems(prev => ({
+        ...prev,
+        [item.topic_id]: prev[item.topic_id].filter(i => i.id !== item.id)
+      }))
+
+      // Update stats
+      const newItems = topicItems[item.topic_id].filter(i => i.id !== item.id)
+      const dueCount = newItems.filter(i => i.review_count > 0 && isDue(i)).length
+      const newCount = newItems.filter(i => i.review_count === 0).length
+      setTopicStats(prev => ({
+        ...prev,
+        [item.topic_id]: { total: newItems.length, due: dueCount, new: newCount }
+      }))
+
+      addToast('success', 'Item deleted successfully')
+      setDeleteItemConfirm({ open: false, item: null })
+    } catch (error) {
+      addToast('error', 'Failed to delete item')
+    }
   }
 
   if (loading) {
@@ -214,11 +381,12 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
   }
 
   return (
-    <div style={{ display: 'grid', gap: '1rem' }}>
-      {topics.map((topic) => {
+    <>
+      <div style={{ display: 'grid', gap: '1rem' }}>
+        {topics.map((topic) => {
         const isExpanded = expandedTopics.has(topic.id)
         const items = topicItems[topic.id] || []
-        const stats = topicStats[topic.id] || { total: 0, due: 0 }
+        const stats = topicStats[topic.id] || { total: 0, due: 0, new: 0 }
         
         return (
           <Card key={topic.id} variant="bordered">
@@ -243,8 +411,12 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                     <p className="body">{stats.total}</p>
                   </div>
                   <div>
+                    <p className="body-small text-secondary">New</p>
+                    <p className="body" style={{ color: stats.new > 0 ? 'var(--color-info)' : 'inherit' }}>{stats.new}</p>
+                  </div>
+                  <div>
                     <p className="body-small text-secondary">Due</p>
-                    <p className="body">{stats.due}</p>
+                    <p className="body" style={{ color: stats.due > 0 ? 'var(--color-warning)' : 'inherit' }}>{stats.due}</p>
                   </div>
                 </div>
                 
@@ -256,15 +428,79 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                   >
                     {isExpanded ? 'Collapse' : 'View Items'}
                   </Button>
-                  {onDelete && (
+                  <div style={{ position: 'relative' }}>
                     <Button 
                       variant="ghost" 
                       size="small"
-                      onClick={() => onDelete(topic.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpenMenuId(openMenuId === topic.id ? null : topic.id)
+                      }}
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '1.2rem' }}
                     >
-                      Delete
+                      ⋮
                     </Button>
-                  )}
+                    {openMenuId === topic.id && (
+                      <div style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: '100%',
+                        marginTop: '0.25rem',
+                        backgroundColor: 'var(--color-surface)',
+                        border: '1px solid var(--color-gray-200)',
+                        borderRadius: 'var(--radius-sm)',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                        zIndex: 10,
+                        minWidth: '120px'
+                      }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingTopic(topic)
+                            setOpenMenuId(null)
+                          }}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: 'var(--text-sm)'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          Edit
+                        </button>
+                        {onDelete && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeleteConfirm({ open: true, topicId: topic.id, topicName: topic.name })
+                              setOpenMenuId(null)
+                            }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'none',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              color: 'var(--color-error)',
+                              fontSize: 'var(--text-sm)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -272,10 +508,12 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                 <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--color-gray-200)', paddingTop: '1.5rem' }}>
                   {loadingItems.has(topic.id) ? (
                     <p className="body-small text-secondary">Loading items...</p>
-                  ) : items.length === 0 ? (
-                    <p className="body-small text-secondary">No items in this topic</p>
                   ) : (
-                    <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    <>
+                      {items.length === 0 && (
+                        <p className="body-small text-secondary">No items in this topic</p>
+                      )}
+                      <div style={{ display: 'grid', gap: '0.75rem' }}>
                       {items.map((item) => {
                         const status = getItemStatus(item)
                         const isProcessing = processingItems.has(item.id)
@@ -294,42 +532,257 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                             }}
                           >
                             <div style={{ flex: 1 }}>
-                              <p className="body-small">{item.content}</p>
-                              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
-                                <span className="body-small" style={{ color: status.color }}>
-                                  {status.label}
-                                </span>
-                                <span className="body-small text-secondary">
-                                  Reviews: {item.review_count}
-                                </span>
-                              </div>
+                              {editingItem === item.id ? (
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                  <Input
+                                    value={editItemContent}
+                                    onChange={(e) => setEditItemContent(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleEditItem(item)
+                                      if (e.key === 'Escape') setEditingItem(null)
+                                    }}
+                                    style={{ flex: 1 }}
+                                    autoFocus
+                                  />
+                                  <Button size="small" onClick={() => handleEditItem(item)}>Save</Button>
+                                  <Button size="small" variant="ghost" onClick={() => setEditingItem(null)}>Cancel</Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <p 
+                                    className="body-small" 
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => {
+                                      setEditingItem(item.id)
+                                      setEditItemContent(item.content)
+                                    }}
+                                  >
+                                    {item.content}
+                                  </p>
+                                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                                    <span className="body-small" style={{ color: status.color }}>
+                                      {status.label}
+                                    </span>
+                                    <span className="body-small text-secondary">
+                                      Reviews: {item.review_count}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
                             </div>
-                            {itemIsDue ? (
-                              <Button 
-                                variant="primary" 
-                                size="small"
-                                onClick={() => handleStudyItem(item)}
-                                loading={isProcessing}
-                                disabled={isProcessing}
-                              >
-                                {item.review_count === 0 ? 'Study' : 'Revise'}
-                              </Button>
-                            ) : (
-                              <span className="body-small" style={{ color: 'var(--color-success)' }}>
-                                {formatNextReview(item.next_review_at || '')}
-                              </span>
-                            )}
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              {editingItem !== item.id && (
+                                <>
+                                  {(itemIsDue || item.review_count === 0) ? (
+                                    <Button 
+                                      variant="primary" 
+                                      size="small"
+                                      onClick={() => handleStudyItem(item)}
+                                      loading={isProcessing}
+                                      disabled={isProcessing}
+                                    >
+                                      {item.review_count === 0 ? 'Study' : 'Revise'}
+                                    </Button>
+                                  ) : (
+                                    <span className="body-small" style={{ color: 'var(--color-success)' }}>
+                                      {formatNextReview(item.next_review_at || '')}
+                                    </span>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="small"
+                                    onClick={() => setDeleteItemConfirm({ open: true, item })}
+                                    style={{ padding: '0.25rem 0.5rem' }}
+                                  >
+                                    ×
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         )
                       })}
-                    </div>
+                      </div>
+                      
+                      {/* Add Item Button */}
+                      <div style={{ marginTop: '1rem' }}>
+                        {addingItemToTopic === topic.id ? (
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <Input
+                              value={newItemContent}
+                              onChange={(e) => setNewItemContent(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAddItem(topic.id)
+                                if (e.key === 'Escape') {
+                                  setAddingItemToTopic(null)
+                                  setNewItemContent('')
+                                }
+                              }}
+                              placeholder="Enter subtopic content..."
+                              style={{ flex: 1 }}
+                              autoFocus
+                            />
+                            <Button size="small" onClick={() => handleAddItem(topic.id)}>Add</Button>
+                            <Button size="small" variant="ghost" onClick={() => {
+                              setAddingItemToTopic(null)
+                              setNewItemContent('')
+                            }}>Cancel</Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            onClick={() => setAddingItemToTopic(topic.id)}
+                          >
+                            + Add Subtopic
+                          </Button>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
             </CardContent>
           </Card>
         )
-      })}
-    </div>
+        })}
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, topicId: null, topicName: '' })}
+        onConfirm={handleDeleteTopic}
+        title="Delete Topic"
+        message={`Are you sure you want to delete "${deleteConfirm.topicName}"? This will also delete all ${topicStats[deleteConfirm.topicId || '']?.total || 0} items in this topic. This action cannot be undone.`}
+        confirmText="Delete Topic"
+        variant="danger"
+      />
+
+      {/* Delete Item Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteItemConfirm.open}
+        onClose={() => setDeleteItemConfirm({ open: false, item: null })}
+        onConfirm={handleDeleteItem}
+        title="Delete Subtopic"
+        message={`Are you sure you want to delete "${deleteItemConfirm.item?.content}"? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      {/* Edit Topic Modal */}
+      {editingTopic && (
+        <EditTopicModal
+          topic={editingTopic}
+          onClose={() => setEditingTopic(null)}
+          onSave={async (updatedTopic) => {
+            try {
+              const { error } = await supabase
+                .from('topics')
+                .update({
+                  name: updatedTopic.name,
+                  learning_mode: updatedTopic.learning_mode,
+                  priority: updatedTopic.priority
+                })
+                .eq('id', updatedTopic.id)
+
+              if (error) throw error
+
+              addToast('success', 'Topic updated successfully')
+              setEditingTopic(null)
+              // Refresh topics list
+              window.location.reload()
+            } catch (error) {
+              addToast('error', 'Failed to update topic')
+            }
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+// Edit Topic Modal Component
+interface EditTopicModalProps {
+  topic: Topic
+  onClose: () => void
+  onSave: (topic: Topic) => void
+}
+
+function EditTopicModal({ topic, onClose, onSave }: EditTopicModalProps) {
+  const [name, setName] = useState(topic?.name || '')
+  const [learningMode, setLearningMode] = useState<LearningMode>(topic?.learning_mode || 'steady')
+  const [priority, setPriority] = useState(topic?.priority || 5)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+
+    if (topic) {
+      onSave({
+        ...topic,
+        name: name.trim(),
+        learning_mode: learningMode,
+        priority
+      })
+    }
+  }
+
+  return (
+    <Modal isOpen onClose={onClose} title="Edit Topic">
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <Input
+            label="Topic Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+
+          <div>
+            <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
+              Learning Mode
+            </label>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              {Object.entries(LEARNING_MODES).map(([mode, config]) => (
+                <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="radio"
+                    name="learningMode"
+                    value={mode}
+                    checked={learningMode === mode}
+                    onChange={(e) => setLearningMode(e.target.value as LearningMode)}
+                  />
+                  <span className="body">{config.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
+              Priority: {priority} - {PRIORITY_LABELS[priority]}
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={priority}
+              onChange={(e) => setPriority(Number(e.target.value))}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary">
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </form>
+    </Modal>
   )
 }

@@ -18,3 +18,7 @@ export type { Toast, ToastType } from './Toast'
 
 export { Badge } from './Badge'
 export type { BadgeProps } from './Badge'
+
+export { ConfirmDialog } from './ConfirmDialog'
+
+export { Skeleton } from './Skeleton'

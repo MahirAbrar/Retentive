@@ -8,6 +8,8 @@ import { ComponentShowcase } from './components/ComponentShowcase'
 import { TopicsPage } from './pages/TopicsPage'
 import { NewTopicPage } from './pages/NewTopicPage'
 import { TopicDetailView } from './pages/TopicDetailView'
+import { SettingsPage } from './pages/SettingsPage'
+import { StatsPage } from './pages/StatsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
 function Header() {
@@ -35,6 +37,8 @@ function Header() {
           {user ? (
             <>
               <Link to="/topics" style={{ textDecoration: 'none' }}>Topics</Link>
+              <Link to="/stats" style={{ textDecoration: 'none' }}>Stats</Link>
+              <Link to="/settings" style={{ textDecoration: 'none' }}>Settings</Link>
               <span className="body-small text-secondary">{user.email}</span>
               <Button variant="ghost" size="small" onClick={signOut}>
                 Sign Out
@@ -77,6 +81,16 @@ function App() {
             <Route path="/topics/:topicId" element={
               <ProtectedRoute>
                 <TopicDetailView />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/stats" element={
+              <ProtectedRoute>
+                <StatsPage />
               </ProtectedRoute>
             } />
           </Routes>

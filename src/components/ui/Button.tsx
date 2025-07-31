@@ -7,6 +7,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   fullWidth?: boolean
   loading?: boolean
   children: React.ReactNode
+  as?: React.ElementType
 }
 
 export function Button({
@@ -17,6 +18,7 @@ export function Button({
   disabled = false,
   className = '',
   children,
+  as: Component = 'button',
   ...props
 }: ButtonProps) {
   const classes = [
@@ -31,7 +33,7 @@ export function Button({
     .join(' ')
 
   return (
-    <button
+    <Component
       className={classes}
       disabled={disabled || loading}
       {...props}
@@ -44,6 +46,6 @@ export function Button({
       ) : (
         children
       )}
-    </button>
+    </Component>
   )
 }

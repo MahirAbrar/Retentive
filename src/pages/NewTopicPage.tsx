@@ -15,6 +15,7 @@ export function NewTopicPage() {
   const [learningMode, setLearningMode] = useState<LearningMode>('steady')
   const [priority, setPriority] = useState(5)
   const [subtopics, setSubtopics] = useState('')
+  const [upcomingDate, setUpcomingDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -59,6 +60,18 @@ export function NewTopicPage() {
         .map(line => line.trim())
         .filter(line => line.length > 0)
       
+      // Determine the initial review date
+      let nextReviewAt: string
+      if (upcomingDate) {
+        // User specified a future date
+        const selectedDate = new Date(upcomingDate)
+        selectedDate.setHours(9, 0, 0, 0) // Set to 9 AM on the selected date
+        nextReviewAt = selectedDate.toISOString()
+      } else {
+        // Default to now
+        nextReviewAt = new Date().toISOString()
+      }
+      
       const learningItems = subtopicLines.map(content => ({
         topic_id: topic.id,
         user_id: user.id,
@@ -67,7 +80,7 @@ export function NewTopicPage() {
         learning_mode: learningMode,
         review_count: 0,
         last_reviewed_at: null,
-        next_review_at: new Date().toISOString(), // Set to now so items are immediately due
+        next_review_at: nextReviewAt,
         ease_factor: 2.5,
         interval_days: 0
       }))
@@ -178,6 +191,30 @@ export function NewTopicPage() {
                   {errors.subtopics}
                 </p>
               )}
+            </div>
+
+            <div>
+              <label htmlFor="upcomingDate" className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                Start Date (Optional)
+              </label>
+              <input
+                type="date"
+                id="upcomingDate"
+                value={upcomingDate}
+                onChange={(e) => setUpcomingDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                style={{
+                  width: '100%',
+                  padding: 'var(--space-3)',
+                  border: '1px solid var(--color-gray-300)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontFamily: 'inherit',
+                  fontSize: 'inherit'
+                }}
+              />
+              <p className="body-small text-secondary" style={{ marginTop: '0.25rem' }}>
+                Leave empty to start learning immediately, or set a future date to schedule items
+              </p>
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>

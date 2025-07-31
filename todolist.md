@@ -13,11 +13,11 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 - [x] Install Node.js (LTS version)
 - [x] Set up Git repository with proper `.gitignore`
 - [x] Initialize Vite + React + TypeScript project
-- [ ] Install and configure Electron
+- [x] Install and configure Electron
 - [ ] Install development dependencies (ESLint, Prettier, etc.)
-- [ ] Set up package.json scripts for dev/build/package
-- [ ] Configure Electron main process entry point
-- [ ] Test basic Electron + React + TypeScript integration
+- [x] Set up package.json scripts for dev/build/package
+- [x] Configure Electron main process entry point
+- [x] Test basic Electron + React + TypeScript integration
 
 ### 1.2 Supabase Project Setup
 
@@ -32,28 +32,28 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 - [x] Test basic Supabase connection from Electron
 - [x] Create folder structure following separation of concerns
 - [x] Set up `src/` directory with components, services, hooks, utils
-- [ ] Create `electron/` directory for main process code
-- [ ] Set up `assets/` directory for icons and images
-- [ ] Create `styles/` directory for CSS modules/files
-- [ ] Add `public/` directory for static assets
+- [x] Create `electron/` directory for main process code
+- [x] Set up `assets/` directory for icons and images
+- [x] Create `styles/` directory for CSS modules/files
+- [x] Add `public/` directory for static assets
 
 ### 1.3 Project Structure
 
-- [ ] Create folder structure following separation of concerns
-- [ ] Set up `src/` directory with components, services, hooks, utils
-- [ ] Create `electron/` directory for main process code
-- [ ] Set up `assets/` directory for icons and images
-- [ ] Create `styles/` directory for CSS modules/files
-- [ ] Add `public/` directory for static assets
+- [x] Create folder structure following separation of concerns
+- [x] Set up `src/` directory with components, services, hooks, utils
+- [x] Create `electron/` directory for main process code
+- [x] Set up `assets/` directory for icons and images
+- [x] Create `styles/` directory for CSS modules/files
+- [x] Add `public/` directory for static assets
 
 ### 1.4 Development Tooling
 
-- [ ] Configure ESLint with React and Electron rules
-- [ ] Set up Prettier for code formatting
+- [x] Configure ESLint with React and Electron rules
+- [x] Set up Prettier for code formatting
 - [ ] Configure Vite for Electron development
 - [ ] Set up hot reloading for both React and Electron
-- [ ] Add development scripts (start, build, test)
-- [ ] Configure build process for packaging
+- [x] Add development scripts (start, build, test)
+- [x] Configure build process for packaging
 
 ### 1.5 Environment & Security Setup
 
@@ -160,18 +160,18 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 
 ### 3.1 Swiss Design System
 
-- [ ] Create base CSS variables for colors, fonts, spacing
-- [ ] Define typography scale following Swiss design principles
-- [ ] Create grid system for layouts
-- [ ] Design button component styles
-- [ ] Create form input styles
-- [ ] Define card/container styles
-- [ ] Create utility classes for spacing, alignment
+- [x] Create base CSS variables for colors, fonts, spacing
+- [x] Define typography scale following Swiss design principles
+- [x] Create grid system for layouts
+- [x] Design button component styles
+- [x] Create form input styles
+- [x] Define card/container styles
+- [x] Create utility classes for spacing, alignment
 - [ ] Ensure consistent visual hierarchy
 
 ### 3.2 Base Components
 
-- [ ] Create Button component with variants (primary, secondary)
+- [x] Create Button component with variants (primary, secondary)
 - [ ] Create Input component with validation states
 - [ ] Create Card component for consistent containers
 - [ ] Create Modal/Dialog component
@@ -181,9 +181,9 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 
 ### 3.3 Layout Components
 
-- [ ] Create Header component
+- [x] Create Header component
 - [ ] Create Sidebar/Navigation component
-- [ ] Create Main layout wrapper
+- [x] Create Main layout wrapper
 - [ ] Create responsive grid containers
 - [ ] Implement consistent spacing and alignment
 
@@ -200,7 +200,7 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
   - [x] Subtopics textarea with line-by-line parsing
   - [ ] Form validation and error display
   - [x] Save functionality integration
-- [ ] Create TopicDetailView component
+- [x] Create TopicDetailView component
   - [ ] Display topic information (name, mode, priority, created date)
   - [ ] Show all subtopics with their individual statuses
   - [ ] Individual subtopic management (edit/delete)
@@ -298,26 +298,6 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
   - [ ] Progress tracking across multiple items
   - [ ] Session completion summary
 
-### 4.5 Study Session Flow (Enhanced)
-
-- [ ] Create individual StudySession component
-  - [ ] Display single subtopic for focused study
-  - [ ] Question/prompt display with clean typography
-  - [ ] "Show Answer" functionality
-  - [ ] Difficulty rating buttons (Again, Hard, Good, Easy)
-  - [ ] Skip functionality for when not ready
-  - [ ] Session completion with immediate scheduling
-- [ ] Implement independent timer updates
-  - [ ] Update only the current item being studied
-  - [ ] Calculate next review based on rating and priority
-  - [ ] Immediate feedback on next review date
-  - [ ] Return to list with updated status
-- [ ] Create study completion feedback
-  - [ ] Show next review date for completed item
-  - [ ] Display priority impact on scheduling
-  - [ ] Progress celebration for milestones
-  - [ ] Option to continue with next due item
-
 ### 4.6 Dashboard (Enhanced)
 
 - [ ] Create enhanced Dashboard component
@@ -379,24 +359,24 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 
 ### 5.2 Authentication System
 
-- [ ] Create Login/Register modal components
+- [x] Create Login/Register modal components
   - [ ] Email/password login form
   - [ ] Registration form with validation
   - [ ] Password reset functionality
-  - [ ] Clean, Swiss design-inspired auth UI
+  - [x] Clean, Swiss design-inspired auth UI
 - [ ] Implement authentication service
-  - [ ] JWT token management
-  - [ ] Secure token storage
-  - [ ] Auto-refresh token logic
+  - [x] JWT token management
+  - [x] Secure token storage
+  - [x] Auto-refresh token logic
   - [ ] Logout functionality
-- [ ] Add authentication state management
-  - [ ] User context/state
-  - [ ] Login status tracking
-  - [ ] User profile management
-- [ ] Create account management UI
-  - [ ] Profile settings
-  - [ ] Change password
-  - [ ] Delete account option
+- [x] Add authentication state management
+  - [x] User context/state
+  - [x] Login status tracking
+  - [x] User profile management
+- [x] Create account management UI
+  - [x] Profile settings
+  - [x] Change password
+  - [x] Delete account option
 
 ### 5.3 Cloud Sync System
 
@@ -702,3 +682,25 @@ Build a clean, Swiss design-inspired spaced repetition learning app using Vite +
 <!-- Extra -->
 
 Delete topics UI
+
+Study Session Flow (Enhanced) Don't do now
+
+- [ ] Create individual StudySession component
+  - [ ] Display single subtopic for focused study
+  - [ ] Question/prompt display with clean typography
+  - [ ] "Show Answer" functionality
+  - [ ] Difficulty rating buttons (Again, Hard, Good, Easy)
+  - [ ] Skip functionality for when not ready
+  - [ ] Session completion with immediate scheduling
+- [ ] Implement independent timer updates
+  - [ ] Update only the current item being studied
+  - [ ] Calculate next review based on rating and priority
+  - [ ] Immediate feedback on next review date
+  - [ ] Return to list with updated status
+- [ ] Create study completion feedback
+  - [ ] Show next review date for completed item
+  - [ ] Display priority impact on scheduling
+  - [ ] Progress celebration for milestones
+  - [ ] Option to continue with next due item
+
+DarkMode
