@@ -1,0 +1,81 @@
+import { createContext, useContext, useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
+import { useAuth } from './useAuthFixed'
+import { getExtendedStats } from '../services/statsService'
+import { cacheService } from '../services/cacheService'
+import type { Priority } from '../types/database'
+
+interface PriorityStats {
+  priority: Priority
+  label: string
+  total: number
+  due: number
+  percentage: number
+}
+
+interface StatsContextType {
+  stats: any
+  loading: boolean
+  refresh: () => void
+}
+
+const StatsContext = createContext<StatsContextType | null>(null)
+
+export function StatsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  const [stats, setStats] = useState({
+    overdue: 0,
+    dueToday: 0,
+    upcoming: 0,
+    mastered: 0,
+    priorityBreakdown: [] as PriorityStats[],
+    totalItems: 0,
+    totalTopics: 0,
+    streakDays: 0,
+    nextDueIn: null as string | null,
+    newItemsCount: 0
+  })
+  const [loading, setLoading] = useState(true)
+
+  const fetchStats = async () => {
+    if (!user) {
+      setLoading(false)
+      return
+    }
+    
+    setLoading(true)
+    try {
+      const data = await getExtendedStats(user.id)
+      setStats(data)
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchStats()
+  }, [user])
+
+  const refresh = () => {
+    if (user) {
+      cacheService.invalidate(`stats:${user.id}`)
+      fetchStats()
+    }
+  }
+
+  return (
+    <StatsContext.Provider value={{ stats, loading, refresh }}>
+      {children}
+    </StatsContext.Provider>
+  )
+}
+
+export function useStats() {
+  const context = useContext(StatsContext)
+  if (!context) {
+    throw new Error('useStats must be used within StatsProvider')
+  }
+  return context
+}

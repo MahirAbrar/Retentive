@@ -75,8 +75,10 @@ export async function importUserData(
 
       const newItem: Omit<LearningItem, 'id' | 'created_at' | 'updated_at'> = {
         topic_id: newTopicId,
+        user_id: userId,
         content: item.content,
         priority: item.priority,
+        learning_mode: 'steady' as const,
         review_count: item.review_count,
         last_reviewed_at: item.last_reviewed_at,
         next_review_at: item.next_review_at,

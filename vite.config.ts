@@ -29,7 +29,12 @@ export default defineConfig({
         input: 'electron/preload.ts',
         vite: {
           build: {
-            outDir: 'dist-electron'
+            outDir: 'dist-electron',
+            rollupOptions: {
+              output: {
+                format: 'cjs'
+              }
+            }
           }
         }
       },
@@ -42,12 +47,6 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
     minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true
-      }
-    },
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html')

@@ -7,6 +7,7 @@ import { topicsService } from '../../services/topicsFixed'
 import { supabase } from '../../services/supabase'
 import { calculateNextReview } from '../../utils/spacedRepetition'
 import { useAuth } from '../../hooks/useAuthFixed'
+import { cacheService } from '../../services/cacheService'
 
 interface TopicListProps {
   topics: Topic[]
@@ -40,7 +41,7 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
 
   // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (_e: MouseEvent) => {
       if (openMenuId) {
         setOpenMenuId(null)
       }
@@ -175,6 +176,9 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
       }))
 
       addToast('success', `Done! Next review: ${formatNextReview(nextReview.next_review_at)}`)
+      
+      // Invalidate stats cache
+      if (user) cacheService.invalidate(`stats:${user.id}`)
     } catch (error) {
       addToast('error', 'Failed to update item')
       console.error('Error updating item:', error)
@@ -315,6 +319,9 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
       addToast('success', 'Item added successfully')
       setAddingItemToTopic(null)
       setNewItemContent('')
+      
+      // Invalidate stats cache
+      if (user) cacheService.invalidate(`stats:${user.id}`)
     } catch (error) {
       addToast('error', 'Failed to add item')
     }
@@ -349,6 +356,9 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
 
       addToast('success', 'Item deleted successfully')
       setDeleteItemConfirm({ open: false, item: null })
+      
+      // Invalidate stats cache
+      if (user) cacheService.invalidate(`stats:${user.id}`)
     } catch (error) {
       addToast('error', 'Failed to delete item')
     }

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { cacheService } from './cacheService'
 import type { Priority } from '../types/database'
 
 interface Stats {
@@ -86,6 +87,11 @@ export async function getStudyStats(userId: string): Promise<Stats> {
 }
 
 export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
+  // Check cache first
+  const cacheKey = `stats:${userId}`
+  const cached = cacheService.get<ExtendedStats>(cacheKey)
+  if (cached) return cached
+  
   const basicStats = await getStudyStats(userId)
   const now = new Date()
   
@@ -107,15 +113,18 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       .select('id, priority')
       .eq('user_id', userId)
     
+    // Priority categories
+    type PriorityCategory = 'critical' | 'high' | 'medium' | 'low'
+    
     // Convert numeric priority to category
-    const getPriorityCategory = (priority: number): Priority => {
+    const getPriorityCategory = (priority: number): PriorityCategory => {
       if (priority >= 8) return 'critical'
       if (priority >= 6) return 'high'
       if (priority >= 4) return 'medium'
       return 'low'
     }
     
-    const priorityMap: Record<Priority, { total: number; due: number }> = {
+    const priorityMap: Record<PriorityCategory, { total: number; due: number }> = {
       critical: { total: 0, due: 0 },
       high: { total: 0, due: 0 },
       medium: { total: 0, due: 0 },
@@ -142,7 +151,7 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
     // Convert to array format
     const priorityBreakdown: PriorityStats[] = [
       {
-        priority: 'critical',
+        priority: 5,
         label: 'Critical',
         total: priorityMap.critical.total,
         due: priorityMap.critical.due,
@@ -151,7 +160,7 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
           : 0
       },
       {
-        priority: 'high',
+        priority: 4,
         label: 'High',
         total: priorityMap.high.total,
         due: priorityMap.high.due,
@@ -160,7 +169,7 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
           : 0
       },
       {
-        priority: 'medium',
+        priority: 3,
         label: 'Medium',
         total: priorityMap.medium.total,
         due: priorityMap.medium.due,
@@ -169,7 +178,7 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
           : 0
       },
       {
-        priority: 'low',
+        priority: 2,
         label: 'Low',
         total: priorityMap.low.total,
         due: priorityMap.low.due,
@@ -238,8 +247,8 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
         )
         
         // Sort by priority (highest first), then alphabetically
-        const selectedItem = itemsWithinHour.sort((a, b) => {
-          const priorityDiff = b.topics.priority - a.topics.priority
+        const selectedItem = itemsWithinHour.sort((a: any, b: any) => {
+          const priorityDiff = (b.topics?.[0]?.priority || b.priority) - (a.topics?.[0]?.priority || a.priority)
           if (priorityDiff !== 0) return priorityDiff
           return a.content.localeCompare(b.content)
         })[0]
@@ -279,7 +288,7 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
     
     console.log('Debug - Total items:', totalCount, 'New items (review_count=0):', newItemsCount)
     
-    return {
+    const result = {
       ...basicStats,
       priorityBreakdown,
       totalItems: totalItems || 0,
@@ -288,6 +297,11 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       nextDueIn,
       newItemsCount: newItemsCount || 0
     }
+    
+    // Cache for 1 hour (stats only change when user takes actions)
+    cacheService.set(cacheKey, result, 60 * 60 * 1000)
+    
+    return result
   } catch (error) {
     console.error('Error fetching extended stats:', error)
     return {

@@ -1,6 +1,7 @@
-import { app, BrowserWindow, shell, Menu } from 'electron';
+import { app, BrowserWindow, shell, Menu, ipcMain } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import Store from 'electron-store';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -8,6 +9,17 @@ const __dirname = path.dirname(__filename);
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Initialize secure storage with encryption
+const store = new Store({
+  name: 'retentive-secure-storage',
+  encryptionKey: 'retentive-app-secret-key-2024', // In production, use a more secure key
+  schema: {
+    'supabase.auth.token': {
+      type: 'string',
+    },
+  },
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -115,6 +127,46 @@ function createMenu() {
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 }
+
+// IPC handlers for secure storage
+ipcMain.handle('secureStorage:get', async (_, key: string) => {
+  try {
+    return store.get(key);
+  } catch (error) {
+    console.error('Error getting secure storage:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('secureStorage:set', async (_, key: string, value: string) => {
+  try {
+    store.set(key, value);
+    return true;
+  } catch (error) {
+    console.error('Error setting secure storage:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('secureStorage:remove', async (_, key: string) => {
+  try {
+    store.delete(key);
+    return true;
+  } catch (error) {
+    console.error('Error removing from secure storage:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('secureStorage:clear', async () => {
+  try {
+    store.clear();
+    return true;
+  } catch (error) {
+    console.error('Error clearing secure storage:', error);
+    return false;
+  }
+});
 
 app.whenReady().then(() => {
   createWindow();

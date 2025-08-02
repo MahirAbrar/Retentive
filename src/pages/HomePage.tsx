@@ -3,6 +3,15 @@ import { Link } from 'react-router-dom'
 import { Button, Card, CardHeader, CardContent, Badge, Skeleton } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
+import type { Priority } from '../types/database'
+
+interface PriorityStats {
+  priority: Priority
+  label: string
+  total: number
+  due: number
+  percentage: number
+}
 
 export function HomePage() {
   const { user } = useAuth()
@@ -12,11 +21,11 @@ export function HomePage() {
     dueToday: 0,
     upcoming: 0,
     mastered: 0,
-    priorityBreakdown: [],
+    priorityBreakdown: [] as PriorityStats[],
     totalItems: 0,
     totalTopics: 0,
     streakDays: 0,
-    nextDueIn: null,
+    nextDueIn: null as string | null,
     newItemsCount: 0
   })
 
@@ -45,7 +54,7 @@ export function HomePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
           {loading ? (
             // Skeleton loaders for stats
-            ['error', 'warning', 'info', 'success'].map((color, index) => (
+            ['error', 'warning', 'info', 'success'].map((_color, index) => (
               <Card key={index}>
                 <CardContent>
                   <div style={{ textAlign: 'center' }}>
@@ -268,9 +277,9 @@ export function HomePage() {
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <Badge variant={
-                              priority.priority === 'critical' ? 'error' :
-                              priority.priority === 'high' ? 'warning' :
-                              priority.priority === 'medium' ? 'info' : 'ghost'
+                              priority.priority >= 4 ? 'error' :
+                              priority.priority === 3 ? 'warning' :
+                              priority.priority === 2 ? 'info' : 'ghost'
                             }>
                               {priority.label}
                             </Badge>

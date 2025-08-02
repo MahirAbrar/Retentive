@@ -3,7 +3,15 @@ import { contextBridge, ipcRenderer } from 'electron'
 const validChannels = {
   send: ['toMain', 'app:quit', 'app:minimize', 'app:maximize'],
   receive: ['fromMain', 'app:update-available', 'app:update-downloaded'],
-  invoke: ['dialog:openFile', 'dialog:saveFile', 'app:version'],
+  invoke: [
+    'dialog:openFile', 
+    'dialog:saveFile', 
+    'app:version',
+    'secureStorage:get',
+    'secureStorage:set',
+    'secureStorage:remove',
+    'secureStorage:clear'
+  ],
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -27,6 +35,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeAllListeners(channel)
     }
   },
+  // Secure storage methods
+  secureStorage: {
+    get: async (key: string) => {
+      return await ipcRenderer.invoke('secureStorage:get', key)
+    },
+    set: async (key: string, value: string) => {
+      return await ipcRenderer.invoke('secureStorage:set', key, value)
+    },
+    remove: async (key: string) => {
+      return await ipcRenderer.invoke('secureStorage:remove', key)
+    },
+    clear: async () => {
+      return await ipcRenderer.invoke('secureStorage:clear')
+    }
+  }
 })
 
 // Type definitions for TypeScript
@@ -35,6 +58,12 @@ export interface IElectronAPI {
   receive: (channel: string, func: (...args: any[]) => void) => void
   invoke: (channel: string, data?: any) => Promise<any>
   removeAllListeners: (channel: string) => void
+  secureStorage: {
+    get: (key: string) => Promise<string | null>
+    set: (key: string, value: string) => Promise<boolean>
+    remove: (key: string) => Promise<boolean>
+    clear: () => Promise<boolean>
+  }
 }
 
 declare global {

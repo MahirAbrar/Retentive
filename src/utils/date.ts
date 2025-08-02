@@ -1,10 +1,32 @@
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date, format: 'short' | 'long' | 'relative' = 'short'): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  
+  if (isNaN(d.getTime())) {
+    return 'Invalid date'
+  }
+
+  switch (format) {
+    case 'short':
+      return d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    
+    case 'long':
+      return d.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    
+    case 'relative':
+      return formatRelativeTime(d)
+    
+    default:
+      return d.toLocaleDateString()
+  }
 }
 
 export function formatDateTime(date: string | Date): string {
@@ -100,4 +122,72 @@ export function getStudyStreak(dates: (string | Date)[]): number {
   }
   
   return streak
+}
+
+export function getTimeUntil(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const now = new Date()
+  const diffInMs = d.getTime() - now.getTime()
+  
+  if (diffInMs < 0) {
+    return 'Overdue'
+  }
+
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  const diffInDays = Math.floor(diffInHours / 24)
+
+  if (diffInMinutes < 1) {
+    return 'Now'
+  } else if (diffInMinutes < 60) {
+    return `${diffInMinutes}m`
+  } else if (diffInHours < 24) {
+    return `${diffInHours}h`
+  } else {
+    return `${diffInDays}d`
+  }
+}
+
+export function formatDateForInput(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export function parseISODate(dateString: string): Date | null {
+  try {
+    const date = new Date(dateString)
+    return isNaN(date.getTime()) ? null : date
+  } catch {
+    return null
+  }
+}
+
+export function startOfDay(date: Date): Date {
+  const result = new Date(date)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+export function endOfDay(date: Date): Date {
+  const result = new Date(date)
+  result.setHours(23, 59, 59, 999)
+  return result
+}
+
+export function addDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
+
+export function isToday(date: Date | string): boolean {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const today = new Date()
+  return (
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear()
+  )
 }

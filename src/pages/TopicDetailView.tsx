@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Button, Card, CardHeader, CardContent, useToast } from '../components/ui'
+import { Button, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../constants/learning'

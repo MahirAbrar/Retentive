@@ -1,5 +1,10 @@
 import { supabase } from './supabase'
+import { supabaseService } from './supabaseService'
+import { secureStorage } from './secureStorage'
 import type { User } from '../types/database'
+import type { Session } from '@supabase/supabase-js'
+import { handleError } from '../utils/errors'
+import { withRetry } from '../utils/supabase'
 
 export interface AuthCredentials {
   email: string
@@ -11,10 +16,26 @@ export interface AuthResponse {
   error: Error | null
 }
 
+export interface SessionState {
+  user: User | null
+  session: Session | null
+  isLoading: boolean
+  isAuthenticated: boolean
+}
+
 export class AuthService {
   private static instance: AuthService
+  private sessionState: SessionState = {
+    user: null,
+    session: null,
+    isLoading: true,
+    isAuthenticated: false,
+  }
+  private sessionCallbacks: Set<(state: SessionState) => void> = new Set()
   
-  private constructor() {}
+  private constructor() {
+    this.initializeAuth()
+  }
   
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -23,52 +44,151 @@ export class AuthService {
     return AuthService.instance
   }
 
-  async signUp({ email, password }: AuthCredentials): Promise<AuthResponse> {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      })
+  private async initializeAuth() {
+    // Set up auth state listener
+    supabaseService.onAuthStateChange(async (event, session) => {
+      await this.handleAuthStateChange(event, session)
+    })
 
-      if (error) throw error
+    // Initialize session
+    await this.loadSession()
+  }
 
-      return {
-        user: data.user ? this.mapSupabaseUser(data.user) : null,
-        error: null,
-      }
-    } catch (error) {
-      return {
-        user: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      }
+  private async handleAuthStateChange(event: string, session: Session | null) {
+    switch (event) {
+      case 'SIGNED_IN':
+      case 'TOKEN_REFRESHED':
+      case 'USER_UPDATED':
+        if (session?.user) {
+          this.updateSessionState({
+            user: this.mapSupabaseUser(session.user),
+            session,
+            isLoading: false,
+            isAuthenticated: true,
+          })
+        }
+        break
+      
+      case 'SIGNED_OUT':
+        this.updateSessionState({
+          user: null,
+          session: null,
+          isLoading: false,
+          isAuthenticated: false,
+        })
+        break
     }
   }
 
-  async signIn({ email, password }: AuthCredentials): Promise<AuthResponse> {
+  private updateSessionState(state: SessionState) {
+    this.sessionState = state
+    
+    // Notify all callbacks
+    this.sessionCallbacks.forEach(callback => {
+      try {
+        callback(state)
+      } catch (error) {
+        handleError(error, 'Session callback')
+      }
+    })
+  }
+
+  private async loadSession() {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
       if (error) throw error
-
-      return {
-        user: data.user ? this.mapSupabaseUser(data.user) : null,
-        error: null,
+      
+      if (session?.user) {
+        this.updateSessionState({
+          user: this.mapSupabaseUser(session.user),
+          session,
+          isLoading: false,
+          isAuthenticated: true,
+        })
+      } else {
+        this.updateSessionState({
+          user: null,
+          session: null,
+          isLoading: false,
+          isAuthenticated: false,
+        })
       }
     } catch (error) {
-      return {
+      handleError(error, 'Load session')
+      this.updateSessionState({
         user: null,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-      }
+        session: null,
+        isLoading: false,
+        isAuthenticated: false,
+      })
     }
+  }
+
+  async signUp({ email, password }: AuthCredentials): Promise<AuthResponse> {
+    return withRetry(async () => {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+        })
+
+        if (error) throw error
+
+        return {
+          user: data.user ? this.mapSupabaseUser(data.user) : null,
+          error: null,
+        }
+      } catch (error) {
+        return {
+          user: null,
+          error: error instanceof Error ? error : new Error('Unknown error occurred'),
+        }
+      }
+    })
+  }
+
+  async signIn({ email, password }: AuthCredentials): Promise<AuthResponse> {
+    return withRetry(async () => {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+
+        if (error) throw error
+
+        return {
+          user: data.user ? this.mapSupabaseUser(data.user) : null,
+          error: null,
+        }
+      } catch (error) {
+        return {
+          user: null,
+          error: error instanceof Error ? error : new Error('Unknown error occurred'),
+        }
+      }
+    })
   }
 
   async signOut(): Promise<{ error: Error | null }> {
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      
+      // Clear secure storage on logout
+      if (window.electronAPI?.secureStorage) {
+        await secureStorage.clear()
+      }
+      
+      // Clear session state
+      this.updateSessionState({
+        user: null,
+        session: null,
+        isLoading: false,
+        isAuthenticated: false,
+      })
+      
       return { error: null }
     } catch (error) {
       return {
@@ -80,7 +200,7 @@ export class AuthService {
   async resetPassword(email: string): Promise<{ error: Error | null }> {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
       })
       if (error) throw error
       return { error: null }
@@ -125,6 +245,43 @@ export class AuthService {
     })
 
     return subscription
+  }
+
+  onSessionStateChange(callback: (state: SessionState) => void): () => void {
+    this.sessionCallbacks.add(callback)
+    
+    // Call immediately with current state
+    callback(this.sessionState)
+    
+    // Return unsubscribe function
+    return () => {
+      this.sessionCallbacks.delete(callback)
+    }
+  }
+
+  getSessionState(): SessionState {
+    return { ...this.sessionState }
+  }
+
+  async refreshSession(): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.auth.refreshSession()
+      if (error) throw error
+      return { error: null }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error('Failed to refresh session'),
+      }
+    }
+  }
+
+  async verifySession(): Promise<boolean> {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      return !error && !!session
+    } catch {
+      return false
+    }
   }
 
   private mapSupabaseUser(supabaseUser: any): User {

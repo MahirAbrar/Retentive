@@ -11,7 +11,7 @@ import styles from './TopicForm.module.css'
 export function TopicForm() {
   const [name, setName] = useState('')
   const [learningMode, setLearningMode] = useState<LearningMode>('steady')
-  const [priority, setPriority] = useState(PRIORITY_LEVELS.DEFAULT)
+  const [priority, setPriority] = useState<number>(PRIORITY_LEVELS.DEFAULT)
   const [subtopics, setSubtopics] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})

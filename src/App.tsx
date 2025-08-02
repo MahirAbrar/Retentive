@@ -10,7 +10,9 @@ import { NewTopicPage } from './pages/NewTopicPage'
 import { TopicDetailView } from './pages/TopicDetailView'
 import { SettingsPage } from './pages/SettingsPage'
 import { StatsPage } from './pages/StatsPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 function Header() {
   const { user, signOut } = useAuth()
@@ -57,16 +59,19 @@ function Header() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <ToastProvider>
-        <AuthProvider>
-          <div style={{ minHeight: '100vh' }}>
-            <Header />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ToastProvider>
+          <AuthProvider>
+            <div style={{ minHeight: '100vh' }}>
+              <Header />
         
         <main style={{ padding: 'var(--space-8) var(--space-4)' }}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/auth/callback" element={<ResetPasswordPage />} />
             <Route path="/components" element={<ComponentShowcase />} />
             <Route path="/topics" element={
               <ProtectedRoute>
@@ -96,9 +101,10 @@ function App() {
           </Routes>
         </main>
       </div>
-        </AuthProvider>
-      </ToastProvider>
-    </BrowserRouter>
+          </AuthProvider>
+        </ToastProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

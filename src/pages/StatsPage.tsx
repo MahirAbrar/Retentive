@@ -3,8 +3,7 @@ import { Card, CardHeader, CardContent, Badge } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import { getExtendedStats } from '../services/statsService'
-import { LEARNING_MODES, PRIORITY_LABELS } from '../constants/learning'
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface ReviewSession {
   id: string
@@ -94,7 +93,19 @@ export function StatsPage() {
         .order('reviewed_at', { ascending: false })
         .limit(50)
       
-      setRecentSessions(sessions || [])
+      const formattedSessions: ReviewSession[] = (sessions || []).map((session: any) => ({
+        id: session.id,
+        reviewed_at: session.reviewed_at,
+        difficulty: session.difficulty,
+        interval_days: session.interval_days,
+        learning_item: {
+          content: session.learning_item?.content || '',
+          topic: {
+            name: session.learning_item?.topic?.name || ''
+          }
+        }
+      }))
+      setRecentSessions(formattedSessions)
       
       // Process daily activity data
       const activityMap = new Map<string, number>()
@@ -369,7 +380,7 @@ export function StatsPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={70}
-                      label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({name, percent}) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     >
                       {difficultyData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />

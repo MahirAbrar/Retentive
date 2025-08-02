@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, Card, CardHeader, CardContent, useToast } from '../components/ui'
+import { Button, Input, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../constants/learning'
 import type { LearningMode } from '../types/database'
+import { sanitizeInput } from '../utils/sanitize'
 
 export function NewTopicPage() {
   const navigate = useNavigate()
@@ -45,7 +46,7 @@ export function NewTopicPage() {
       // Create the topic
       const { data: topic, error: topicError } = await topicsService.createTopic({
         user_id: user.id,
-        name: topicName.trim(),
+        name: sanitizeInput(topicName.trim()),
         learning_mode: learningMode,
         priority: priority
       })
@@ -75,7 +76,7 @@ export function NewTopicPage() {
       const learningItems = subtopicLines.map(content => ({
         topic_id: topic.id,
         user_id: user.id,
-        content,
+        content: sanitizeInput(content),
         priority: priority,
         learning_mode: learningMode,
         review_count: 0,

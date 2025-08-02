@@ -36,6 +36,7 @@ export function Modal({
         document.body.style.overflow = ''
       }
     }
+    return undefined
   }, [isOpen, onClose])
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export function Modal({
         dialogRef.current?.removeEventListener('keydown', handleTabKey)
       }
     }
+    return undefined
   }, [isOpen])
 
   if (!isOpen) return null
