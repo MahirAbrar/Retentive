@@ -5,9 +5,12 @@ import type { Topic, LearningItem, LearningMode } from '../../types/database'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
 import { topicsService } from '../../services/topicsFixed'
 import { supabase } from '../../services/supabase'
-import { calculateNextReview } from '../../utils/spacedRepetition'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { cacheService } from '../../services/cacheService'
+import { spacedRepetitionGamified } from '../../services/spacedRepetitionGamified'
+import { gamificationService } from '../../services/gamificationService'
+import { GAMIFICATION_CONFIG } from '../../config/gamification'
+import { ReviewWindowIndicator } from '../gamification/ReviewWindowIndicator'
 
 interface TopicListProps {
   topics: Topic[]
@@ -110,86 +113,6 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
     setExpandedTopics(newExpanded)
   }
 
-  const handleStudyItem = async (item: LearningItem) => {
-    if (!user) return
-    
-    setProcessingItems(prev => new Set(prev).add(item.id))
-    
-    try {
-      const nextReview = calculateNextReview(item, 'good')
-      
-      const { error: updateError } = await supabase
-        .from('learning_items')
-        .update({
-          review_count: item.review_count + 1,
-          last_reviewed_at: new Date().toISOString(),
-          next_review_at: nextReview.next_review_at,
-          ease_factor: nextReview.ease_factor,
-          interval_days: nextReview.interval_days
-        })
-        .eq('id', item.id)
-
-      if (updateError) throw updateError
-
-      const { error: sessionError } = await supabase
-        .from('review_sessions')
-        .insert({
-          user_id: user.id,
-          learning_item_id: item.id,
-          difficulty: 'good',
-          reviewed_at: new Date().toISOString(),
-          next_review_at: nextReview.next_review_at,
-          interval_days: nextReview.interval_days
-        })
-
-      if (sessionError) throw sessionError
-
-      // Update local state
-      setTopicItems(prev => ({
-        ...prev,
-        [item.topic_id]: prev[item.topic_id].map(i => 
-          i.id === item.id 
-            ? {
-                ...i,
-                review_count: item.review_count + 1,
-                last_reviewed_at: new Date().toISOString(),
-                next_review_at: nextReview.next_review_at,
-                ease_factor: nextReview.ease_factor,
-                interval_days: nextReview.interval_days
-              }
-            : i
-        )
-      }))
-
-      // Update stats
-      const items = topicItems[item.topic_id] || []
-      const updatedItems = items.map(i => 
-        i.id === item.id 
-          ? { ...i, next_review_at: nextReview.next_review_at, review_count: item.review_count + 1 }
-          : i
-      )
-      const dueCount = updatedItems.filter(i => i.review_count > 0 && isDue(i)).length
-      const newCount = updatedItems.filter(i => i.review_count === 0).length
-      setTopicStats(prev => ({
-        ...prev,
-        [item.topic_id]: { total: items.length, due: dueCount, new: newCount }
-      }))
-
-      addToast('success', `Done! Next review: ${formatNextReview(nextReview.next_review_at)}`)
-      
-      // Invalidate stats cache
-      if (user) cacheService.invalidate(`stats:${user.id}`)
-    } catch (error) {
-      addToast('error', 'Failed to update item')
-      console.error('Error updating item:', error)
-    } finally {
-      setProcessingItems(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(item.id)
-        return newSet
-      })
-    }
-  }
 
   const formatNextReview = (dateString: string) => {
     const date = new Date(dateString)
@@ -225,8 +148,8 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
     // New items (never studied) are not considered "due" - they're ready to learn
     if (item.review_count === 0) return false
     
-    if (!item.next_review_at) return true
-    return new Date(item.next_review_at) <= new Date()
+    const dueItems = spacedRepetitionGamified.getDueItems([item])
+    return dueItems.length > 0
   }
 
   // Removed unused function
@@ -364,6 +287,118 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
     }
   }
 
+  const handleReviewItem = async (item: LearningItem) => {
+    if (!user) return
+    
+    setProcessingItems(prev => new Set(prev).add(item.id))
+    
+    try {
+      const reviewedAt = new Date()
+      
+      // Calculate next review using gamified service
+      const reviewResult = spacedRepetitionGamified.calculateNextReview(item)
+      
+      // Calculate points
+      const pointsBreakdown = gamificationService.calculateReviewPoints(item, reviewedAt)
+      const comboBonus = gamificationService.getComboBonus()
+      const totalPoints = pointsBreakdown.totalPoints + comboBonus
+      
+      // Update item
+      const updatedItem = {
+        ...item,
+        review_count: item.review_count + 1,
+        last_reviewed_at: reviewedAt.toISOString(),
+        next_review_at: reviewResult.nextReviewAt,
+        interval_days: reviewResult.intervalDays,
+        ease_factor: reviewResult.easeFactor
+      }
+      
+      const { error } = await supabase
+        .from('learning_items')
+        .update({
+          review_count: updatedItem.review_count,
+          last_reviewed_at: updatedItem.last_reviewed_at,
+          next_review_at: updatedItem.next_review_at,
+          interval_days: updatedItem.interval_days,
+          ease_factor: updatedItem.ease_factor
+        })
+        .eq('id', item.id)
+      
+      if (error) throw error
+
+      // Record the review session with points
+      const { error: sessionError } = await supabase
+        .from('review_sessions')
+        .insert({
+          user_id: user.id,
+          learning_item_id: item.id,
+          difficulty: 'good',
+          reviewed_at: reviewedAt.toISOString(),
+          next_review_at: updatedItem.next_review_at,
+          interval_days: reviewResult.intervalDays,
+          points_earned: totalPoints,
+          timing_bonus: pointsBreakdown.timeBonus,
+          combo_count: gamificationService.getComboBonus() > 0 ? 1 : 0
+        })
+
+      if (sessionError) throw sessionError
+      
+      // Update user points (when database is ready)
+      await gamificationService.updateUserPoints(user.id, totalPoints, {
+        itemId: item.id,
+        wasPerfectTiming: pointsBreakdown.isPerfectTiming,
+        reviewCount: updatedItem.review_count
+      })
+      
+      // Update local state
+      setTopicItems(prev => ({
+        ...prev,
+        [item.topic_id]: prev[item.topic_id].map(i => 
+          i.id === item.id ? updatedItem : i
+        )
+      }))
+      
+      // Update stats
+      const updatedItems = topicItems[item.topic_id].map(i => 
+        i.id === item.id ? updatedItem : i
+      )
+      const dueCount = updatedItems.filter(i => i.review_count > 0 && isDue(i)).length
+      const newCount = updatedItems.filter(i => i.review_count === 0).length
+      setTopicStats(prev => ({
+        ...prev,
+        [item.topic_id]: { total: updatedItems.length, due: dueCount, new: newCount }
+      }))
+      
+      // Show feedback with points
+      const masteryStage = spacedRepetitionGamified.getMasteryStage(updatedItem.review_count)
+      let message = `${pointsBreakdown.message} +${totalPoints} points`
+      
+      if (comboBonus > 0) {
+        message += ` (Combo +${comboBonus}!)`
+      }
+      
+      if (reviewResult.isMastered) {
+        addToast('success', `🎉 Item mastered! ${masteryStage.emoji} +${GAMIFICATION_CONFIG.MASTERY.bonusPoints} bonus points!`)
+      } else {
+        const hoursUntilNext = Math.round(reviewResult.intervalDays * 24)
+        const timeUnit = hoursUntilNext < 24 ? `${hoursUntilNext} hour${hoursUntilNext !== 1 ? 's' : ''}` : 
+                        `${Math.round(reviewResult.intervalDays)} day${reviewResult.intervalDays !== 1 ? 's' : ''}`
+        addToast('success', `${message} | ${masteryStage.emoji} ${masteryStage.label} | Next: ${timeUnit}`)
+      }
+      
+      // Invalidate stats cache
+      if (user) cacheService.invalidate(`stats:${user.id}`)
+    } catch (error) {
+      addToast('error', 'Failed to update review')
+    } finally {
+      setProcessingItems(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(item.id)
+        return newSet
+      })
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '3rem' }}>
@@ -393,13 +428,20 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
   return (
     <>
       <div style={{ display: 'grid', gap: '1rem' }}>
-        {topics.map((topic) => {
+        {topics.map((topic, index) => {
         const isExpanded = expandedTopics.has(topic.id)
         const items = topicItems[topic.id] || []
         const stats = topicStats[topic.id] || { total: 0, due: 0, new: 0 }
         
         return (
-          <Card key={topic.id} variant="bordered">
+          <Card 
+            key={topic.id} 
+            variant="bordered"
+            style={{ 
+              animationDelay: `${index * 0.05}s`,
+            }}
+            className="animate-fade-in"
+          >
             <CardHeader>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 className="h4">{topic.name}</h3>
@@ -569,13 +611,14 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                                   >
                                     {item.content}
                                   </p>
-                                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', alignItems: 'center' }}>
                                     <span className="body-small" style={{ color: status.color }}>
                                       {status.label}
                                     </span>
                                     <span className="body-small text-secondary">
-                                      Reviews: {item.review_count}
+                                      {spacedRepetitionGamified.getMasteryStage(item.review_count).emoji} {spacedRepetitionGamified.getMasteryStage(item.review_count).label}
                                     </span>
+                                    <ReviewWindowIndicator item={item} />
                                   </div>
                                 </>
                               )}
@@ -587,15 +630,15 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                                     <Button 
                                       variant="primary" 
                                       size="small"
-                                      onClick={() => handleStudyItem(item)}
+                                      onClick={() => handleReviewItem(item)}
                                       loading={isProcessing}
                                       disabled={isProcessing}
                                     >
-                                      {item.review_count === 0 ? 'Study' : 'Revise'}
+                                      Study
                                     </Button>
                                   ) : (
                                     <span className="body-small" style={{ color: 'var(--color-success)' }}>
-                                      {formatNextReview(item.next_review_at || '')}
+                                      {item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired ? '✓ Mastered' : formatNextReview(item.next_review_at || '')}
                                     </span>
                                   )}
                                   <Button

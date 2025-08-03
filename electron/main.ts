@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell, Menu, ipcMain } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Store from 'electron-store';
+import { NotificationService } from './notificationService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,6 +10,7 @@ const __dirname = path.dirname(__filename);
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow: BrowserWindow | null = null;
+let notificationService: NotificationService | null = null;
 
 // Initialize secure storage with encryption
 const store = new Store({
@@ -31,7 +33,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      webSecurity: true,  // Always keep web security enabled
+      allowRunningInsecureContent: false  // Block insecure content
     },
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#fffef9', // Cream background from our theme
@@ -42,9 +46,52 @@ function createWindow() {
     mainWindow?.show();
   });
 
+  // Configure session for proper CORS handling with Supabase
+  mainWindow.webContents.session.webRequest.onBeforeSendHeaders(
+    { urls: ['https://*.supabase.co/*'] },
+    (details, callback) => {
+      // In development, keep the localhost origin; in production use app://
+      if (isDev) {
+        details.requestHeaders['Origin'] = 'http://localhost:5173';
+      } else {
+        details.requestHeaders['Origin'] = 'file://';
+      }
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
+
+  // Set Content Security Policy headers
+  mainWindow.webContents.session.webRequest.onHeadersReceived(
+    (details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "connect-src 'self' http://localhost:* https://*.supabase.co wss://*.supabase.co https://*.supabase.in",
+            "img-src 'self' data: https:",
+            "font-src 'self' data: https://fonts.gstatic.com"
+          ].join('; ')
+        }
+      });
+    }
+  );
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    // Don't automatically open DevTools - use Cmd+Option+I (Mac) or Ctrl+Shift+I (Windows) to open manually
+    
+    // Add network error logging in development (only for errors)
+    mainWindow.webContents.session.webRequest.onErrorOccurred({ urls: ['https://*.supabase.co/*'] }, (details) => {
+      console.error('Network Error:', details.error, 'URL:', details.url);
+    });
+    
+    // Comment out success logging to reduce console noise
+    // mainWindow.webContents.session.webRequest.onCompleted({ urls: ['https://*.supabase.co/*'] }, (details) => {
+    //   console.log('Request completed:', details.statusCode, 'URL:', details.url);
+    // });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -168,9 +215,77 @@ ipcMain.handle('secureStorage:clear', async () => {
   }
 });
 
+// IPC handlers for notifications
+ipcMain.handle('notifications:schedule', async (_, type: string, data: any) => {
+  if (!notificationService) return false
+  
+  try {
+    switch(type) {
+      case 'daily':
+        notificationService.scheduleDailyReminder(data.userId, data.time)
+        break
+      case 'streak':
+        notificationService.scheduleStreakCheck(data.userId)
+        break
+    }
+    return true
+  } catch (error) {
+    console.error('Error scheduling notification:', error)
+    return false
+  }
+})
+
+ipcMain.handle('notifications:cancel', async (_, type: string, userId: string) => {
+  if (!notificationService) return false
+  
+  try {
+    if (type === 'all') {
+      notificationService.cancelUserJobs(userId)
+    } else {
+      notificationService.cancelJob(`${type}-${userId}`)
+    }
+    return true
+  } catch (error) {
+    console.error('Error cancelling notification:', error)
+    return false
+  }
+})
+
+ipcMain.handle('notifications:test', async () => {
+  if (!notificationService) return false
+  
+  try {
+    notificationService.sendNotification(
+      'Test Notification',
+      'Notifications are working correctly!'
+    )
+    return true
+  } catch (error) {
+    console.error('Error sending test notification:', error)
+    return false
+  }
+})
+
+// Handle navigation from notifications
+ipcMain.on('navigate-reply', (_, path: string) => {
+  mainWindow?.webContents.send('navigate', path)
+})
+
 app.whenReady().then(() => {
+  // Initialize notification service with Supabase credentials
+  // Note: In Electron main process, Vite env vars aren't available directly
+  // For now, we'll hardcode them or pass from renderer
+  const supabaseUrl = 'https://tnkvynxyoalhowrkxjio.supabase.co'
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRua3Z5bnh5b2FsaG93cmt4amlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5NDAyNDQsImV4cCI6MjA2OTUxNjI0NH0.gO5--MQRp5SAINjmIAXKO3caQ_E2bwk_-ruSe030ups'
+    
+  notificationService = new NotificationService(supabaseUrl, supabaseKey)
+  
   createWindow();
   createMenu();
+  
+  if (mainWindow && notificationService) {
+    notificationService.setMainWindow(mainWindow)
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

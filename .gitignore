@@ -68,6 +68,9 @@ coverage
 **/supabase/.branches
 **/supabase/.temp
 
+# Supabase migrations (sensitive SQL scripts)
+supabase-migrations/
+
 human-todo.md
 .env.example
 todolist.md

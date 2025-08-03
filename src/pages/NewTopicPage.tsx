@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
@@ -6,6 +6,7 @@ import { topicsService } from '../services/topicsFixed'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../constants/learning'
 import type { LearningMode } from '../types/database'
 import { sanitizeInput } from '../utils/sanitize'
+import { useAutoSave } from '../hooks/useAutoSave'
 
 export function NewTopicPage() {
   const navigate = useNavigate()
@@ -19,6 +20,33 @@ export function NewTopicPage() {
   const [upcomingDate, setUpcomingDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  
+  // Auto-save draft to localStorage
+  const formData = { topicName, learningMode, priority, subtopics, upcomingDate }
+  const { isSaving, lastSaved } = useAutoSave(formData, {
+    delay: 2000,
+    onSave: async (data) => {
+      localStorage.setItem('newTopicDraft', JSON.stringify(data))
+    },
+    enabled: !loading
+  })
+  
+  // Load draft on mount
+  useEffect(() => {
+    const draft = localStorage.getItem('newTopicDraft')
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft)
+        setTopicName(parsed.topicName || '')
+        setLearningMode(parsed.learningMode || 'steady')
+        setPriority(parsed.priority || 5)
+        setSubtopics(parsed.subtopics || '')
+        setUpcomingDate(parsed.upcomingDate || '')
+      } catch (error) {
+        console.error('Failed to load draft:', error)
+      }
+    }
+  }, [])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -95,6 +123,9 @@ export function NewTopicPage() {
         addToast('success', `Created topic "${topicName}" with ${learningItems.length} items`)
       }
       
+      // Clear draft after successful submission
+      localStorage.removeItem('newTopicDraft')
+      
       navigate('/topics')
     } catch (error) {
       addToast('error', 'Failed to create topic')
@@ -107,10 +138,19 @@ export function NewTopicPage() {
   return (
     <div style={{ maxWidth: 'var(--container-md)', margin: '0 auto' }}>
       <header style={{ marginBottom: '2rem' }}>
-        <h1 className="h2">Create New Topic</h1>
-        <p className="body text-secondary">
-          Add a topic and its subtopics to start learning
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 className="h2">Create New Topic</h1>
+            <p className="body text-secondary">
+              Add a topic and its subtopics to start learning
+            </p>
+          </div>
+          {lastSaved && (
+            <p className="body-small text-secondary animate-fade-in">
+              {isSaving ? 'Saving...' : `Draft saved ${new Date(lastSaved).toLocaleTimeString()}`}
+            </p>
+          )}
+        </div>
       </header>
 
       <Card variant="bordered">

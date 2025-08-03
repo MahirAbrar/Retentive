@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { cacheService } from './cacheService'
+import { requestDeduplicator } from './requestDeduplicator'
 import type { Priority } from '../types/database'
 
 interface Stats {
@@ -27,11 +28,16 @@ interface ExtendedStats extends Stats {
 }
 
 export async function getStudyStats(userId: string): Promise<Stats> {
+  // Deduplicate requests with a normalized timestamp
   const now = new Date()
-  const todayEnd = new Date(now)
-  todayEnd.setHours(23, 59, 59, 999)
+  const normalizedTime = requestDeduplicator.normalizeTimestamp(now, 'minute')
+  const dedupeKey = `study-stats:${userId}:${normalizedTime}`
   
-  try {
+  return requestDeduplicator.execute(dedupeKey, async () => {
+    const todayEnd = new Date(now)
+    todayEnd.setHours(23, 59, 59, 999)
+    
+    try {
     // Get overdue items (excluding new items with review_count = 0)
     const { count: overdue } = await supabase
       .from('learning_items')
@@ -61,29 +67,29 @@ export async function getStudyStats(userId: string): Promise<Stats> {
       .gt('next_review_at', todayEnd.toISOString())
       .lte('next_review_at', weekFromNow.toISOString())
 
-    // Get mastered items (reviewed more than 5 times with good performance)
+    // Get mastered items based on gamification config
     const { count: mastered } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .gte('review_count', 5)
-      .gte('ease_factor', 2.5)
+      .gte('review_count', (await import('../config/gamification')).GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
 
-    return {
-      overdue: overdue || 0,
-      dueToday: dueToday || 0,
-      upcoming: upcoming || 0,
-      mastered: mastered || 0
+      return {
+        overdue: overdue || 0,
+        dueToday: dueToday || 0,
+        upcoming: upcoming || 0,
+        mastered: mastered || 0
+      }
+    } catch (error) {
+      console.error('Error fetching study stats:', error)
+      return {
+        overdue: 0,
+        dueToday: 0,
+        upcoming: 0,
+        mastered: 0
+      }
     }
-  } catch (error) {
-    console.error('Error fetching study stats:', error)
-    return {
-      overdue: 0,
-      dueToday: 0,
-      upcoming: 0,
-      mastered: 0
-    }
-  }
+  })
 }
 
 export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
@@ -92,10 +98,15 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
   const cached = cacheService.get<ExtendedStats>(cacheKey)
   if (cached) return cached
   
-  const basicStats = await getStudyStats(userId)
+  // Deduplicate requests
   const now = new Date()
+  const normalizedTime = requestDeduplicator.normalizeTimestamp(now, 'minute')
+  const dedupeKey = `extended-stats:${userId}:${normalizedTime}`
   
-  try {
+  return requestDeduplicator.execute(dedupeKey, async () => {
+    const basicStats = await getStudyStats(userId)
+    
+    try {
     // Get total items and topics
     const { count: totalItems } = await supabase
       .from('learning_items')
@@ -298,20 +309,21 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       newItemsCount: newItemsCount || 0
     }
     
-    // Cache for 1 hour (stats only change when user takes actions)
-    cacheService.set(cacheKey, result, 60 * 60 * 1000)
-    
-    return result
-  } catch (error) {
-    console.error('Error fetching extended stats:', error)
-    return {
-      ...basicStats,
-      priorityBreakdown: [],
-      totalItems: 0,
-      totalTopics: 0,
-      streakDays: 0,
-      nextDueIn: null,
-      newItemsCount: 0
+      // Cache for 1 hour (stats only change when user takes actions)
+      cacheService.set(cacheKey, result, 60 * 60 * 1000)
+      
+      return result
+    } catch (error) {
+      console.error('Error fetching extended stats:', error)
+      return {
+        ...basicStats,
+        priorityBreakdown: [],
+        totalItems: 0,
+        totalTopics: 0,
+        streakDays: 0,
+        nextDueIn: null,
+        newItemsCount: 0
+      }
     }
-  }
+  })
 }

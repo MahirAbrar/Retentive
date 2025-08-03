@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button, Card, CardHeader, CardContent, Badge, Skeleton } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
+import { GamificationDashboard } from '../components/gamification/GamificationDashboard'
 import type { Priority } from '../types/database'
 
 interface PriorityStats {
@@ -176,6 +177,9 @@ export function HomePage() {
             )}
           </div>
         )}
+
+        {/* Gamification Dashboard */}
+        {user && <GamificationDashboard />}
 
         {/* Study Progress */}
         {user && (

@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, useToast, Input } from '../components/ui'
+import { Button, useToast, Input, Pagination, PaginationInfo } from '../components/ui'
 import { TopicList } from '../components/topics/TopicList'
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
-import type { Topic } from '../types/database'
+import { usePagination } from '../hooks/usePagination'
+import type { Topic, LearningItem } from '../types/database'
 
 interface TopicWithStats extends Topic {
   itemCount: number
   dueCount: number
   lastStudiedAt?: string
+  items?: LearningItem[]
 }
 
 export function TopicsPage() {
@@ -21,6 +23,22 @@ export function TopicsPage() {
   const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'priority' | 'lastStudied'>('name')
   const { user } = useAuth()
   const { addToast } = useToast()
+  
+  // Pagination
+  const {
+    currentPage,
+    totalPages,
+    currentItems,
+    isFirstPage,
+    isLastPage,
+    nextPage,
+    previousPage,
+    goToPage,
+    setItemsPerPage,
+    itemsPerPage,
+    startIndex,
+    endIndex
+  } = usePagination(filteredTopics, { itemsPerPage: 10 })
 
   useEffect(() => {
     if (user) {
@@ -66,8 +84,9 @@ export function TopicsPage() {
             ...topic,
             itemCount: itemsList.length,
             dueCount,
-            lastStudiedAt
-          } as TopicWithStats
+            lastStudiedAt,
+            items: itemsList // Store items for search
+          } as TopicWithStats & { items: typeof itemsList }
         })
       )
       
@@ -91,8 +110,14 @@ export function TopicsPage() {
 
     // Apply search filter
     if (searchQuery) {
+      const query = searchQuery.toLowerCase()
       filtered = filtered.filter(topic => 
-        topic.name.toLowerCase().includes(searchQuery.toLowerCase())
+        // Search in topic name
+        topic.name.toLowerCase().includes(query) ||
+        // Search in subtopic content
+        (topic.items && topic.items.some(item => 
+          item.content.toLowerCase().includes(query)
+        ))
       )
     }
 
@@ -222,10 +247,57 @@ export function TopicsPage() {
       </div>
 
       <TopicList 
-        topics={filteredTopics} 
+        topics={currentItems} 
         onDelete={handleDelete}
         loading={loading}
       />
+      
+      {/* Pagination Controls */}
+      {filteredTopics.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
+          <PaginationInfo 
+            startIndex={startIndex} 
+            endIndex={endIndex} 
+            totalItems={filteredTopics.length} 
+          />
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            isFirstPage={isFirstPage}
+            isLastPage={isLastPage}
+            onNext={nextPage}
+            onPrevious={previousPage}
+          />
+          
+          {/* Items per page selector */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            marginTop: '1rem'
+          }}>
+            <label className="body-small text-secondary">Items per page:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              style={{
+                padding: 'var(--space-2) var(--space-3)',
+                border: '1px solid var(--color-gray-300)',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--color-background)',
+                fontSize: 'var(--text-sm)'
+              }}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

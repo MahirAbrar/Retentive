@@ -14,6 +14,7 @@
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  transform-origin: center;
 }
 
 .button:focus-visible {
@@ -24,6 +25,14 @@
 .button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 /* Variants */

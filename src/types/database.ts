@@ -7,6 +7,10 @@ export interface User {
   email: string
   created_at: string
   updated_at: string
+  user_metadata?: {
+    display_name?: string
+    [key: string]: any
+  }
 }
 
 export interface Topic {
@@ -54,4 +58,36 @@ export interface UserSettings {
   preferred_study_time: string | null
   created_at: string
   updated_at: string
+}
+
+export interface UserGamificationStats {
+  id: string
+  user_id: string
+  total_points: number
+  current_level: number
+  current_streak: number
+  longest_streak: number
+  last_review_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Achievement {
+  id: string
+  user_id: string
+  achievement_id: string
+  unlocked_at: string
+  points_awarded: number
+  created_at: string
+}
+
+export interface DailyStats {
+  id: string
+  user_id: string
+  date: string
+  points_earned: number
+  reviews_completed: number
+  perfect_timing_count: number
+  items_mastered: number
+  created_at: string
 }

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 const validChannels = {
   send: ['toMain', 'app:quit', 'app:minimize', 'app:maximize'],
-  receive: ['fromMain', 'app:update-available', 'app:update-downloaded'],
+  receive: ['fromMain', 'app:update-available', 'app:update-downloaded', 'navigate'],
   invoke: [
     'dialog:openFile', 
     'dialog:saveFile', 
@@ -10,7 +10,10 @@ const validChannels = {
     'secureStorage:get',
     'secureStorage:set',
     'secureStorage:remove',
-    'secureStorage:clear'
+    'secureStorage:clear',
+    'notifications:schedule',
+    'notifications:cancel',
+    'notifications:test'
   ],
 }
 
@@ -49,6 +52,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clear: async () => {
       return await ipcRenderer.invoke('secureStorage:clear')
     }
+  },
+  // Notification methods
+  notifications: {
+    schedule: async (type: string, data: any) => {
+      return await ipcRenderer.invoke('notifications:schedule', type, data)
+    },
+    cancel: async (type: string, userId: string) => {
+      return await ipcRenderer.invoke('notifications:cancel', type, userId)
+    },
+    test: async () => {
+      return await ipcRenderer.invoke('notifications:test')
+    }
   }
 })
 
@@ -63,6 +78,11 @@ export interface IElectronAPI {
     set: (key: string, value: string) => Promise<boolean>
     remove: (key: string) => Promise<boolean>
     clear: () => Promise<boolean>
+  }
+  notifications: {
+    schedule: (type: string, data: any) => Promise<boolean>
+    cancel: (type: string, userId: string) => Promise<boolean>
+    test: () => Promise<boolean>
   }
 }
 

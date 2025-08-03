@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
+import { GamificationStats } from '../gamification/GamificationStats'
 import styles from './Header.module.css'
 
 export function Header() {
@@ -22,6 +23,7 @@ export function Header() {
         <nav className={styles.nav}>
           {user ? (
             <>
+              <GamificationStats />
               <Link to="/topics">
                 <Button variant="ghost">Topics</Button>
               </Link>

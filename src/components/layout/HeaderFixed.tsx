@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Button } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
+import { GamificationStats } from '../gamification/GamificationStats'
 
 export function HeaderFixed() {
   const { user, signOut } = useAuth()
@@ -14,7 +15,7 @@ export function HeaderFixed() {
       backgroundColor: 'var(--color-surface)',
       position: 'sticky',
       top: 0,
-      zIndex: 100
+      zIndex: 'var(--z-sticky)'
     }}>
       <div style={{ 
         maxWidth: 'var(--container-xl)', 
@@ -41,13 +42,22 @@ export function HeaderFixed() {
                 <span className="body">Topics</span>
               </Link>
               <Link 
-                to="/study" 
+                to="/stats" 
                 style={{ 
                   textDecoration: 'none',
-                  color: isActive('/study') ? 'var(--color-primary)' : 'inherit'
+                  color: isActive('/stats') ? 'var(--color-primary)' : 'inherit'
                 }}
               >
-                <span className="body">Study</span>
+                <span className="body">Stats</span>
+              </Link>
+              <Link 
+                to="/settings" 
+                style={{ 
+                  textDecoration: 'none',
+                  color: isActive('/settings') ? 'var(--color-primary)' : 'inherit'
+                }}
+              >
+                <span className="body">Settings</span>
               </Link>
             </div>
           )}
@@ -56,7 +66,10 @@ export function HeaderFixed() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
           {user ? (
             <>
-              <span className="body-small text-secondary">{user.email}</span>
+              <GamificationStats />
+              <span className="body-small text-secondary">
+                {user.user_metadata?.display_name || user.email}
+              </span>
               <Button variant="ghost" size="small" onClick={signOut}>
                 Sign Out
               </Button>

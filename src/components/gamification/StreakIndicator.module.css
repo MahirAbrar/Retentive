@@ -1,0 +1,26 @@
+.container {
+  display: inline-flex;
+  align-items: center;
+}
+
+.emoji {
+  font-size: 1.2em;
+  margin-right: var(--space-2);
+  animation: fire 1.5s ease-in-out infinite;
+}
+
+.text {
+  font-weight: var(--font-semibold);
+}
+
+@keyframes fire {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.1) rotate(-3deg);
+  }
+  75% {
+    transform: scale(1.1) rotate(3deg);
+  }
+}

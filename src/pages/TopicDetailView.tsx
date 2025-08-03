@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Button, Card, CardContent, useToast } from '../components/ui'
+import { Button, Card, CardContent, useToast, Pagination, PaginationInfo } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
+import { usePagination } from '../hooks/usePagination'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../constants/learning'
 import type { Topic, LearningItem } from '../types/database'
 
@@ -15,6 +16,22 @@ export function TopicDetailView() {
   const [topic, setTopic] = useState<Topic | null>(null)
   const [items, setItems] = useState<LearningItem[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Pagination
+  const {
+    currentPage,
+    totalPages,
+    currentItems,
+    isFirstPage,
+    isLastPage,
+    nextPage,
+    previousPage,
+    goToPage,
+    setItemsPerPage,
+    itemsPerPage,
+    startIndex,
+    endIndex
+  } = usePagination(items, { itemsPerPage: 20 })
 
   useEffect(() => {
     if (topicId && user) {
@@ -127,7 +144,7 @@ export function TopicDetailView() {
             </CardContent>
           </Card>
         ) : (
-          items.map((item) => (
+          currentItems.map((item) => (
             <Card key={item.id} variant="bordered">
               <CardContent>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -165,6 +182,53 @@ export function TopicDetailView() {
           ))
         )}
       </div>
+      
+      {/* Pagination Controls */}
+      {items.length > itemsPerPage && (
+        <div style={{ marginTop: '2rem' }}>
+          <PaginationInfo 
+            startIndex={startIndex} 
+            endIndex={endIndex} 
+            totalItems={items.length} 
+          />
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            isFirstPage={isFirstPage}
+            isLastPage={isLastPage}
+            onNext={nextPage}
+            onPrevious={previousPage}
+          />
+          
+          {/* Items per page selector */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            marginTop: '1rem'
+          }}>
+            <label className="body-small text-secondary">Items per page:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              style={{
+                padding: 'var(--space-2) var(--space-3)',
+                border: '1px solid var(--color-gray-300)',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--color-background)',
+                fontSize: 'var(--text-sm)'
+              }}
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

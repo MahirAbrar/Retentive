@@ -1,6 +1,6 @@
 .container {
   position: fixed;
-  top: var(--space-4);
+  top: calc(64px + var(--space-4)); /* Account for header height */
   right: var(--space-4);
   z-index: var(--z-tooltip);
   display: flex;

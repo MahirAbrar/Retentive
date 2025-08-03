@@ -23,7 +23,7 @@ This file contains important information for Claude to remember across sessions.
    - `npm run lint`
    - `npm run typecheck`
 
-## Current Status (Last Updated: Phase 4.1)
+## Current Status (Last Updated: Phase 4 Complete)
 - ✅ Project initialized with Vite + React + TypeScript + Electron
 - ✅ Git repository configured with comprehensive .gitignore
 - ✅ Supabase client library installed and configured
@@ -47,7 +47,12 @@ This file contains important information for Claude to remember across sessions.
 - ✅ Layout components (Header, Layout) created
 - ✅ TopicForm component for creating new topics
 - ✅ Protected routes for authenticated users
-- 🔄 Next: Create TopicList and TopicDetail components
+- ✅ TopicList with inline review functionality (single Study button)
+- ✅ Search includes both topics and subtopics
+- ✅ Mastery system (items marked as mastered after 5 reviews)
+- ✅ Dashboard with real-time stats and progress metrics
+- ✅ Stats page with charts and analytics
+- 🔄 Next: Phase 5.1 - Settings Management
 
 ## Key Commands
 - `npm run dev:electron` - Run app in development mode

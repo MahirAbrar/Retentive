@@ -4,6 +4,7 @@ import { Button, Card, CardHeader, CardContent, Input, useToast } from '../compo
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import { DataManagement } from '../components/settings/DataManagement'
+import { NotificationSettings } from '../components/settings/NotificationSettings'
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -21,8 +22,8 @@ export function SettingsPage() {
   useEffect(() => {
     if (user) {
       setEmail(user.email || '')
-      // In a real app, we'd fetch the display name from user metadata
-      setDisplayName(user.email?.split('@')[0] || '')
+      // Get display name from user metadata or fallback to email prefix
+      setDisplayName(user.user_metadata?.display_name || user.email?.split('@')[0] || '')
     }
   }, [user])
 
@@ -33,11 +34,16 @@ export function SettingsPage() {
 
     try {
       // Update user metadata if display name changed
-      const { error } = await supabase.auth.updateUser({
+      const { data, error } = await supabase.auth.updateUser({
         data: { display_name: displayName }
       })
 
       if (error) throw error
+
+      // Force a refresh of the auth state to update the UI
+      if (data.user) {
+        await supabase.auth.refreshSession()
+      }
 
       addToast('success', 'Profile updated successfully')
     } catch (error) {
@@ -275,6 +281,9 @@ export function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Notifications */}
+        <NotificationSettings />
 
         {/* Data Management */}
         <DataManagement />

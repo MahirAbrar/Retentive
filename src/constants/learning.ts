@@ -77,3 +77,8 @@ export const DEFAULT_USER_SETTINGS = {
   notification_enabled: true,
   preferred_study_time: null,
 }
+
+// Import mastery settings from gamification config
+import { GAMIFICATION_CONFIG } from '../config/gamification'
+
+export const MASTERY_THRESHOLD = GAMIFICATION_CONFIG.MASTERY.reviewsRequired

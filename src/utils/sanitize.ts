@@ -84,7 +84,7 @@ export function sanitizeFileName(fileName: string): string {
   if (typeof fileName !== 'string') return 'file'
   
   // Remove path traversal attempts
-  let safe = fileName.replace(/\.\./g, '').replace(/[\/\\]/g, '')
+  let safe = fileName.replace(/\.\./g, '').replace(/[/\\]/g, '')
   
   // Remove special characters except dots, dashes, and underscores
   safe = safe.replace(/[^a-zA-Z0-9._-]/g, '_')

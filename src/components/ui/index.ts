@@ -22,3 +22,5 @@ export type { BadgeProps } from './Badge'
 export { ConfirmDialog } from './ConfirmDialog'
 
 export { Skeleton } from './Skeleton'
+
+export { Pagination, PaginationInfo } from './Pagination'
