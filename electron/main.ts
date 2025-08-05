@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import Store from 'electron-store';
 import { NotificationService } from './notificationService.js';
+// import { setupDatabaseHandlers } from './database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -279,6 +280,22 @@ app.whenReady().then(() => {
   const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRua3Z5bnh5b2FsaG93cmt4amlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5NDAyNDQsImV4cCI6MjA2OTUxNjI0NH0.gO5--MQRp5SAINjmIAXKO3caQ_E2bwk_-ruSe030ups'
     
   notificationService = new NotificationService(supabaseUrl, supabaseKey)
+  
+  // Initialize database handlers
+  // setupDatabaseHandlers();
+  
+  // Temporary stub handlers to prevent errors
+  ipcMain.handle('db:user:upsert', async () => {
+    return { success: true };
+  });
+  
+  ipcMain.handle('db:gamification:getStats', async () => {
+    return null;
+  });
+  
+  ipcMain.handle('db:gamification:updateStats', async () => {
+    return { success: true };
+  });
   
   createWindow();
   createMenu();

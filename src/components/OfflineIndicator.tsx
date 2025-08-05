@@ -33,10 +33,10 @@ export function OfflineIndicator() {
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <line x1="1" y1="1" x2="23" y2="23"></line>
-        <path d="M9 2a3 3 0 0 1 6 0v3m-3 0v3"></path>
-        <path d="M9 7h6"></path>
-        <path d="M19 11.5a7.5 7.5 0 0 1-15 0"></path>
+        <line x1="1" y1="1" x2="23" y2="23" />
+        <path d="M9 2a3 3 0 0 1 6 0v3m-3 0v3" />
+        <path d="M9 7h6" />
+        <path d="M19 11.5a7.5 7.5 0 0 1-15 0" />
       </svg>
       <span className="body-small">
         You're offline. Changes will sync when connection is restored.

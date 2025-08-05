@@ -23,9 +23,10 @@ body {
   font-size: var(--text-base);
   font-weight: var(--font-regular);
   line-height: var(--leading-normal);
-  color: var(--color-primary);
-  background-color: var(--color-secondary);
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 h1, h2, h3, h4, h5, h6 {

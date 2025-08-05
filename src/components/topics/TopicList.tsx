@@ -11,6 +11,7 @@ import { spacedRepetitionGamified } from '../../services/spacedRepetitionGamifie
 import { gamificationService } from '../../services/gamificationService'
 import { GAMIFICATION_CONFIG } from '../../config/gamification'
 import { ReviewWindowIndicator } from '../gamification/ReviewWindowIndicator'
+import { useAchievements } from '../../hooks/useAchievements'
 
 interface TopicListProps {
   topics: Topic[]
@@ -34,6 +35,7 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
   const [newItemContent, setNewItemContent] = useState('')
   const { addToast } = useToast()
   const { user } = useAuth()
+  const { showAchievements } = useAchievements()
 
   // Load item counts for all topics on mount
   useEffect(() => {
@@ -343,12 +345,17 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
 
       if (sessionError) throw sessionError
       
-      // Update user points (when database is ready)
-      await gamificationService.updateUserPoints(user.id, totalPoints, {
+      // Update user points and check for achievements
+      const result = await gamificationService.updateUserPoints(user.id, totalPoints, {
         itemId: item.id,
         wasPerfectTiming: pointsBreakdown.isPerfectTiming,
         reviewCount: updatedItem.review_count
       })
+      
+      // Show achievements if any were unlocked
+      if (result && result.newAchievements && result.newAchievements.length > 0) {
+        showAchievements(result.newAchievements)
+      }
       
       // Update local state
       setTopicItems(prev => ({
@@ -617,6 +624,10 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                                     </span>
                                     <span className="body-small text-secondary">
                                       {spacedRepetitionGamified.getMasteryStage(item.review_count).emoji} {spacedRepetitionGamified.getMasteryStage(item.review_count).label}
+                                    </span>
+                                    <span className="body-small text-secondary" style={{ opacity: 0.7 }}>
+                                      {item.review_count > 0 && `${item.review_count} review${item.review_count !== 1 ? 's' : ''}`}
+                                      {item.review_count === 0 && 'Never reviewed'}
                                     </span>
                                     <ReviewWindowIndicator item={item} />
                                   </div>

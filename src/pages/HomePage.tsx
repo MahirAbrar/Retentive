@@ -353,6 +353,9 @@ export function HomePage() {
               <Link to="/components">
                 <Button variant="ghost">View Component Library</Button>
               </Link>
+              <Link to="/test-gamification">
+                <Button variant="ghost">Test Gamification</Button>
+              </Link>
               <Button 
                 variant="ghost"
                 onClick={() => {

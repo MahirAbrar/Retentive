@@ -10,9 +10,9 @@ export function Loading({ size = 'medium', fullScreen = false, text }: LoadingPr
   const content = (
     <div className={styles.container}>
       <div className={`${styles.spinner} ${styles[size]}`}>
-        <div className={styles.dot}></div>
-        <div className={styles.dot}></div>
-        <div className={styles.dot}></div>
+        <div className={styles.dot} />
+        <div className={styles.dot} />
+        <div className={styles.dot} />
       </div>
       {text && <p className={styles.text}>{text}</p>}
     </div>
@@ -33,10 +33,10 @@ export interface LoadingSpinnerProps {
 export function LoadingSpinner({ size = 'medium', className = '' }: LoadingSpinnerProps) {
   return (
     <div className={`${styles.spinnerRing} ${styles[size]} ${className}`}>
-      <div></div>
-      <div></div>
-      <div></div>
-      <div></div>
+      <div />
+      <div />
+      <div />
+      <div />
     </div>
   )
 }

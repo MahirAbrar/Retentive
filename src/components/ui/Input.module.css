@@ -11,7 +11,7 @@
 .label {
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
-  color: var(--color-gray-700);
+  color: var(--color-text-primary);
   display: block;
 }
 
@@ -21,9 +21,9 @@
   font-family: var(--font-sans);
   font-size: var(--text-base);
   font-weight: var(--font-regular);
-  color: var(--color-primary);
-  background-color: var(--color-secondary);
-  border: 2px solid var(--color-gray-300);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
   border-radius: var(--radius-base);
   transition: all var(--transition-fast);
   width: 100%;
@@ -43,7 +43,7 @@
 }
 
 .input:disabled {
-  background-color: var(--color-gray-50);
+  background-color: var(--color-background-secondary);
   color: var(--color-gray-500);
   cursor: not-allowed;
 }
@@ -64,7 +64,7 @@
 
 .helperText {
   font-size: var(--text-sm);
-  color: var(--color-gray-600);
+  color: var(--color-text-secondary);
   display: block;
 }
 

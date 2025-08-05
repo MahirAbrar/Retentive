@@ -19,9 +19,6 @@ export function GamificationStats() {
 
     const loadStats = async () => {
       try {
-        // Clear stats to force recalculation from history
-        gamificationService.clearUserStats(user.id)
-        
         const userStats = await gamificationService.getUserStats(user.id)
         if (userStats) {
           setStats({

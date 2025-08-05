@@ -1,11 +1,15 @@
 :root {
-  /* Swiss Education Theme with Cream Background */
+  /* Swiss Education Theme - Light Mode (Default) */
   --color-primary: #2d3748;        /* Dark blue-gray */
+  --color-primary-dark: #1a202c;   /* Darker blue-gray */
   --color-secondary: #fffef9;      /* Cream white */
   --color-accent: #4299e1;         /* Sky blue */
   --color-accent-2: #48bb78;       /* Green */
   --color-background: #fffef9;     /* Cream background */
+  --color-background-secondary: #f7f5f0; /* Light cream */
   --color-surface: #ffffff;        /* Pure white for cards */
+  --color-surface-hover: #f9f9f9;  /* Card hover state */
+  --color-border: #e2e8f0;         /* Light border */
   
   /* Gray Scale */
   --color-gray-50: #f7fafc;
@@ -22,8 +26,13 @@
   /* Semantic Colors for Learning States */
   --color-success: #48bb78;        /* Green - Mastered */
   --color-warning: #ed8936;        /* Orange - Due */
+  --color-warning-light: #fed7aa;  /* Light Orange */
   --color-error: #f56565;          /* Red - Overdue */
   --color-info: #4299e1;           /* Blue - Upcoming */
+  
+  /* Text Colors */
+  --color-text-primary: #2d3748;   /* Dark gray for main text */
+  --color-text-secondary: #718096; /* Medium gray for secondary text */
   
   /* Typography - Bree Serif for headings, Inter for body */
   --font-serif: 'Bree Serif', Georgia, serif;
@@ -73,13 +82,23 @@
   --space-20: 5rem;      /* 80px */
   --space-24: 6rem;      /* 96px */
   
+  /* Spacing aliases for better semantics */
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  
   /* Border Radius */
   --radius-none: 0;
   --radius-sm: 0.125rem;
+  --radius-small: 0.25rem;
   --radius-base: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
   --radius-full: 9999px;
+  
+  /* Font Size aliases */
+  --font-size-small: var(--text-sm);
   
   /* Shadows - Minimal, functional */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -107,4 +126,48 @@
   --container-md: 768px;
   --container-lg: 1024px;
   --container-xl: 1280px;
+}
+
+/* Dark Mode Theme */
+.dark {
+  /* Primary Colors - Inverted for dark mode */
+  --color-primary: #e2e8f0;        /* Light gray for primary text/elements */
+  --color-primary-dark: #cbd5e0;   /* Slightly darker gray */
+  --color-secondary: #1a202c;      /* Dark blue-gray */
+  --color-accent: #63b3ed;         /* Lighter sky blue */
+  --color-accent-2: #68d391;       /* Lighter green */
+  --color-background: #0f1419;     /* Very dark background */
+  --color-background-secondary: #1a202c; /* Dark blue-gray secondary */
+  --color-surface: #1e2732;        /* Dark surface for cards */
+  --color-surface-hover: #2d3748;  /* Card hover state */
+  --color-border: #2d3748;         /* Dark border */
+  
+  /* Text Colors - Inverted */
+  --color-text-primary: #e2e8f0;   /* Light gray for main text */
+  --color-text-secondary: #a0aec0; /* Medium gray for secondary text */
+  
+  /* Semantic Colors - Adjusted for dark mode */
+  --color-success: #68d391;        /* Lighter green */
+  --color-warning: #f6ad55;        /* Lighter orange */
+  --color-warning-light: #2d3748;  /* Dark background for warning */
+  --color-error: #fc8181;          /* Lighter red */
+  --color-info: #63b3ed;           /* Lighter blue */
+  
+  /* Gray Scale - Keep the same */
+  --color-gray-50: #1a202c;
+  --color-gray-100: #2d3748;
+  --color-gray-200: #4a5568;
+  --color-gray-300: #718096;
+  --color-gray-400: #a0aec0;
+  --color-gray-500: #cbd5e0;
+  --color-gray-600: #e2e8f0;
+  --color-gray-700: #edf2f7;
+  --color-gray-800: #f7fafc;
+  --color-gray-900: #ffffff;
+  
+  /* Shadows - Darker for dark mode */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
 }

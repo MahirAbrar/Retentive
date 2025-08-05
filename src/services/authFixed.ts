@@ -1,6 +1,9 @@
 import { supabase } from './supabase'
 import { supabaseService } from './supabaseService'
 import { secureStorage } from './secureStorage'
+import { offlineService } from './offlineService'
+import { gamificationService as gamificationServiceOffline } from './gamificationServiceOffline'
+import { gamificationService } from './gamificationService'
 import type { User } from '../types/database'
 import type { Session } from '@supabase/supabase-js'
 import { handleError } from '../utils/errors'
@@ -60,12 +63,31 @@ export class AuthService {
       case 'TOKEN_REFRESHED':
       case 'USER_UPDATED':
         if (session?.user) {
+          const user = this.mapSupabaseUser(session.user)
           this.updateSessionState({
-            user: this.mapSupabaseUser(session.user),
+            user,
             session,
             isLoading: false,
             isAuthenticated: true,
           })
+          
+          // Update offline service with user ID
+          if (user.id) {
+            offlineService.setUserId(user.id)
+            gamificationServiceOffline.setUserId(user.id)
+            
+            // Initialize gamification stats for the user
+            await gamificationService.getUserStats(user.id)
+            
+            // If in Electron, save user data locally
+            if (window.electronAPI) {
+              await window.electronAPI.database.user.upsert({
+                id: user.id,
+                email: user.email,
+                display_name: user.display_name
+              })
+            }
+          }
         }
         break
       

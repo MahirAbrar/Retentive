@@ -14,7 +14,7 @@
 }
 
 .modal {
-  background-color: var(--color-secondary);
+  background-color: var(--color-surface);
   border-radius: var(--radius-base);
   box-shadow: var(--shadow-lg);
   display: flex;
@@ -45,7 +45,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  border-bottom: 1px solid var(--color-gray-200);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .title {
@@ -71,7 +71,7 @@
 }
 
 .closeButton:hover {
-  background-color: var(--color-gray-100);
+  background-color: var(--color-background-secondary);
   color: var(--color-primary);
 }
 

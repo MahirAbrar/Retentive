@@ -85,11 +85,11 @@
 
 /* Text utilities */
 .text-primary {
-  color: var(--color-primary);
+  color: var(--color-text-primary);
 }
 
 .text-secondary {
-  color: var(--color-gray-600);
+  color: var(--color-text-secondary);
 }
 
 .text-muted {

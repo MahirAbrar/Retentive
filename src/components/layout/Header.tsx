@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { GamificationStats } from '../gamification/GamificationStats'
+import { SyncStatus } from './SyncStatus'
 import styles from './Header.module.css'
 
 export function Header() {
@@ -34,6 +35,7 @@ export function Header() {
                 <Button variant="ghost">Statistics</Button>
               </Link>
               <div className={styles.separator} />
+              <SyncStatus />
               <span className={styles.userEmail}>{user.email}</span>
               <Button variant="ghost" onClick={handleSignOut}>
                 Sign Out

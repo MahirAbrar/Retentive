@@ -2,6 +2,8 @@ import './App.css'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ToastProvider } from './components/ui'
 import { AuthProvider } from './hooks/useAuthFixed'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { AchievementProvider } from './hooks/useAchievements'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPageFixed'
 // import { ComponentShowcase } from './components/ComponentShowcase'
@@ -11,6 +13,10 @@ import { TopicDetailView } from './pages/TopicDetailView'
 import { SettingsPage } from './pages/SettingsPage'
 import { StatsPage } from './pages/StatsPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { TestGamificationPage } from './pages/TestGamificationPage'
+import { DarkModeTest } from './pages/DarkModeTest'
+import { TestGamificationPersistence } from './pages/TestGamificationPersistence'
+import { TestAchievements } from './pages/TestAchievements'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineIndicator } from './components/OfflineIndicator'
@@ -65,14 +71,16 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <ToastProvider>
-          <AuthProvider>
-            <div style={{ minHeight: '100vh' }}>
-              <HeaderFixed />
+      <ThemeProvider>
+        <BrowserRouter>
+          <ToastProvider>
+            <AuthProvider>
+              <AchievementProvider>
+                <div style={{ minHeight: '100vh' }}>
+                  <HeaderFixed />
 
-              <main style={{ padding: 'var(--space-8) var(--space-4)' }}>
-                <Routes>
+                  <main style={{ padding: 'var(--space-8) var(--space-4)' }}>
+                    <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -118,13 +126,43 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+                  <Route
+                    path="/test-gamification"
+                    element={
+                      <ProtectedRoute>
+                        <TestGamificationPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/dark-mode-test"
+                    element={<DarkModeTest />}
+                  />
+                  <Route
+                    path="/test-persistence"
+                    element={
+                      <ProtectedRoute>
+                        <TestGamificationPersistence />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/test-achievements"
+                    element={
+                      <ProtectedRoute>
+                        <TestAchievements />
+                      </ProtectedRoute>
+                    }
+                  />
                 </Routes>
               </main>
             </div>
             <OfflineIndicator />
-          </AuthProvider>
-        </ToastProvider>
-      </BrowserRouter>
+          </AchievementProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </BrowserRouter>
+    </ThemeProvider>
     </ErrorBoundary>
   )
 }

@@ -215,10 +215,12 @@ export function TopicDetailView() {
               onChange={(e) => setItemsPerPage(Number(e.target.value))}
               style={{
                 padding: 'var(--space-2) var(--space-3)',
-                border: '1px solid var(--color-gray-300)',
+                border: '1px solid var(--color-border)',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--color-background)',
-                fontSize: 'var(--text-sm)'
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text-primary)',
+                fontSize: 'var(--text-sm)',
+                cursor: 'pointer'
               }}
             >
               <option value="10">10</option>

@@ -128,6 +128,59 @@ export const GAMIFICATION_CONFIG = {
     }
   },
   
+  // ========== ACHIEVEMENTS ==========
+  ACHIEVEMENTS: {
+    FIRST_REVIEW: {
+      id: 'first_review',
+      name: 'First Steps',
+      description: 'Complete your first review',
+      icon: '🎯',
+      points: 50
+    },
+    FIRST_MASTERY: {
+      id: 'first_mastery',
+      name: 'Mastery',
+      description: 'Master your first item',
+      icon: '⭐',
+      points: 100
+    },
+    STREAK_7: {
+      id: 'streak_7',
+      name: 'Week Warrior',
+      description: 'Maintain a 7-day streak',
+      icon: '🔥',
+      points: 200
+    },
+    STREAK_30: {
+      id: 'streak_30',
+      name: 'Consistent',
+      description: 'Maintain a 30-day streak',
+      icon: '🔥🔥',
+      points: 500
+    },
+    PERFECT_10: {
+      id: 'perfect_10',
+      name: 'Perfectionist',
+      description: 'Get perfect timing 10 times',
+      icon: '🎯',
+      points: 300
+    },
+    SPEED_DEMON: {
+      id: 'speed_demon',
+      name: 'Speed Demon',
+      description: 'Review 50 items in one session',
+      icon: '⚡',
+      points: 400
+    },
+    LEVEL_10: {
+      id: 'level_10',
+      name: 'Level 10',
+      description: 'Reach level 10',
+      icon: '🏆',
+      points: 1000
+    }
+  },
+  
   // ========== VISUAL SETTINGS ==========
   VISUALS: {
     // Animations

@@ -5,11 +5,13 @@ import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import { DataManagement } from '../components/settings/DataManagement'
 import { NotificationSettings } from '../components/settings/NotificationSettings'
+import { useTheme } from '../contexts/ThemeContext'
 
 export function SettingsPage() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { addToast } = useToast()
+  const { theme, toggleTheme } = useTheme()
   
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
@@ -234,6 +236,61 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ 
+                padding: '1rem', 
+                backgroundColor: 'var(--color-background-secondary)', 
+                borderRadius: 'var(--radius-sm)',
+                border: '2px solid var(--color-border)' 
+              }}>
+                <label className="body" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  🎨 Theme Settings
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <button
+                    onClick={toggleTheme}
+                    style={{
+                      width: '60px',
+                      height: '32px',
+                      borderRadius: '16px',
+                      border: '2px solid var(--color-primary)',
+                      backgroundColor: theme === 'dark' ? 'var(--color-accent)' : 'var(--color-gray-300)',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      padding: '4px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                    aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                  >
+                    <div
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        backgroundColor: 'white',
+                        position: 'absolute',
+                        top: '2px',
+                        left: theme === 'dark' ? '30px' : '2px',
+                        transition: 'left 0.3s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '14px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      {theme === 'dark' ? '🌙' : '☀️'}
+                    </div>
+                  </button>
+                  <span className="body" style={{ fontWeight: '500' }}>
+                    {theme === 'dark' ? 'Dark Mode' : 'Light Mode'} is currently active
+                  </span>
+                </div>
+                <p className="body-small text-secondary" style={{ marginTop: '0.5rem' }}>
+                  Click the toggle to switch between light and dark themes
+                </p>
+              </div>
+              
               <div>
                 <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
                   Daily Review Reminder
@@ -258,19 +315,21 @@ export function SettingsPage() {
                   Study Session Length
                 </label>
                 <select
+                  defaultValue="15"
                   style={{
                     width: '100%',
                     padding: 'var(--space-3)',
-                    border: '1px solid var(--color-gray-300)',
+                    border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-sm)',
                     fontFamily: 'inherit',
                     fontSize: 'inherit',
-                    backgroundColor: 'var(--color-background)'
+                    backgroundColor: 'var(--color-surface)',
+                    color: 'var(--color-text-primary)'
                   }}
                 >
                   <option value="5">5 minutes</option>
                   <option value="10">10 minutes</option>
-                  <option value="15" selected>15 minutes</option>
+                  <option value="15">15 minutes</option>
                   <option value="30">30 minutes</option>
                   <option value="60">1 hour</option>
                 </select>

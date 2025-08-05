@@ -1,6 +1,6 @@
 .header {
   background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-gray-200);
+  border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
@@ -39,13 +39,13 @@
 .separator {
   width: 1px;
   height: 24px;
-  background-color: var(--color-gray-300);
+  background-color: var(--color-border);
   margin: 0 var(--space-2);
 }
 
 .userEmail {
   font-size: var(--text-sm);
-  color: var(--color-gray-600);
+  color: var(--color-text-secondary);
   margin-right: var(--space-2);
 }
 

@@ -52,6 +52,28 @@ export function GamificationDashboard() {
     }
 
     loadStats()
+    
+    // Listen for stats updates (same as navbar)
+    const unsubscribe = gamificationService.addUpdateListener((updatedStats) => {
+      if (updatedStats.userId === user.id) {
+        setStats({
+          totalPoints: updatedStats.totalPoints,
+          currentLevel: updatedStats.currentLevel,
+          currentStreak: updatedStats.currentStreak,
+          longestStreak: updatedStats.longestStreak,
+          todayReviews: updatedStats.todayReviews,
+          todayPoints: updatedStats.todayPoints,
+          achievements: updatedStats.achievements
+        })
+      }
+    })
+    
+    // Refresh stats every 30 seconds
+    const interval = setInterval(loadStats, 30000)
+    return () => {
+      clearInterval(interval)
+      unsubscribe()
+    }
   }, [user])
 
   if (!user || loading) {

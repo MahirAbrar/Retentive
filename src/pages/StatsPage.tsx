@@ -276,11 +276,13 @@ export function StatsPage() {
             onClick={() => setDateRange('week')}
             style={{
               padding: '0.5rem 1rem',
-              border: '1px solid var(--color-gray-300)',
+              border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: dateRange === 'week' ? 'var(--color-primary)' : 'transparent',
-              color: dateRange === 'week' ? 'white' : 'inherit',
-              cursor: 'pointer'
+              backgroundColor: dateRange === 'week' ? 'var(--color-primary)' : 'var(--color-surface)',
+              color: dateRange === 'week' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              fontWeight: dateRange === 'week' ? '600' : '400'
             }}
           >
             Last Week
@@ -289,11 +291,13 @@ export function StatsPage() {
             onClick={() => setDateRange('month')}
             style={{
               padding: '0.5rem 1rem',
-              border: '1px solid var(--color-gray-300)',
+              border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: dateRange === 'month' ? 'var(--color-primary)' : 'transparent',
-              color: dateRange === 'month' ? 'white' : 'inherit',
-              cursor: 'pointer'
+              backgroundColor: dateRange === 'month' ? 'var(--color-primary)' : 'var(--color-surface)',
+              color: dateRange === 'month' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              fontWeight: dateRange === 'month' ? '600' : '400'
             }}
           >
             Last Month
@@ -302,11 +306,13 @@ export function StatsPage() {
             onClick={() => setDateRange('all')}
             style={{
               padding: '0.5rem 1rem',
-              border: '1px solid var(--color-gray-300)',
+              border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: dateRange === 'all' ? 'var(--color-primary)' : 'transparent',
-              color: dateRange === 'all' ? 'white' : 'inherit',
-              cursor: 'pointer'
+              backgroundColor: dateRange === 'all' ? 'var(--color-primary)' : 'var(--color-surface)',
+              color: dateRange === 'all' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              fontWeight: dateRange === 'all' ? '600' : '400'
             }}
           >
             All Time
