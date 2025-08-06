@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { gamificationService } from '../../services/gamificationService'
 import { useAuth } from '../../hooks/useAuthFixed'
+import { useAchievements } from '../../hooks/useAchievements'
 import { LevelProgress } from './LevelProgress'
-import { Card } from '../ui'
+import { Card, Button, useToast } from '../ui'
 import styles from './GamificationDashboard.module.css'
 import { GAMIFICATION_CONFIG } from '../../config/gamification'
+import { supabase } from '../../services/supabase'
 
 interface AchievementDisplay {
   id: string
@@ -16,6 +18,8 @@ interface AchievementDisplay {
 
 export function GamificationDashboard() {
   const { user } = useAuth()
+  const { showAchievements } = useAchievements()
+  const { addToast } = useToast()
   const [stats, setStats] = useState({
     totalPoints: 0,
     currentLevel: 1,
@@ -26,6 +30,9 @@ export function GamificationDashboard() {
     achievements: [] as string[]
   })
   const [loading, setLoading] = useState(true)
+  const [checkingAchievements, setCheckingAchievements] = useState(false)
+  const [perfectTimingCount, setPerfectTimingCount] = useState(0)
+  const [sessionReviewCount, setSessionReviewCount] = useState(0)
 
   useEffect(() => {
     if (!user) return
@@ -44,6 +51,18 @@ export function GamificationDashboard() {
             achievements: userStats.achievements
           })
         }
+        
+        // Get perfect timing count
+        const { data: dailyStats } = await supabase
+          .from('daily_stats')
+          .select('perfect_timing_count')
+          .eq('user_id', user.id)
+        
+        const totalPerfectTimings = (dailyStats || []).reduce((sum, stat) => sum + (stat.perfect_timing_count || 0), 0)
+        setPerfectTimingCount(totalPerfectTimings)
+        
+        // Get session review count (reviews today)
+        setSessionReviewCount(userStats?.todayReviews || 0)
       } catch (error) {
         console.error('Error loading gamification stats:', error)
       } finally {
@@ -93,6 +112,41 @@ export function GamificationDashboard() {
   }))
 
   const streakBonus = gamificationService.getStreakBonus(stats.currentStreak)
+
+  const handleCheckAchievements = async () => {
+    if (!user) return
+    
+    setCheckingAchievements(true)
+    try {
+      const newAchievements = await gamificationService.checkAndUnlockMissedAchievements(user.id)
+      
+      if (newAchievements.length > 0) {
+        showAchievements(newAchievements)
+        addToast('success', `Unlocked ${newAchievements.length} achievement${newAchievements.length > 1 ? 's' : ''}!`)
+        
+        // Reload stats to show new achievements
+        const userStats = await gamificationService.getUserStats(user.id)
+        if (userStats) {
+          setStats({
+            totalPoints: userStats.totalPoints,
+            currentLevel: userStats.currentLevel,
+            currentStreak: userStats.currentStreak,
+            longestStreak: userStats.longestStreak,
+            todayReviews: userStats.todayReviews,
+            todayPoints: userStats.todayPoints,
+            achievements: userStats.achievements
+          })
+        }
+      } else {
+        addToast('info', 'No new achievements to unlock')
+      }
+    } catch (error) {
+      console.error('Error checking achievements:', error)
+      addToast('error', 'Failed to check achievements')
+    } finally {
+      setCheckingAchievements(false)
+    }
+  }
 
   return (
     <div className={styles.container}>
@@ -145,18 +199,96 @@ export function GamificationDashboard() {
       </Card>
 
       <Card className={styles.achievementsCard}>
-        <h2 className={styles.title}>Achievements</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+          <h2 className={styles.title} style={{ marginBottom: 0 }}>Achievements</h2>
+          <Button 
+            variant="secondary" 
+            size="small"
+            onClick={handleCheckAchievements}
+            loading={checkingAchievements}
+            disabled={checkingAchievements}
+          >
+            Check for Achievements
+          </Button>
+        </div>
         <div className={styles.achievementsGrid}>
-          {achievements.map(achievement => (
-            <div 
-              key={achievement.id} 
-              className={`${styles.achievement} ${achievement.unlocked ? styles.unlocked : styles.locked}`}
-            >
-              <div className={styles.achievementIcon}>{achievement.icon}</div>
-              <h4 className={styles.achievementName}>{achievement.name}</h4>
-              <p className={styles.achievementDescription}>{achievement.description}</p>
-            </div>
-          ))}
+          {achievements.map(achievement => {
+            // Calculate progress for locked achievements
+            let progress = 0
+            let progressText = ''
+            
+            if (!achievement.unlocked) {
+              const config = Object.values(GAMIFICATION_CONFIG.ACHIEVEMENTS).find(a => a.id === achievement.id)
+              
+              if (config) {
+                switch (achievement.id) {
+                  case 'first_review':
+                    progress = stats.todayReviews > 0 ? 100 : 0
+                    progressText = stats.todayReviews > 0 ? 'Complete!' : 'Review your first item'
+                    break
+                  case 'streak_7':
+                    progress = Math.min((stats.currentStreak / 7) * 100, 100)
+                    progressText = `${stats.currentStreak}/7 days`
+                    break
+                  case 'streak_30':
+                    progress = Math.min((stats.currentStreak / 30) * 100, 100)
+                    progressText = `${stats.currentStreak}/30 days`
+                    break
+                  case 'points_100':
+                    progress = Math.min((stats.totalPoints / 100) * 100, 100)
+                    progressText = `${stats.totalPoints}/100 points`
+                    break
+                  case 'points_1000':
+                    progress = Math.min((stats.totalPoints / 1000) * 100, 100)
+                    progressText = `${stats.totalPoints}/1000 points`
+                    break
+                  case 'level_5':
+                    progress = Math.min((stats.currentLevel / 5) * 100, 100)
+                    progressText = `Level ${stats.currentLevel}/5`
+                    break
+                  case 'level_10':
+                    progress = Math.min((stats.currentLevel / 10) * 100, 100)
+                    progressText = `Level ${stats.currentLevel}/10`
+                    break
+                  case 'perfect_10':
+                    progress = Math.min((perfectTimingCount / 10) * 100, 100)
+                    progressText = `${perfectTimingCount}/10 perfect timings`
+                    break
+                  case 'speed_demon':
+                    progress = Math.min((sessionReviewCount / 50) * 100, 100)
+                    progressText = `${sessionReviewCount}/50 reviews today`
+                    break
+                  default:
+                    progressText = 'Keep learning!'
+                }
+              }
+            }
+            
+            return (
+              <div 
+                key={achievement.id} 
+                className={`${styles.achievement} ${achievement.unlocked ? styles.unlocked : styles.locked}`}
+                title={achievement.unlocked ? 'Unlocked!' : progressText}
+              >
+                <div className={styles.achievementIcon}>{achievement.icon}</div>
+                <h4 className={styles.achievementName}>{achievement.name}</h4>
+                <p className={styles.achievementDescription}>{achievement.description}</p>
+                
+                {!achievement.unlocked && progress > 0 && (
+                  <div className={styles.progressBar}>
+                    <div 
+                      className={styles.progressFill} 
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                )}
+                
+                {!achievement.unlocked && (
+                  <p className={styles.progressText}>{progressText}</p>
+                )}
+              </div>
+            )
+          })}
         </div>
       </Card>
     </div>

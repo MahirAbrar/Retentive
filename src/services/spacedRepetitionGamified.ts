@@ -37,8 +37,8 @@ export class SpacedRepetitionGamifiedService {
     // Convert hours to days for storage
     const intervalDays = hoursUntilNext / 24
     
-    // Check if mastered
-    const isMastered = item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired - 1
+    // Check if mastered (will be mastered AFTER this review completes)
+    const isMastered = item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired
     const masteryProgress = Math.min(
       (item.review_count + 1) / GAMIFICATION_CONFIG.MASTERY.reviewsRequired,
       1
@@ -57,7 +57,14 @@ export class SpacedRepetitionGamifiedService {
     const now = new Date()
     
     return items.filter(item => {
-      if (!item.next_review_at) return true // Never reviewed
+      // Never reviewed items (review_count = 0) are considered "ready to learn" not "due"
+      if (item.review_count === 0) return false
+      
+      // If no next_review_at is set but item has been reviewed, something is wrong
+      if (!item.next_review_at) {
+        console.warn('Item has review_count > 0 but no next_review_at:', item)
+        return false
+      }
       
       const reviewDate = new Date(item.next_review_at)
       const mode = GAMIFICATION_CONFIG.LEARNING_MODES[item.learning_mode]

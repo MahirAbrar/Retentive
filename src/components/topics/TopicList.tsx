@@ -366,17 +366,23 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
       }))
       
       // Update stats
-      const updatedItems = topicItems[item.topic_id].map(i => 
+      // Use the updated items from the state update above
+      const updatedItems = [...(topicItems[item.topic_id] || [])].map(i => 
         i.id === item.id ? updatedItem : i
       )
-      const dueCount = updatedItems.filter(i => i.review_count > 0 && isDue(i)).length
+      // Need to pass the updated item to isDue, not the original
+      const dueCount = updatedItems.filter(i => {
+        if (i.review_count === 0) return false
+        // For the item we just reviewed, check using the updated version
+        return isDue(i.id === item.id ? updatedItem : i)
+      }).length
       const newCount = updatedItems.filter(i => i.review_count === 0).length
       setTopicStats(prev => ({
         ...prev,
         [item.topic_id]: { total: updatedItems.length, due: dueCount, new: newCount }
       }))
       
-      // Show feedback with points
+      // Show feedback
       const masteryStage = spacedRepetitionGamified.getMasteryStage(updatedItem.review_count)
       let message = `${pointsBreakdown.message} +${totalPoints} points`
       
@@ -388,7 +394,9 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
         addToast('success', `🎉 Item mastered! ${masteryStage.emoji} +${GAMIFICATION_CONFIG.MASTERY.bonusPoints} bonus points!`)
       } else {
         const hoursUntilNext = Math.round(reviewResult.intervalDays * 24)
-        const timeUnit = hoursUntilNext < 24 ? `${hoursUntilNext} hour${hoursUntilNext !== 1 ? 's' : ''}` : 
+        const minutesUntilNext = Math.round(reviewResult.intervalDays * 24 * 60)
+        const timeUnit = minutesUntilNext < 60 ? `${minutesUntilNext} minute${minutesUntilNext !== 1 ? 's' : ''}` :
+                        hoursUntilNext < 24 ? `${hoursUntilNext} hour${hoursUntilNext !== 1 ? 's' : ''}` : 
                         `${Math.round(reviewResult.intervalDays)} day${reviewResult.intervalDays !== 1 ? 's' : ''}`
         addToast('success', `${message} | ${masteryStage.emoji} ${masteryStage.label} | Next: ${timeUnit}`)
       }
@@ -576,6 +584,8 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                       {items.map((item) => {
                         const status = getItemStatus(item)
                         const isProcessing = processingItems.has(item.id)
+                        
+                        // Check if item is due
                         const itemIsDue = isDue(item)
                         
                         return (

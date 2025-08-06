@@ -10,8 +10,7 @@ export const GAMIFICATION_CONFIG = {
         0.25,    // Review 1: 15 minutes
         1,       // Review 2: 1 hour
         4,       // Review 3: 4 hours
-        12,      // Review 4: 12 hours
-        24,      // Review 5: 1 day (mastered)
+        12,      // Review 4: 12 hours (mastered)
       ],
       
       // Review windows (hours before/after due time)
@@ -35,8 +34,7 @@ export const GAMIFICATION_CONFIG = {
         24,      // Review 1: 1 day
         72,      // Review 2: 3 days
         168,     // Review 3: 1 week
-        336,     // Review 4: 2 weeks
-        720,     // Review 5: 1 month (mastered)
+        336,     // Review 4: 2 weeks (mastered)
       ],
       
       // Review windows
@@ -61,16 +59,15 @@ export const GAMIFICATION_CONFIG = {
   
   // ========== MASTERY SETTINGS ==========
   MASTERY: {
-    reviewsRequired: 5,  // Complete 5 reviews to master
+    reviewsRequired: 4,  // Complete 4 reviews to master
     bonusPoints: 100,    // Points for mastering an item
     
     // Visual indicators at different stages
     stages: {
       1: { emoji: "🌱", label: "New" },
       2: { emoji: "🌿", label: "Growing" },
-      3: { emoji: "🌳", label: "Developing" },
-      4: { emoji: "🌲", label: "Strong" },
-      5: { emoji: "⭐", label: "Mastered" }
+      3: { emoji: "🌳", label: "Strong" },
+      4: { emoji: "⭐", label: "Mastered" }
     }
   },
   
@@ -171,6 +168,27 @@ export const GAMIFICATION_CONFIG = {
       description: 'Review 50 items in one session',
       icon: '⚡',
       points: 400
+    },
+    POINTS_100: {
+      id: 'points_100',
+      name: 'Century',
+      description: 'Earn 100 points',
+      icon: '💯',
+      points: 50
+    },
+    POINTS_1000: {
+      id: 'points_1000',
+      name: 'Millionaire',
+      description: 'Earn 1000 points',
+      icon: '💰',
+      points: 200
+    },
+    LEVEL_5: {
+      id: 'level_5',
+      name: 'Level 5',
+      description: 'Reach level 5',
+      icon: '🎖️',
+      points: 100
     },
     LEVEL_10: {
       id: 'level_10',

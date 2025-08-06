@@ -114,41 +114,184 @@
   text-align: center;
   padding: var(--space-4);
   border-radius: var(--radius-lg);
-  background: var(--color-gray-50);
+  background: var(--color-background-secondary);
+  border: 2px solid var(--color-border);
   transition: all var(--transition-base);
   cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.achievement.unlocked:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 
+    0 0 40px rgba(255, 215, 0, 0.9),
+    0 8px 25px rgba(255, 165, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .achievement.unlocked {
-  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
-  color: var(--color-white);
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #1a202c;
+  border: 2px solid #FFD700;
+  box-shadow: 
+    0 0 20px rgba(255, 215, 0, 0.6),
+    0 4px 15px rgba(255, 165, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(255, 215, 0, 0.6),
+      0 4px 15px rgba(255, 165, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px rgba(255, 215, 0, 0.8),
+      0 6px 20px rgba(255, 165, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+}
+
+.achievement.unlocked::before {
+  content: '★';
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  background: #FFD700;
+  color: #1a202c;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: rotate 10s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.achievement.unlocked::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: shine 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%) translateY(-100%);
+  }
+  50%, 100% {
+    transform: translateX(100%) translateY(100%);
+  }
 }
 
 .achievement.locked {
-  opacity: 0.5;
-  filter: grayscale(1);
+  opacity: 0.6;
+  filter: grayscale(0.8);
 }
 
 .achievementIcon {
   font-size: 3rem;
   margin-bottom: var(--space-2);
+  position: relative;
+  z-index: 2;
 }
 
 .achievementName {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   margin: 0 0 var(--space-1) 0;
+  position: relative;
+  z-index: 2;
 }
 
 .achievementDescription {
   font-size: var(--text-xs);
   margin: 0;
   opacity: 0.9;
+  position: relative;
+  z-index: 2;
 }
 
 .achievement.locked .achievementName,
 .achievement.locked .achievementDescription {
   color: var(--color-text-secondary);
+}
+
+.achievement.unlocked .achievementName {
+  color: #1a202c;
+  font-weight: var(--font-bold);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.achievement.unlocked .achievementDescription {
+  color: #2d3748;
+  font-weight: var(--font-medium);
+}
+
+.achievement.unlocked .achievementIcon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transform: scale(1.1);
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: scale(1.1) translateY(0);
+  }
+  50% {
+    transform: scale(1.1) translateY(-5px);
+  }
+}
+
+.progressBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--color-gray-300);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-2);
+  font-weight: var(--font-medium);
 }
 
 @media (max-width: 768px) {

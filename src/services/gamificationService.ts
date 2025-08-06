@@ -422,48 +422,63 @@ export class GamificationService {
       
       const existingIds = new Set(existingAchievements?.map(a => a.achievement_id) || [])
       
-      // Check for first review achievement
-      if (reviewData.reviewCount === 1 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW.id)) {
-        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW)
-        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW.id)
-      }
-      
-      // Check for perfect timing achievements
-      if (reviewData.wasPerfectTiming) {
-        // Get today's perfect timing count
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const { data: todayStats } = await supabase
-          .from('daily_stats')
-          .select('perfect_timing_count')
+      // Check for first review achievement (user's first review ever)
+      if (!existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW.id)) {
+        // Check if this is actually the user's first review by checking total reviews
+        const { count: totalReviews } = await supabase
+          .from('review_sessions')
+          .select('*', { count: 'exact', head: true })
           .eq('user_id', userId)
-          .eq('date', today.toISOString().split('T')[0])
-          .single()
         
-        const perfectCount = (todayStats?.perfect_timing_count || 0) + 1
-        
-        // Check perfect timing milestones
-        if (perfectCount === 5 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_WEEK.id)) {
-          await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_WEEK)
-          newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_WEEK.id)
+        if (totalReviews === 1) {
+          await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW)
+          newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW.id)
         }
       }
       
-      // Check for mastery achievement
-      if (reviewData.reviewCount === GAMIFICATION_CONFIG.MASTERY.reviewsRequired && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY.id)) {
-        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY)
-        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY.id)
+      // Check for perfect timing achievements
+      if (reviewData.wasPerfectTiming && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_10.id)) {
+        // Get total perfect timing count across all time
+        const { data: allStats } = await supabase
+          .from('daily_stats')
+          .select('perfect_timing_count')
+          .eq('user_id', userId)
+        
+        const totalPerfectCount = (allStats || []).reduce((sum, stat) => sum + (stat.perfect_timing_count || 0), 0) + 1
+        
+        // Check perfect timing milestone (10 times total)
+        if (totalPerfectCount >= 10) {
+          await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_10)
+          newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_10.id)
+        }
+      }
+      
+      // Check for mastery achievement (when completing the review that brings item to mastery)
+      if (reviewData.reviewCount >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY.id)) {
+        // Check if user has any mastered items already
+        const { count: masteredCount } = await supabase
+          .from('learning_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .gte('review_count', GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+        
+        // If this is their first mastered item (or will be after this review)
+        if (masteredCount === 0 || (masteredCount === 1 && reviewData.reviewCount === GAMIFICATION_CONFIG.MASTERY.reviewsRequired)) {
+          await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY)
+          newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY.id)
+        }
       }
       
       // Check streak achievements
-      if (stats.currentStreak === 7 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.WEEK_STREAK.id)) {
-        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.WEEK_STREAK)
-        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.WEEK_STREAK.id)
+      if (stats.currentStreak >= 7 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7.id)) {
+        console.log('Unlocking Week Warrior achievement!')
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7.id)
       }
       
-      if (stats.currentStreak === 30 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.MONTH_STREAK.id)) {
-        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.MONTH_STREAK)
-        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.MONTH_STREAK.id)
+      if (stats.currentStreak >= 30 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_30.id)) {
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_30)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_30.id)
       }
       
       // Check point milestones
@@ -486,6 +501,12 @@ export class GamificationService {
       if (stats.currentLevel >= 10 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_10.id)) {
         await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_10)
         newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_10.id)
+      }
+      
+      // Check speed demon achievement (50 reviews in one day)
+      if (stats.todayReviews >= 50 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.SPEED_DEMON.id)) {
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.SPEED_DEMON)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.SPEED_DEMON.id)
       }
       
       // Clear cache to force refresh
@@ -542,6 +563,115 @@ export class GamificationService {
       }
     } catch (error) {
       console.error('Error in unlockAchievement:', error)
+    }
+  }
+
+  async checkAndUnlockMissedAchievements(userId: string): Promise<string[]> {
+    const newAchievements: string[] = []
+    
+    try {
+      const stats = await this.getUserStats(userId)
+      if (!stats) return []
+      
+      // Get existing achievements
+      const { data: existingAchievements } = await supabase
+        .from('achievements')
+        .select('achievement_id')
+        .eq('user_id', userId)
+      
+      const existingIds = new Set(existingAchievements?.map(a => a.achievement_id) || [])
+      
+      // Check first review
+      if (!existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW.id)) {
+        const { count: totalReviews } = await supabase
+          .from('review_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+        
+        if (totalReviews && totalReviews > 0) {
+          await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW)
+          newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_REVIEW.id)
+        }
+      }
+      
+      // Check first mastery
+      if (!existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY.id)) {
+        const { count: masteredCount } = await supabase
+          .from('learning_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .gte('review_count', GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+        
+        if (masteredCount && masteredCount > 0) {
+          await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY)
+          newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.FIRST_MASTERY.id)
+        }
+      }
+      
+      // Check perfect timing
+      if (!existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_10.id)) {
+        const { data: allStats } = await supabase
+          .from('daily_stats')
+          .select('perfect_timing_count')
+          .eq('user_id', userId)
+        
+        const totalPerfectCount = (allStats || []).reduce((sum, stat) => sum + (stat.perfect_timing_count || 0), 0)
+        
+        if (totalPerfectCount >= 10) {
+          await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_10)
+          newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.PERFECT_10.id)
+        }
+      }
+      
+      // Check streak achievements
+      if (stats.currentStreak >= 7 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7.id)) {
+        console.log('Unlocking Week Warrior achievement!')
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7.id)
+      }
+      
+      if (stats.currentStreak >= 30 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_30.id)) {
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_30)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_30.id)
+      }
+      
+      // Check point milestones
+      if (stats.totalPoints >= 100 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.POINTS_100.id)) {
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.POINTS_100)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.POINTS_100.id)
+      }
+      
+      if (stats.totalPoints >= 1000 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.POINTS_1000.id)) {
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.POINTS_1000)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.POINTS_1000.id)
+      }
+      
+      // Check level achievements
+      if (stats.currentLevel >= 5 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_5.id)) {
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_5)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_5.id)
+      }
+      
+      if (stats.currentLevel >= 10 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_10.id)) {
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_10)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.LEVEL_10.id)
+      }
+      
+      // Check speed demon achievement (50 reviews in one day)
+      if (stats.todayReviews >= 50 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.SPEED_DEMON.id)) {
+        await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.SPEED_DEMON)
+        newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.SPEED_DEMON.id)
+      }
+      
+      // Clear cache to force refresh
+      if (newAchievements.length > 0) {
+        cacheService.delete(`gamification:${userId}`)
+      }
+      
+      return newAchievements
+    } catch (error) {
+      console.error('Error checking missed achievements:', error)
+      return []
     }
   }
 
