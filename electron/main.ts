@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, Menu, ipcMain, Tray, nativeImage } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Store from 'electron-store';
@@ -12,6 +12,8 @@ const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow: BrowserWindow | null = null;
 let notificationService: NotificationService | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 
 // Initialize secure storage with encryption
 const store = new Store({
@@ -23,6 +25,79 @@ const store = new Store({
     },
   },
 });
+
+function createTray() {
+  // Create a simple icon for the tray
+  let icon;
+  
+  // Try to load an icon file, or create a simple one
+  const iconPath = path.join(__dirname, 'icon-template.png');
+  if (require('fs').existsSync(iconPath)) {
+    icon = nativeImage.createFromPath(iconPath);
+    if (process.platform === 'darwin') {
+      icon.setTemplateImage(true);
+    }
+  } else {
+    // Create a simple 16x16 icon programmatically
+    icon = nativeImage.createFromBuffer(Buffer.from([
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+      0, 0, 0, 16, 0, 0, 0, 16, 8, 2, 0, 0, 0, 144, 145, 104,
+      54, 0, 0, 0, 25, 73, 68, 65, 84, 120, 156, 98, 248, 15, 0, 1, 1, 1, 0,
+      24, 220, 3, 240, 15, 0, 3, 3, 0, 0, 254, 254, 254, 0, 0, 0,
+      0, 0, 73, 69, 78, 68, 174, 66, 96, 130
+    ]));
+  }
+  
+  tray = new Tray(icon);
+  
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show App',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+          }
+          mainWindow.focus();
+        }
+      }
+    },
+    {
+      label: 'Hide App',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.hide();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+  
+  tray.setToolTip('Retentive - Spaced Repetition App');
+  tray.setContextMenu(contextMenu);
+  
+  // On Windows, single click to show/hide
+  if (process.platform === 'win32') {
+    tray.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    });
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -36,7 +111,8 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,  // Always keep web security enabled
-      allowRunningInsecureContent: false  // Block insecure content
+      allowRunningInsecureContent: false,  // Block insecure content
+      backgroundThrottling: false  // Prevent timer throttling for notifications
     },
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#fffef9', // Cream background from our theme
@@ -102,8 +178,28 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  // Handle window close - hide instead of quit
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+      
+      // On macOS, hide dock icon when window is hidden
+      if (process.platform === 'darwin') {
+        app.dock.hide();
+      }
+    }
+  });
+  
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+  
+  // Show dock icon when window is shown (macOS)
+  mainWindow.on('show', () => {
+    if (process.platform === 'darwin') {
+      app.dock.show();
+    }
   });
 }
 
@@ -228,6 +324,16 @@ ipcMain.handle('notifications:schedule', async (_, type: string, data: any) => {
       case 'streak':
         notificationService.scheduleStreakCheck(data.userId)
         break
+      case 'item-due':
+        notificationService.scheduleItemDueNotification(
+          data.userId,
+          data.itemId,
+          data.itemContent,
+          data.topicName,
+          data.topicId,
+          data.dueAt
+        )
+        break
     }
     return true
   } catch (error) {
@@ -236,14 +342,16 @@ ipcMain.handle('notifications:schedule', async (_, type: string, data: any) => {
   }
 })
 
-ipcMain.handle('notifications:cancel', async (_, type: string, userId: string) => {
+ipcMain.handle('notifications:cancel', async (_, type: string, data: string | { itemId: string }) => {
   if (!notificationService) return false
   
   try {
-    if (type === 'all') {
-      notificationService.cancelUserJobs(userId)
-    } else {
-      notificationService.cancelJob(`${type}-${userId}`)
+    if (type === 'all' && typeof data === 'string') {
+      notificationService.cancelUserJobs(data) // data is userId
+    } else if (type === 'item' && typeof data === 'object' && data.itemId) {
+      notificationService.cancelItemNotification(data.itemId)
+    } else if (typeof data === 'string') {
+      notificationService.cancelJob(`${type}-${data}`)
     }
     return true
   } catch (error) {
@@ -258,11 +366,28 @@ ipcMain.handle('notifications:test', async () => {
   try {
     notificationService.sendNotification(
       'Test Notification',
-      'Notifications are working correctly!'
+      'Notifications are working correctly! 🎉'
     )
     return true
   } catch (error) {
     console.error('Error sending test notification:', error)
+    return false
+  }
+})
+
+// Test daily reminder immediately
+ipcMain.handle('notifications:testDaily', async (_, userId: string) => {
+  if (!notificationService) {
+    console.error('Notification service not initialized')
+    return false
+  }
+  
+  try {
+    console.log('Manually triggering daily reminder for user:', userId)
+    await notificationService.checkAndSendStudyReminder(userId)
+    return true
+  } catch (error) {
+    console.error('Error testing daily reminder:', error)
     return false
   }
 })
@@ -299,6 +424,7 @@ app.whenReady().then(() => {
   
   createWindow();
   createMenu();
+  createTray();  // Create system tray
   
   if (mainWindow && notificationService) {
     notificationService.setMainWindow(mainWindow)
@@ -312,7 +438,9 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // Don't quit when all windows are closed - keep running in background
+  // The app will only quit when isQuitting is true (from tray menu)
+  if (isQuitting) {
     app.quit();
   }
 });

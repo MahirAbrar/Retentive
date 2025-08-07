@@ -82,11 +82,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     schedule: async (type: string, data: any) => {
       return await ipcRenderer.invoke('notifications:schedule', type, data)
     },
-    cancel: async (type: string, userId: string) => {
-      return await ipcRenderer.invoke('notifications:cancel', type, userId)
+    cancel: async (type: string, data: string | { itemId: string }) => {
+      return await ipcRenderer.invoke('notifications:cancel', type, data)
     },
     test: async () => {
       return await ipcRenderer.invoke('notifications:test')
+    },
+    testDaily: async (userId: string) => {
+      return await ipcRenderer.invoke('notifications:testDaily', userId)
     }
   },
   // Database methods
@@ -196,8 +199,9 @@ export interface IElectronAPI {
   }
   notifications: {
     schedule: (type: string, data: any) => Promise<boolean>
-    cancel: (type: string, userId: string) => Promise<boolean>
+    cancel: (type: string, data: string | { itemId: string }) => Promise<boolean>
     test: () => Promise<boolean>
+    testDaily: (userId: string) => Promise<boolean>
   }
   database: {
     topics: {

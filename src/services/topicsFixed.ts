@@ -58,16 +58,21 @@ class TopicsService {
 
   async createTopic(topic: Omit<Topic, 'id' | 'created_at' | 'updated_at'>): Promise<TopicsResponse<Topic>> {
     try {
+      console.log('Creating topic with data:', topic)
       const { data, error } = await supabase
         .from('topics')
         .insert(topic)
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase error details:', error)
+        throw error
+      }
 
       return { data, error: null }
     } catch (error) {
+      console.error('Error in createTopic:', error)
       return {
         data: null,
         error: error instanceof Error ? error : new Error('Failed to create topic'),

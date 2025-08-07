@@ -224,6 +224,71 @@ export function NotificationSettings() {
               Test Notification
             </Button>
             
+            {settings.dailyReminder.enabled && (
+              <>
+                <Button 
+                  variant="ghost" 
+                  onClick={async () => {
+                    if (!user) return
+                    
+                    const success = await window.electronAPI.notifications.testDaily(user.id)
+                    if (success) {
+                      addToast('info', 'Daily reminder test triggered - check if you have due items')
+                    } else {
+                      addToast('error', 'Failed to test daily reminder - check console')
+                    }
+                  }}
+                >
+                  Test Daily Now
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  onClick={async () => {
+                    // Set the time to 1 minute from now for testing
+                    const now = new Date()
+                    now.setMinutes(now.getMinutes() + 1)
+                    const testTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+                    
+                    await window.electronAPI.notifications.schedule('daily', { 
+                      userId: user?.id, 
+                      time: testTime 
+                    })
+                    
+                    addToast('info', `Daily reminder scheduled for ${testTime} (in 1 minute)`)
+                  }}
+                >
+                  Schedule (1 min)
+                </Button>
+              </>
+            )}
+            
+            <Button 
+              variant="ghost" 
+              onClick={async () => {
+                if (!user) return
+                
+                // Schedule a test notification for 10 seconds from now
+                const testDueAt = new Date(Date.now() + 10000).toISOString()
+                const success = await window.electronAPI.notifications.schedule('item-due', {
+                  userId: user.id,
+                  itemId: 'test-item-' + Date.now(),
+                  itemContent: 'This is a test notification item',
+                  topicName: 'Test Topic',
+                  topicId: 'test-topic',
+                  dueAt: testDueAt
+                })
+                
+                if (success) {
+                  addToast('success', 'Test due notification scheduled for 10 seconds from now')
+                } else {
+                  addToast('error', 'Failed to schedule test notification')
+                }
+              }}
+            >
+              Test Due (10s)
+            </Button>
+            
             <p className="body-small text-secondary">
               Notifications require the app to be running
             </p>

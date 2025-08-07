@@ -257,6 +257,11 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
     
     const item = deleteItemConfirm.item
     try {
+      // Cancel any scheduled notification for this item
+      if (window.electronAPI?.notifications) {
+        await window.electronAPI.notifications.cancel('item', { itemId: item.id })
+      }
+      
       const { error } = await supabase
         .from('learning_items')
         .delete()
@@ -313,6 +318,27 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
         next_review_at: reviewResult.nextReviewAt,
         interval_days: reviewResult.intervalDays,
         ease_factor: reviewResult.easeFactor
+      }
+      
+      // Cancel any existing notification for this item (in case it was reviewed early)
+      if (window.electronAPI?.notifications) {
+        await window.electronAPI.notifications.cancel('item', { itemId: item.id })
+      }
+      
+      // Schedule notification for next review if not mastered
+      if (updatedItem.next_review_at && updatedItem.review_count < GAMIFICATION_CONFIG.MASTERY.reviewsRequired) {
+        const topic = topics.find(t => t.id === item.topic_id)
+        if (topic && window.electronAPI?.notifications) {
+          await window.electronAPI.notifications.schedule('item-due', {
+            userId: user.id,
+            itemId: item.id,
+            itemContent: item.content,
+            topicName: topic.name,
+            topicId: topic.id,
+            dueAt: updatedItem.next_review_at
+          })
+          console.log(`Scheduled notification for item ${item.id} at ${updatedItem.next_review_at}`)
+        }
       }
       
       const { error } = await supabase

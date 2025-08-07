@@ -30,9 +30,10 @@ export class SpacedRepetitionGamifiedService {
     // Get hours until next review from config
     const hoursUntilNext = mode.intervals[reviewIndex]
     
-    // Calculate next review date
-    const nextReviewAt = new Date()
-    nextReviewAt.setHours(nextReviewAt.getHours() + hoursUntilNext)
+    // Calculate next review date using milliseconds for precision
+    const now = new Date()
+    const millisecondsUntilNext = hoursUntilNext * 60 * 60 * 1000
+    const nextReviewAt = new Date(now.getTime() + millisecondsUntilNext)
     
     // Convert hours to days for storage
     const intervalDays = hoursUntilNext / 24
@@ -69,11 +70,11 @@ export class SpacedRepetitionGamifiedService {
       const reviewDate = new Date(item.next_review_at)
       const mode = GAMIFICATION_CONFIG.LEARNING_MODES[item.learning_mode]
       
-      // Check if within early window
-      const earliestReview = new Date(reviewDate)
-      earliestReview.setHours(earliestReview.getHours() - mode.windowBefore)
+      // Check if within early window (windowBefore is in hours)
+      const windowBeforeMs = mode.windowBefore * 60 * 60 * 1000
+      const earliestReviewTime = reviewDate.getTime() - windowBeforeMs
       
-      return now >= earliestReview
+      return now.getTime() >= earliestReviewTime
     }).sort((a, b) => {
       // Sort by priority (descending) then by due date (ascending)
       if (a.priority !== b.priority) {

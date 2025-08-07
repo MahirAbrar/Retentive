@@ -123,6 +123,83 @@ export function SettingsPage() {
     }
   }
 
+  const handleResetData = async () => {
+    if (!confirm('Are you sure you want to delete all your topics and learning items? This action cannot be undone.')) {
+      return
+    }
+
+    if (!confirm('This will permanently delete ALL your topics and subtopics. Are you absolutely sure?')) {
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      // Delete all learning items first (due to foreign key constraints)
+      const { error: itemsError } = await supabase
+        .from('learning_items')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (itemsError) throw itemsError
+
+      // Then delete all topics
+      const { error: topicsError } = await supabase
+        .from('topics')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (topicsError) throw topicsError
+
+      // Reset gamification stats
+      const { error: statsError } = await supabase
+        .from('user_gamification_stats')
+        .update({
+          total_points: 0,
+          current_streak: 0,
+          longest_streak: 0,
+          total_reviews: 0,
+          total_items_mastered: 0,
+          perfect_days: 0
+        })
+        .eq('user_id', user.id)
+
+      if (statsError) {
+        console.warn('Failed to reset gamification stats:', statsError)
+      }
+
+      // Delete all review sessions
+      const { error: sessionsError } = await supabase
+        .from('review_sessions')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (sessionsError) {
+        console.warn('Failed to delete review sessions:', sessionsError)
+      }
+
+      // Delete all achievements
+      const { error: achievementsError } = await supabase
+        .from('user_achievements')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (achievementsError) {
+        console.warn('Failed to delete achievements:', achievementsError)
+      }
+
+      addToast('success', 'All data has been reset successfully')
+      
+      // Navigate to home page after reset
+      navigate('/')
+    } catch (error) {
+      console.error('Error resetting data:', error)
+      addToast('error', 'Failed to reset data. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!user) {
     return null
   }
@@ -353,26 +430,42 @@ export function SettingsPage() {
             <h3 className="h4" style={{ color: 'var(--color-error)' }}>Danger Zone</h3>
           </CardHeader>
           <CardContent>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <p className="body">
-                Once you delete your account, there is no going back. Please be certain.
-              </p>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <p className="body" style={{ marginBottom: '1rem' }}>
+                  <strong>Reset All Data:</strong> Delete all your topics and learning items.
+                </p>
                 <Button
                   variant="ghost"
-                  onClick={() => signOut()}
+                  onClick={handleResetData}
                   disabled={loading}
+                  style={{ color: 'var(--color-warning)', borderColor: 'var(--color-warning)' }}
                 >
-                  Sign Out
+                  Reset All Data
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={handleDeleteAccount}
-                  disabled={loading}
-                  style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
-                >
-                  Delete Account
-                </Button>
+              </div>
+              
+              <div style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '1rem' }}>
+                <p className="body" style={{ marginBottom: '1rem' }}>
+                  <strong>Account Actions:</strong> Sign out or permanently delete your account.
+                </p>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => signOut()}
+                    disabled={loading}
+                  >
+                    Sign Out
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleDeleteAccount}
+                    disabled={loading}
+                    style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
+                  >
+                    Delete Account
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>

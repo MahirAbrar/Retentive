@@ -80,7 +80,8 @@ export function NewTopicPage() {
       })
       
       if (topicError || !topic) {
-        throw new Error('Failed to create topic')
+        console.error('Database error:', topicError)
+        throw new Error(topicError?.message || 'Failed to create topic')
       }
       
       // Parse subtopics and create learning items

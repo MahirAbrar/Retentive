@@ -1,15 +1,16 @@
 import type { LearningMode, ReviewDifficulty } from '../types/database'
+import { GAMIFICATION_CONFIG } from '../config/gamification'
 
-export const LEARNING_MODES: Record<LearningMode, { label: string; description: string }> = {
-  cram: {
-    label: 'Cram Mode',
-    description: 'Intensive review with shorter intervals for quick learning',
-  },
-  steady: {
-    label: 'Steady Mode',
-    description: 'Traditional spaced repetition for long-term retention',
-  },
-}
+// Pull learning modes from gamification config
+export const LEARNING_MODES: Record<string, { label: string; description: string }> = Object.entries(
+  GAMIFICATION_CONFIG.LEARNING_MODES
+).reduce((acc, [key, mode]) => {
+  acc[key] = {
+    label: mode.name,
+    description: mode.description,
+  }
+  return acc
+}, {} as Record<string, { label: string; description: string }>)
 
 export const PRIORITY_LEVELS = {
   MIN: 1,
@@ -78,7 +79,5 @@ export const DEFAULT_USER_SETTINGS = {
   preferred_study_time: null,
 }
 
-// Import mastery settings from gamification config
-import { GAMIFICATION_CONFIG } from '../config/gamification'
-
+// Export mastery settings from gamification config
 export const MASTERY_THRESHOLD = GAMIFICATION_CONFIG.MASTERY.reviewsRequired

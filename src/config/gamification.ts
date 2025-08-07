@@ -1,16 +1,42 @@
 export const GAMIFICATION_CONFIG = {
   // ========== SPACED REPETITION INTERVALS ==========
   LEARNING_MODES: {
-    cram: {
-      name: "Cram Mode",
-      description: "Quick reviews for short-term memory",
+    ultracram: {
+      name: "Ultra-Cram Mode",
+      description: "Test in 24-48 hours - maximum short-term retention",
       
       // Exact intervals in hours
       intervals: [
-        0.25,    // Review 1: 15 minutes
-        1,       // Review 2: 1 hour
-        4,       // Review 3: 4 hours
-        12,      // Review 4: 12 hours (mastered)
+        0.5,     // Review 1: 30 minutes
+        2,       // Review 2: 2 hours
+        9,       // Review 3: 9 hours (before bed)
+        20,      // Review 4: Next morning (~20 hours)
+        4,       // Review 5: 4 hours before test (mastered)
+      ],
+      
+      // Review windows (hours before/after due time)
+      windowBefore: 0,      // Can't review early in ultra-cram mode
+      windowAfter: 1,       // 1 hour grace period
+      
+      // Points for reviewing in different windows
+      pointsMultiplier: {
+        onTime: 2.5,        // Within 15 min of due time
+        inWindow: 1.8,      // Within the window
+        late: 0.7,          // Outside window
+      }
+    },
+    
+    cram: {
+      name: "Standard Cram Mode",
+      description: "Test in 3-7 days - balanced short-term retention",
+      
+      // Exact intervals in hours
+      intervals: [
+        0.5,     // Review 1: 30 minutes
+        3,       // Review 2: 3 hours
+        24,      // Review 3: 1 day
+        48,      // Review 4: 2 days
+        96,      // Review 5: 4 days (mastered)
       ],
       
       // Review windows (hours before/after due time)
@@ -25,6 +51,32 @@ export const GAMIFICATION_CONFIG = {
       }
     },
     
+    extended: {
+      name: "Extended Cram Mode",
+      description: "Test in 2 weeks - longer-lasting retention",
+      
+      // Exact intervals in hours
+      intervals: [
+        1,       // Review 1: 1 hour
+        5,       // Review 2: 5 hours
+        24,      // Review 3: 1 day
+        72,      // Review 4: 3 days
+        168,     // Review 5: 7 days
+        240,     // Review 6: 10 days (mastered)
+      ],
+      
+      // Review windows (hours before/after due time)
+      windowBefore: 1,      // Can review 1 hour early
+      windowAfter: 4,       // 4 hour grace period
+      
+      // Points for reviewing in different windows
+      pointsMultiplier: {
+        onTime: 1.8,        // Within 1 hour of due time
+        inWindow: 1.4,      // Within the window
+        late: 0.85,         // Outside window
+      }
+    },
+    
     steady: {
       name: "Steady Mode", 
       description: "Long-term retention with spaced intervals",
@@ -33,8 +85,9 @@ export const GAMIFICATION_CONFIG = {
       intervals: [
         24,      // Review 1: 1 day
         72,      // Review 2: 3 days
-        168,     // Review 3: 1 week
-        336,     // Review 4: 2 weeks (mastered)
+        168,     // Review 3: 7 days (1 week)
+        384,     // Review 4: 16 days (~2.3 weeks)
+        840,     // Review 5: 35 days (~5 weeks) (mastered)
       ],
       
       // Review windows
@@ -59,7 +112,7 @@ export const GAMIFICATION_CONFIG = {
   
   // ========== MASTERY SETTINGS ==========
   MASTERY: {
-    reviewsRequired: 4,  // Complete 4 reviews to master
+    reviewsRequired: 5,  // Complete 5 reviews to master (covers all modes)
     bonusPoints: 100,    // Points for mastering an item
     
     // Visual indicators at different stages
@@ -67,7 +120,8 @@ export const GAMIFICATION_CONFIG = {
       1: { emoji: "🌱", label: "New" },
       2: { emoji: "🌿", label: "Growing" },
       3: { emoji: "🌳", label: "Strong" },
-      4: { emoji: "⭐", label: "Mastered" }
+      4: { emoji: "🌲", label: "Mature" },
+      5: { emoji: "⭐", label: "Mastered" }
     }
   },
   

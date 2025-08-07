@@ -10,6 +10,8 @@ import type { Topic, LearningItem } from '../types/database'
 interface TopicWithStats extends Topic {
   itemCount: number
   dueCount: number
+  newCount: number
+  masteredCount: number
   lastStudiedAt?: string
   items?: LearningItem[]
 }
@@ -19,7 +21,7 @@ export function TopicsPage() {
   const [filteredTopics, setFilteredTopics] = useState<TopicWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterBy, setFilterBy] = useState<'all' | 'due' | 'upcoming' | 'mastered'>('all')
+  const [filterBy, setFilterBy] = useState<'all' | 'due' | 'new' | 'upcoming' | 'mastered'>('all')
   const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'priority' | 'lastStudied'>('name')
   const { user } = useAuth()
   const { addToast } = useToast()
@@ -69,9 +71,19 @@ export function TopicsPage() {
           
           // Calculate stats
           const now = new Date()
+          
+          // New items: never reviewed (review_count = 0)
+          const newCount = itemsList.filter(item => item.review_count === 0).length
+          
+          // Due items: have been reviewed at least once AND are due now (excluding new items)
           const dueCount = itemsList.filter(item => 
-            !item.next_review_at || new Date(item.next_review_at) <= now
+            item.review_count > 0 && 
+            item.next_review_at && 
+            new Date(item.next_review_at) <= now
           ).length
+          
+          // Mastered items: review_count >= 5 (based on GAMIFICATION_CONFIG)
+          const masteredCount = itemsList.filter(item => item.review_count >= 5).length
           
           // Find last studied date
           const lastStudiedAt = itemsList
@@ -84,6 +96,8 @@ export function TopicsPage() {
             ...topic,
             itemCount: itemsList.length,
             dueCount,
+            newCount,
+            masteredCount,
             lastStudiedAt,
             items: itemsList // Store items for search
           } as TopicWithStats & { items: typeof itemsList }
@@ -126,11 +140,13 @@ export function TopicsPage() {
       filtered = filtered.filter(topic => {
         switch (filterBy) {
           case 'due':
-            return topic.dueCount > 0
+            return topic.dueCount > 0  // Only shows topics with actually due items (not new)
+          case 'new':
+            return topic.newCount > 0  // Shows topics with new items
           case 'upcoming':
-            return topic.dueCount === 0 && topic.itemCount > 0
+            return topic.dueCount === 0 && topic.itemCount > 0 && topic.newCount < topic.itemCount
           case 'mastered':
-            return topic.itemCount > 0 && topic.dueCount === 0 && topic.lastStudiedAt
+            return topic.masteredCount > 0  // Shows topics with at least one mastered item
           default:
             return true
         }
@@ -201,8 +217,9 @@ export function TopicsPage() {
             >
               <option value="all">All Topics</option>
               <option value="due">Has Due Items</option>
+              <option value="new">Has New Items</option>
               <option value="upcoming">Upcoming</option>
-              <option value="mastered">Mastered</option>
+              <option value="mastered">Has Mastered Items</option>
             </select>
           </div>
 

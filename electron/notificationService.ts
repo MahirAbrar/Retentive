@@ -8,8 +8,9 @@ const __dirname = path.dirname(__filename)
 
 interface ScheduledJob {
   job: schedule.Job
-  type: 'daily' | 'streak'
+  type: 'daily' | 'streak' | 'item-due'
   userId: string
+  itemId?: string
 }
 
 export class NotificationService {
@@ -31,6 +32,8 @@ export class NotificationService {
    * Send a native OS notification
    */
   sendNotification(title: string, body: string, onClick?: () => void) {
+    console.log('Attempting to send notification:', { title, body })
+    
     if (!Notification.isSupported()) {
       console.warn('Notifications not supported on this system')
       return
@@ -39,13 +42,22 @@ export class NotificationService {
     const notification = new Notification({
       title,
       body,
-      icon: path.join(__dirname, '../build/icon.png'),
+      // Icon is optional - remove it if it doesn't exist
       silent: false,
       timeoutType: 'default'
     })
 
+    notification.on('show', () => {
+      console.log('Notification shown successfully')
+    })
+
+    notification.on('error', (error) => {
+      console.error('Notification error:', error)
+    })
+
     if (onClick) {
       notification.on('click', () => {
+        console.log('Notification clicked')
         // Bring app to foreground if minimized
         if (this.mainWindow) {
           if (this.mainWindow.isMinimized()) {
@@ -76,13 +88,22 @@ export class NotificationService {
     // Create cron expression for daily at specified time
     const cronExpression = `${minute} ${hour} * * *`
     
+    console.log(`Scheduling daily reminder: ${cronExpression} (${time})`)
+    
     const job = schedule.scheduleJob(cronExpression, async () => {
+      console.log('Daily reminder triggered!')
       await this.checkAndSendStudyReminder(userId)
     })
 
     if (job) {
       this.jobs.set(jobKey, { job, type: 'daily', userId })
-      console.log(`Scheduled daily reminder for user ${userId} at ${time}`)
+      console.log(`✅ Scheduled daily reminder for user ${userId} at ${time}`)
+      
+      // Show next scheduled time
+      const nextInvocation = job.nextInvocation()
+      console.log(`Next reminder will be at: ${nextInvocation}`)
+    } else {
+      console.error('❌ Failed to schedule daily reminder')
     }
   }
 
@@ -107,24 +128,106 @@ export class NotificationService {
   }
 
   /**
-   * Check if user has items due and send reminder
+   * Schedule notification for when an item becomes due
+   * @param userId User ID
+   * @param itemId Learning item ID
+   * @param itemContent Content of the item for the notification
+   * @param topicName Name of the topic
+   * @param topicId Topic ID for navigation
+   * @param dueAt When the item is due
    */
-  private async checkAndSendStudyReminder(userId: string) {
-    try {
-      // Query Supabase for due items
-      const response = await fetch(
-        `${this.supabaseUrl}/rest/v1/learning_items?user_id=eq.${userId}&next_review_at=lte.now()&review_count=gt.0`,
-        {
-          headers: {
-            'apikey': this.supabaseKey,
-            'Authorization': `Bearer ${this.supabaseKey}`
+  scheduleItemDueNotification(
+    userId: string, 
+    itemId: string, 
+    itemContent: string, 
+    topicName: string,
+    topicId: string,
+    dueAt: string
+  ) {
+    const jobKey = `item-${itemId}`
+    
+    // Cancel existing notification for this item if any
+    this.cancelJob(jobKey)
+
+    const dueDate = new Date(dueAt)
+    const now = new Date()
+    
+    // Don't schedule if already past due
+    if (dueDate <= now) {
+      console.log(`Item ${itemId} is already due, not scheduling notification`)
+      return
+    }
+
+    console.log(`Scheduling due notification for item ${itemId} at ${dueAt}`)
+    
+    const job = schedule.scheduleJob(dueDate, () => {
+      console.log(`Due notification triggered for item ${itemId}`)
+      
+      // Truncate content if too long
+      const truncatedContent = itemContent.length > 50 
+        ? itemContent.substring(0, 50) + '...' 
+        : itemContent
+      
+      this.sendNotification(
+        `Review Due: ${topicName}`,
+        `Time to review: "${truncatedContent}"`,
+        () => {
+          // Navigate to the specific topic when clicked
+          if (this.mainWindow) {
+            this.mainWindow.webContents.send('navigate', `/topics?id=${topicId}`)
           }
         }
       )
+      
+      // Clean up the job after it runs
+      this.jobs.delete(jobKey)
+    })
 
-      if (!response.ok) return
+    if (job) {
+      this.jobs.set(jobKey, { job, type: 'item-due', userId, itemId })
+      console.log(`✅ Scheduled due notification for item ${itemId} at ${dueAt}`)
+      
+      // Log next invocation for debugging
+      const nextInvocation = job.nextInvocation()
+      console.log(`Item will be due at: ${nextInvocation}`)
+    } else {
+      console.error(`❌ Failed to schedule due notification for item ${itemId}`)
+    }
+  }
+
+  /**
+   * Cancel notification for a specific item
+   */
+  cancelItemNotification(itemId: string) {
+    const jobKey = `item-${itemId}`
+    this.cancelJob(jobKey)
+  }
+
+  /**
+   * Check if user has items due and send reminder
+   * Made public for testing purposes
+   */
+  public async checkAndSendStudyReminder(userId: string) {
+    console.log(`Checking study reminder for user: ${userId}`)
+    try {
+      // Query Supabase for due items
+      const url = `${this.supabaseUrl}/rest/v1/learning_items?user_id=eq.${userId}&next_review_at=lte.now()&review_count=gt.0`
+      console.log('Fetching due items from:', url)
+      
+      const response = await fetch(url, {
+        headers: {
+          'apikey': this.supabaseKey,
+          'Authorization': `Bearer ${this.supabaseKey}`
+        }
+      })
+
+      if (!response.ok) {
+        console.error('Failed to fetch due items:', response.status, response.statusText)
+        return
+      }
 
       const dueItems = await response.json()
+      console.log(`Found ${dueItems.length} due items`)
       
       if (dueItems.length > 0) {
         // Get topic names for the notification
@@ -146,11 +249,18 @@ export class NotificationService {
 
         this.sendNotification(
           'Study Reminder',
-          `Your review from topic${topics.length > 1 ? 's' : ''} ${topicNames}${moreText} is due now`,
+          `You have ${dueItems.length} item${dueItems.length > 1 ? 's' : ''} due for review in: ${topicNames}${moreText}`,
           () => {
             // Navigate to topics page when clicked
             this.mainWindow?.webContents.send('navigate', '/topics')
           }
+        )
+      } else {
+        console.log('No due items found - sending status notification for testing')
+        // For testing, send a notification even when no items are due
+        this.sendNotification(
+          'Study Status',
+          'Great job! You have no items due for review right now. 🎉'
         )
       }
     } catch (error) {

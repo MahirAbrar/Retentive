@@ -182,6 +182,21 @@ export class GamificationService {
         dbStats = newStats
       }
       
+      // Always recalculate streak from history to ensure accuracy
+      const actualStreak = await this.calculateStreakFromHistory(userId)
+      if (actualStreak !== dbStats.current_streak) {
+        console.log(`Streak mismatch detected. DB: ${dbStats.current_streak}, Actual: ${actualStreak}. Updating...`)
+        await supabase
+          .from('user_gamification_stats')
+          .update({ 
+            current_streak: actualStreak,
+            longest_streak: Math.max(actualStreak, dbStats.longest_streak || 0)
+          })
+          .eq('user_id', userId)
+        dbStats.current_streak = actualStreak
+        dbStats.longest_streak = Math.max(actualStreak, dbStats.longest_streak || 0)
+      }
+      
       // Get today's stats
       const today = new Date()
       today.setHours(0, 0, 0, 0)

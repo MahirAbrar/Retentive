@@ -1,4 +1,4 @@
-export type LearningMode = 'cram' | 'steady'
+export type LearningMode = 'ultracram' | 'cram' | 'extended' | 'steady'
 export type ReviewDifficulty = 'again' | 'hard' | 'good' | 'easy'
 export type Priority = 1 | 2 | 3 | 4 | 5
 
