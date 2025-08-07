@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, useToast, Input, Pagination, PaginationInfo } from '../components/ui'
 import { TopicList } from '../components/topics/TopicList'
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
 import { usePagination } from '../hooks/usePagination'
+import { cacheService } from '../services/cacheService'
 import type { Topic, LearningItem } from '../types/database'
 
 interface TopicWithStats extends Topic {
@@ -52,8 +53,19 @@ export function TopicsPage() {
     filterAndSortTopics()
   }, [topics, searchQuery, filterBy, sortBy])
 
-  const loadTopics = async () => {
+  const loadTopics = useCallback(async (forceRefresh = false) => {
     if (!user) return
+    
+    // Check cache first
+    const cacheKey = `topics:${user.id}`
+    if (!forceRefresh) {
+      const cached = cacheService.get<TopicWithStats[]>(cacheKey)
+      if (cached) {
+        setTopics(cached)
+        setLoading(false)
+        return
+      }
+    }
     
     setLoading(true)
     try {
@@ -105,19 +117,26 @@ export function TopicsPage() {
       )
       
       setTopics(topicsWithStats)
+      
+      // Cache the results for 5 minutes
+      cacheService.set(cacheKey, topicsWithStats, 5 * 60 * 1000)
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, addToast])
 
-  const handleDelete = async (topicId: string) => {
+  const handleDelete = useCallback(async (topicId: string) => {
     const { error } = await topicsService.deleteTopic(topicId)
     if (error) {
       addToast('error', 'Failed to delete topic')
     } else {
       setTopics(topics.filter(t => t.id !== topicId))
+      // Invalidate cache when topic is deleted
+      if (user) {
+        cacheService.invalidate(`topics:${user.id}`)
+      }
     }
-  }
+  }, [topics, user, addToast])
 
   const filterAndSortTopics = () => {
     let filtered = [...topics]
@@ -222,6 +241,17 @@ export function TopicsPage() {
               <option value="mastered">Has Mastered Items</option>
             </select>
           </div>
+
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={() => loadTopics(true)}
+            disabled={loading}
+            style={{ padding: '0.5rem 1rem' }}
+            title="Refresh topics"
+          >
+            🔄 Refresh
+          </Button>
 
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <label className="body-small text-secondary">Sort:</label>

@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardContent, Button, Badge, useToast, ConfirmDialog, Input, Modal } from '../ui'
 import type { Topic, LearningItem, LearningMode } from '../../types/database'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
+// import { TopicCard } from './TopicCard' // Will integrate later
+// import { LearningItemRow } from './LearningItemRow' // Will integrate later
 import { topicsService } from '../../services/topicsFixed'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../hooks/useAuthFixed'
@@ -55,7 +57,7 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [openMenuId])
 
-  const loadTopicStats = async (topicId: string) => {
+  const loadTopicStats = useCallback(async (topicId: string) => {
     try {
       const { data, error } = await topicsService.getTopicItems(topicId)
       if (error) throw error
@@ -71,9 +73,9 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
     } catch (error) {
       console.error('Error loading topic stats:', error)
     }
-  }
+  }, [])
 
-  const toggleTopic = async (topicId: string) => {
+  const toggleTopic = useCallback(async (topicId: string) => {
     const newExpanded = new Set(expandedTopics)
     
     if (newExpanded.has(topicId)) {
@@ -113,7 +115,7 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
     }
     
     setExpandedTopics(newExpanded)
-  }
+  }, [expandedTopics, topicItems, loadingItems, addToast])
 
 
   const formatNextReview = (dateString: string) => {
@@ -521,7 +523,7 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                   >
                     {isExpanded ? 'Collapse' : 'View Items'}
                   </Button>
-                  <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'relative', zIndex: openMenuId === topic.id ? 10000 : 'auto' }}>
                     <Button 
                       variant="ghost" 
                       size="small"
@@ -542,8 +544,8 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                         backgroundColor: 'var(--color-surface)',
                         border: '1px solid var(--color-gray-200)',
                         borderRadius: 'var(--radius-sm)',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                        zIndex: 10,
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
+                        zIndex: 10001,
                         minWidth: '120px'
                       }}>
                         <button

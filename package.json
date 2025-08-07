@@ -65,15 +65,18 @@
   "build": {
     "appId": "com.retentive.app",
     "productName": "Retentive",
+    "icon": "logo.png",
     "directories": {
       "output": "release",
       "buildResources": "build"
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "logo.png"
     ],
     "mac": {
+      "icon": "logo.png",
       "category": "public.app-category.education",
       "target": [
         "dmg",
@@ -81,12 +84,14 @@
       ]
     },
     "win": {
+      "icon": "logo.png",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "linux": {
+      "icon": "logo.png",
       "target": [
         "AppImage",
         "deb"

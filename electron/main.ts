@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell, Menu, ipcMain, Tray, nativeImage } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import Store from 'electron-store';
 import { NotificationService } from './notificationService.js';
 // import { setupDatabaseHandlers } from './database.js';
@@ -16,7 +17,7 @@ let tray: Tray | null = null;
 let isQuitting = false;
 
 // Initialize secure storage with encryption
-const store = new Store({
+const store = new Store<Record<string, string>>({
   name: 'retentive-secure-storage',
   encryptionKey: 'retentive-app-secret-key-2024', // In production, use a more secure key
   schema: {
@@ -27,18 +28,22 @@ const store = new Store({
 });
 
 function createTray() {
-  // Create a simple icon for the tray
+  // Use the logo.png for tray icon
+  const logoPath = path.join(__dirname, '..', 'logo.png');
   let icon;
   
-  // Try to load an icon file, or create a simple one
-  const iconPath = path.join(__dirname, 'icon-template.png');
-  if (require('fs').existsSync(iconPath)) {
-    icon = nativeImage.createFromPath(iconPath);
+  if (fs.existsSync(logoPath)) {
+    icon = nativeImage.createFromPath(logoPath);
+    
+    // Resize for tray (tray icons should be smaller)
+    icon = icon.resize({ width: 16, height: 16 });
+    
+    // On macOS, set as template image (makes it work with light/dark mode)
     if (process.platform === 'darwin') {
       icon.setTemplateImage(true);
     }
   } else {
-    // Create a simple 16x16 icon programmatically
+    // Fallback: Create a simple 16x16 icon programmatically
     icon = nativeImage.createFromBuffer(Buffer.from([
       137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
       0, 0, 0, 16, 0, 0, 0, 16, 8, 2, 0, 0, 0, 144, 145, 104,
@@ -100,11 +105,19 @@ function createTray() {
 }
 
 function createWindow() {
+  // Set the app icon - handle both dev and production paths
+  let iconPath = path.join(__dirname, '..', 'logo.png');
+  if (!fs.existsSync(iconPath)) {
+    // Try alternative path for production build
+    iconPath = path.join(process.resourcesPath || __dirname, 'logo.png');
+  }
+  
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    ...(fs.existsSync(iconPath) ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -185,7 +198,7 @@ function createWindow() {
       mainWindow?.hide();
       
       // On macOS, hide dock icon when window is hidden
-      if (process.platform === 'darwin') {
+      if (process.platform === 'darwin' && app.dock) {
         app.dock.hide();
       }
     }
@@ -197,7 +210,7 @@ function createWindow() {
   
   // Show dock icon when window is shown (macOS)
   mainWindow.on('show', () => {
-    if (process.platform === 'darwin') {
+    if (process.platform === 'darwin' && app.dock) {
       app.dock.show();
     }
   });
@@ -275,7 +288,7 @@ function createMenu() {
 // IPC handlers for secure storage
 ipcMain.handle('secureStorage:get', async (_, key: string) => {
   try {
-    return store.get(key);
+    return (store as any).get(key);
   } catch (error) {
     console.error('Error getting secure storage:', error);
     return null;
@@ -284,7 +297,7 @@ ipcMain.handle('secureStorage:get', async (_, key: string) => {
 
 ipcMain.handle('secureStorage:set', async (_, key: string, value: string) => {
   try {
-    store.set(key, value);
+    (store as any).set(key, value);
     return true;
   } catch (error) {
     console.error('Error setting secure storage:', error);
@@ -294,7 +307,7 @@ ipcMain.handle('secureStorage:set', async (_, key: string, value: string) => {
 
 ipcMain.handle('secureStorage:remove', async (_, key: string) => {
   try {
-    store.delete(key);
+    (store as any).delete(key);
     return true;
   } catch (error) {
     console.error('Error removing from secure storage:', error);
@@ -304,7 +317,7 @@ ipcMain.handle('secureStorage:remove', async (_, key: string) => {
 
 ipcMain.handle('secureStorage:clear', async () => {
   try {
-    store.clear();
+    (store as any).clear();
     return true;
   } catch (error) {
     console.error('Error clearing secure storage:', error);
@@ -398,6 +411,15 @@ ipcMain.on('navigate-reply', (_, path: string) => {
 })
 
 app.whenReady().then(() => {
+  // Set the dock icon on macOS
+  if (process.platform === 'darwin' && app.dock) {
+    const dockIconPath = path.join(__dirname, '..', 'logo.png');
+    if (fs.existsSync(dockIconPath)) {
+      const dockIcon = nativeImage.createFromPath(dockIconPath);
+      app.dock.setIcon(dockIcon);
+    }
+  }
+  
   // Initialize notification service with Supabase credentials
   // Note: In Electron main process, Vite env vars aren't available directly
   // For now, we'll hardcode them or pass from renderer

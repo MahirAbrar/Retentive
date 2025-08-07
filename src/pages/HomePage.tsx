@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, CardHeader, CardContent, Badge, Skeleton } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
@@ -30,16 +30,34 @@ export function HomePage() {
     newItemsCount: 0
   })
 
-  useEffect(() => {
+  const loadStats = useCallback(async () => {
     if (user) {
       setLoading(true)
-      getExtendedStats(user.id)
-        .then(setStats)
-        .finally(() => setLoading(false))
+      try {
+        const newStats = await getExtendedStats(user.id)
+        setStats(newStats)
+      } finally {
+        setLoading(false)
+      }
     } else {
       setLoading(false)
     }
   }, [user])
+
+  useEffect(() => {
+    loadStats()
+  }, [loadStats])
+
+  // Memoize the total due items calculation
+  const totalDueItems = useMemo(() => {
+    return stats.overdue + stats.dueToday
+  }, [stats.overdue, stats.dueToday])
+
+  // Memoize the progress percentage
+  const progressPercentage = useMemo(() => {
+    if (stats.totalItems === 0) return 0
+    return Math.round((stats.mastered / stats.totalItems) * 100)
+  }, [stats.mastered, stats.totalItems])
 
   return (
     <div>

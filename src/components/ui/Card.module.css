@@ -3,7 +3,7 @@
   border-radius: var(--radius-base);
   display: block;
   position: relative;
-  transition: all var(--transition-fast);
+  /* transition: all var(--transition-fast); */ /* Removed to prevent hover issues */
 }
 
 /* Variants */
@@ -20,9 +20,10 @@
   box-shadow: var(--shadow-md);
 }
 
-.elevated:hover {
+/* Hover effect removed to prevent z-index issues with dropdowns */
+/* .elevated:hover {
   box-shadow: var(--shadow-lg);
-}
+} */
 
 /* Padding variants */
 .padding-none {

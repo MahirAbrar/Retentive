@@ -18,7 +18,7 @@ export function Card({
     styles.card,
     styles[variant],
     styles[`padding-${padding}`],
-    'animate-fade-in card-hover',
+    'animate-fade-in',
     className,
   ]
     .filter(Boolean)
