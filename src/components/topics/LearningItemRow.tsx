@@ -114,8 +114,7 @@ export const LearningItemRow = memo(function LearningItemRow({
               </span>
               {item.review_count > 0 && item.next_review_at && (
                 <ReviewWindowIndicator
-                  nextReviewAt={item.next_review_at}
-                  learningMode={item.learning_mode}
+                  item={item}
                 />
               )}
             </div>

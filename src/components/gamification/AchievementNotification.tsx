@@ -15,9 +15,8 @@ export function AchievementNotification({ achievementId, onClose }: AchievementN
     a => a.id === achievementId
   )
   
-  if (!achievement) return null
-  
   useEffect(() => {
+    if (!achievement) return
     // Trigger animation
     setTimeout(() => setIsVisible(true), 100)
     
@@ -28,7 +27,9 @@ export function AchievementNotification({ achievementId, onClose }: AchievementN
     }, 5000)
     
     return () => clearTimeout(timer)
-  }, [onClose])
+  }, [achievement, onClose])
+  
+  if (!achievement) return null
   
   return (
     <div

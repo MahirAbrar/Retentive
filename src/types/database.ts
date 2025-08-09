@@ -1,6 +1,8 @@
 export type LearningMode = 'ultracram' | 'cram' | 'extended' | 'steady'
 export type ReviewDifficulty = 'again' | 'hard' | 'good' | 'easy'
 export type Priority = 1 | 2 | 3 | 4 | 5
+export type MasteryStatus = 'active' | 'mastered' | 'archived' | 'maintenance' | 'repeat'
+export type ArchiveStatus = 'active' | 'archived'
 
 export interface User {
   id: string
@@ -19,6 +21,8 @@ export interface Topic {
   name: string
   learning_mode: LearningMode
   priority: number
+  archive_status?: ArchiveStatus
+  archive_date?: string | null
   created_at: string
   updated_at: string
 }
@@ -35,6 +39,10 @@ export interface LearningItem {
   next_review_at: string | null
   ease_factor: number
   interval_days: number
+  mastery_status?: MasteryStatus
+  mastery_date?: string | null
+  archive_date?: string | null
+  maintenance_interval_days?: number | null
   created_at: string
   updated_at: string
 }

@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardContent, Button, Badge, useToast, ConfirmDialog, Input, Modal } from '../ui'
-import type { Topic, LearningItem, LearningMode } from '../../types/database'
+import { MasteryDialog } from '../MasteryDialog'
+import type { Topic, LearningItem, LearningMode, MasteryStatus } from '../../types/database'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
 // import { TopicCard } from './TopicCard' // Will integrate later
 // import { LearningItemRow } from './LearningItemRow' // Will integrate later
 import { topicsService } from '../../services/topicsFixed'
+import { dataService } from '../../services/dataService'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { cacheService } from '../../services/cacheService'
@@ -18,10 +20,13 @@ import { useAchievements } from '../../hooks/useAchievements'
 interface TopicListProps {
   topics: Topic[]
   onDelete?: (topicId: string) => void
+  onArchive?: (topicId: string) => void
+  onUnarchive?: (topicId: string) => void
+  isArchived?: boolean
   loading?: boolean
 }
 
-export function TopicList({ topics, onDelete, loading }: TopicListProps) {
+export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived = false, loading }: TopicListProps) {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
   const [topicItems, setTopicItems] = useState<Record<string, LearningItem[]>>({})
   const [topicStats, setTopicStats] = useState<Record<string, { total: number; due: number; new: number }>>({})
@@ -35,6 +40,7 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [addingItemToTopic, setAddingItemToTopic] = useState<string | null>(null)
   const [newItemContent, setNewItemContent] = useState('')
+  const [masteryDialogItem, setMasteryDialogItem] = useState<LearningItem | null>(null)
   const { addToast } = useToast()
   const { user } = useAuth()
   const { showAchievements } = useAchievements()
@@ -418,7 +424,9 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
         message += ` (Combo +${comboBonus}!)`
       }
       
-      if (reviewResult.isMastered) {
+      if (reviewResult.isMastered || updatedItem.review_count === 5) {
+        // Show mastery dialog instead of just a toast
+        setMasteryDialogItem(updatedItem)
         addToast('success', `🎉 Item mastered! ${masteryStage.emoji} +${GAMIFICATION_CONFIG.MASTERY.bonusPoints} bonus points!`)
       } else {
         const hoursUntilNext = Math.round(reviewResult.intervalDays * 24)
@@ -439,6 +447,66 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
         newSet.delete(item.id)
         return newSet
       })
+    }
+  }
+
+  const handleMasterySelect = async (status: MasteryStatus) => {
+    if (!masteryDialogItem || !user) return
+    
+    try {
+      // Calculate maintenance interval if needed
+      let maintenanceInterval: number | undefined
+      if (status === 'maintenance') {
+        maintenanceInterval = spacedRepetitionGamified.calculateMaintenanceInterval(masteryDialogItem)
+      }
+      
+      // Update the item's mastery status
+      const { error } = await dataService.updateItemMasteryStatus(
+        masteryDialogItem.id,
+        status,
+        maintenanceInterval
+      )
+      
+      if (error) throw error
+      
+      // Update local state
+      const updatedItem = {
+        ...masteryDialogItem,
+        mastery_status: status,
+        maintenance_interval_days: maintenanceInterval
+      }
+      
+      setTopicItems(prev => ({
+        ...prev,
+        [masteryDialogItem.topic_id]: prev[masteryDialogItem.topic_id].map(i => 
+          i.id === masteryDialogItem.id ? updatedItem : i
+        )
+      }))
+      
+      // Show feedback
+      let message = ''
+      switch (status) {
+        case 'archived':
+          message = '📦 Item archived! You won\'t see it in reviews anymore.'
+          break
+        case 'maintenance':
+          message = `🔄 Item in maintenance mode! Next review in ${maintenanceInterval} days.`
+          break
+        case 'repeat':
+          message = '🔁 Item reset! Starting from the beginning.'
+          break
+        case 'mastered':
+          message = '✅ Item marked as mastered! You can change this anytime.'
+          break
+      }
+      
+      addToast('success', message)
+      setMasteryDialogItem(null)
+      
+      // Refresh stats
+      loadTopicStats(masteryDialogItem.topic_id)
+    } catch (error) {
+      addToast('error', 'Failed to update mastery status')
     }
   }
 
@@ -569,6 +637,54 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
                         >
                           Edit
                         </button>
+                        {!isArchived && onArchive && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onArchive(topic.id)
+                              setOpenMenuId(null)
+                            }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'none',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              color: 'var(--color-warning)',
+                              fontSize: 'var(--text-sm)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            Archive
+                          </button>
+                        )}
+                        {isArchived && onUnarchive && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onUnarchive(topic.id)
+                              setOpenMenuId(null)
+                            }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'none',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              color: 'var(--color-info)',
+                              fontSize: 'var(--text-sm)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            Restore
+                          </button>
+                        )}
                         {onDelete && (
                           <button
                             onClick={(e) => {
@@ -798,6 +914,18 @@ export function TopicList({ topics, onDelete, loading }: TopicListProps) {
               addToast('error', 'Failed to update topic')
             }
           }}
+        />
+      )}
+
+      {/* Mastery Dialog */}
+      {masteryDialogItem && (
+        <MasteryDialog
+          isOpen={!!masteryDialogItem}
+          onClose={() => setMasteryDialogItem(null)}
+          onSelect={handleMasterySelect}
+          itemContent={masteryDialogItem.content}
+          learningMode={masteryDialogItem.learning_mode}
+          currentInterval={masteryDialogItem.interval_days}
         />
       )}
     </>

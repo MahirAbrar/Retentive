@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { offlineDataService } from '../database/offlineDataService'
 import { syncEngine } from '../database/syncEngine'
 import { localDatabase } from '../database/localDatabase'
@@ -117,7 +117,7 @@ export function setupDatabaseHandlers() {
   // Sync status listener
   syncEngine.addListener((status) => {
     // Broadcast sync status to all windows
-    const windows = require('electron').BrowserWindow.getAllWindows()
+    const windows = BrowserWindow.getAllWindows()
     windows.forEach(window => {
       window.webContents.send('sync:status', status)
     })

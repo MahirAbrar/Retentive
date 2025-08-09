@@ -4,6 +4,7 @@ import { Button, useToast, Input, Pagination, PaginationInfo } from '../componen
 import { TopicList } from '../components/topics/TopicList'
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
+import { dataService } from '../services/dataService'
 import { usePagination } from '../hooks/usePagination'
 import { cacheService } from '../services/cacheService'
 import type { Topic, LearningItem } from '../types/database'
@@ -19,11 +20,13 @@ interface TopicWithStats extends Topic {
 
 export function TopicsPage() {
   const [topics, setTopics] = useState<TopicWithStats[]>([])
+  const [archivedTopics, setArchivedTopics] = useState<TopicWithStats[]>([])
   const [filteredTopics, setFilteredTopics] = useState<TopicWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterBy, setFilterBy] = useState<'all' | 'due' | 'new' | 'upcoming' | 'mastered'>('all')
   const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'priority' | 'lastStudied'>('name')
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active')
   const { user } = useAuth()
   const { addToast } = useToast()
   
@@ -46,12 +49,15 @@ export function TopicsPage() {
   useEffect(() => {
     if (user) {
       loadTopics()
+      if (activeTab === 'archived') {
+        loadArchivedTopics()
+      }
     }
-  }, [user])
+  }, [user, activeTab])
 
   useEffect(() => {
     filterAndSortTopics()
-  }, [topics, searchQuery, filterBy, sortBy])
+  }, [topics, archivedTopics, searchQuery, filterBy, sortBy, activeTab])
 
   const loadTopics = useCallback(async (forceRefresh = false) => {
     if (!user) return
@@ -76,8 +82,13 @@ export function TopicsPage() {
       }
 
       // Load stats for each topic
+      // Filter out archived topics for active tab
+      const activeTopics = (topicsData || []).filter(topic => 
+        !topic.archive_status || topic.archive_status === 'active'
+      )
+      
       const topicsWithStats = await Promise.all(
-        (topicsData || []).map(async (topic) => {
+        activeTopics.map(async (topic) => {
           const { data: items } = await topicsService.getTopicItems(topic.id)
           const itemsList = items || []
           
@@ -125,21 +136,122 @@ export function TopicsPage() {
     }
   }, [user, addToast])
 
+  const loadArchivedTopics = useCallback(async (forceRefresh = false) => {
+    if (!user) return
+    
+    // Check cache first
+    const cacheKey = `archived_topics:${user.id}`
+    if (!forceRefresh) {
+      const cached = cacheService.get<TopicWithStats[]>(cacheKey)
+      if (cached) {
+        setArchivedTopics(cached)
+        setLoading(false)
+        return
+      }
+    }
+    
+    setLoading(true)
+    try {
+      const { data: topicsData, error: topicsError } = await dataService.getArchivedTopics(user.id)
+      if (topicsError) {
+        addToast('error', 'Failed to load archived topics')
+        return
+      }
+
+      // Load stats for each archived topic
+      const topicsWithStats = await Promise.all(
+        (topicsData || []).map(async (topic) => {
+          const { data: items } = await topicsService.getTopicItems(topic.id)
+          const itemsList = items || []
+          
+          // Calculate stats for archived topics
+          const masteredCount = itemsList.filter(item => 
+            item.mastery_status === 'mastered' || 
+            item.mastery_status === 'maintenance' ||
+            item.review_count >= 5
+          ).length
+          
+          const archivedCount = itemsList.filter(item => 
+            item.mastery_status === 'archived'
+          ).length
+          
+          // Find last studied date
+          const lastStudiedAt = itemsList
+            .filter(item => item.last_reviewed_at)
+            .sort((a, b) => 
+              new Date(b.last_reviewed_at!).getTime() - new Date(a.last_reviewed_at!).getTime()
+            )[0]?.last_reviewed_at
+          
+          return {
+            ...topic,
+            itemCount: itemsList.length,
+            dueCount: 0, // Archived topics don't have due items
+            newCount: 0,
+            masteredCount,
+            archivedCount,
+            lastStudiedAt,
+            items: itemsList
+          } as TopicWithStats & { items: typeof itemsList; archivedCount: number }
+        })
+      )
+      
+      setArchivedTopics(topicsWithStats)
+      
+      // Cache the results for 5 minutes
+      cacheService.set(cacheKey, topicsWithStats, 5 * 60 * 1000)
+    } finally {
+      setLoading(false)
+    }
+  }, [user, addToast])
+
   const handleDelete = useCallback(async (topicId: string) => {
     const { error } = await topicsService.deleteTopic(topicId)
     if (error) {
       addToast('error', 'Failed to delete topic')
     } else {
       setTopics(topics.filter(t => t.id !== topicId))
+      setArchivedTopics(archivedTopics.filter(t => t.id !== topicId))
       // Invalidate cache when topic is deleted
       if (user) {
         cacheService.invalidate(`topics:${user.id}`)
+        cacheService.invalidate(`archived_topics:${user.id}`)
       }
     }
-  }, [topics, user, addToast])
+  }, [topics, archivedTopics, user, addToast])
+
+  const handleArchive = useCallback(async (topicId: string) => {
+    const { error } = await dataService.archiveTopic(topicId)
+    if (error) {
+      addToast('error', 'Failed to archive topic')
+    } else {
+      addToast('success', 'Topic archived successfully')
+      // Small delay to ensure database is updated
+      setTimeout(() => {
+        // Refresh both lists with force refresh
+        loadTopics(true)
+        loadArchivedTopics(true)
+      }, 100)
+    }
+  }, [addToast, loadTopics, loadArchivedTopics])
+
+  const handleUnarchive = useCallback(async (topicId: string) => {
+    const { error } = await dataService.unarchiveTopic(topicId)
+    if (error) {
+      addToast('error', 'Failed to restore topic')
+    } else {
+      addToast('success', 'Topic restored successfully')
+      // Small delay to ensure database is updated
+      setTimeout(() => {
+        // Refresh both lists with force refresh
+        loadTopics(true)
+        loadArchivedTopics(true)
+      }, 100)
+    }
+  }, [addToast, loadTopics, loadArchivedTopics])
 
   const filterAndSortTopics = () => {
-    let filtered = [...topics]
+    // Use appropriate topics based on active tab
+    let filtered = activeTab === 'active' ? [...topics] : [...archivedTopics]
 
     // Apply search filter
     if (searchQuery) {
@@ -209,6 +321,63 @@ export function TopicsPage() {
         </p>
       </header>
 
+      {/* Active/Archived Tabs */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '1rem', 
+        marginBottom: '2rem',
+        borderBottom: '2px solid var(--color-border)'
+      }}>
+        <button
+          onClick={() => setActiveTab('active')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'active' ? '2px solid var(--color-primary)' : '2px solid transparent',
+            marginBottom: '-2px',
+            color: activeTab === 'active' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+            fontWeight: activeTab === 'active' ? '600' : '400',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          className="body"
+        >
+          Active Topics
+          <span style={{ 
+            marginLeft: '0.5rem',
+            fontSize: '0.875rem',
+            opacity: 0.7
+          }}>
+            ({topics.length})
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('archived')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'archived' ? '2px solid var(--color-primary)' : '2px solid transparent',
+            marginBottom: '-2px',
+            color: activeTab === 'archived' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+            fontWeight: activeTab === 'archived' ? '600' : '400',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          className="body"
+        >
+          Archived
+          <span style={{ 
+            marginLeft: '0.5rem',
+            fontSize: '0.875rem',
+            opacity: 0.7
+          }}>
+            ({archivedTopics.length})
+          </span>
+        </button>
+      </div>
+
       {/* Search and Filter Bar */}
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -245,7 +414,13 @@ export function TopicsPage() {
           <Button
             variant="ghost"
             size="small"
-            onClick={() => loadTopics(true)}
+            onClick={() => {
+              if (activeTab === 'active') {
+                loadTopics(true)
+              } else {
+                loadArchivedTopics(true)
+              }
+            }}
             disabled={loading}
             style={{ padding: '0.5rem 1rem' }}
             title="Refresh topics"
@@ -292,7 +467,7 @@ export function TopicsPage() {
         {/* Results count */}
         {(searchQuery || filterBy !== 'all') && (
           <p className="body-small text-secondary" style={{ marginTop: '0.5rem' }}>
-            Showing {filteredTopics.length} of {topics.length} topics
+            Showing {filteredTopics.length} of {activeTab === 'active' ? topics.length : archivedTopics.length} topics
           </p>
         )}
       </div>
@@ -300,6 +475,9 @@ export function TopicsPage() {
       <TopicList 
         topics={currentItems} 
         onDelete={handleDelete}
+        onArchive={handleArchive}
+        onUnarchive={handleUnarchive}
+        isArchived={activeTab === 'archived'}
         loading={loading}
       />
       

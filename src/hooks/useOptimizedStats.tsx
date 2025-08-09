@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { LearningItem } from '../types/database'
+import type { LearningItem } from '../types/database'
 import { spacedRepetitionGamified } from '../services/spacedRepetitionGamified'
 
 export function useOptimizedStats(items: LearningItem[]) {

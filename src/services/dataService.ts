@@ -1,6 +1,8 @@
 import { supabase } from './supabase'
 import { cacheService } from './cacheService'
-import type { Topic, LearningItem } from '../types/database'
+import { localStorageCache } from './localStorageCache'
+import { offlineQueue } from './offlineQueue'
+import type { Topic, LearningItem, MasteryStatus } from '../types/database'
 import { 
   validateTopicName, 
   validatePriority, 
@@ -45,11 +47,16 @@ export interface UpdateLearningItemData {
   content?: string
   learning_mode?: 'cram' | 'steady'
   priority?: number
-  last_reviewed_at?: string
-  next_review_at?: string
+  last_reviewed_at?: string | null
+  next_review_at?: string | null
   review_count?: number
   interval_days?: number
   ease_factor?: number
+  updated_at?: string
+  mastery_status?: MasteryStatus
+  archive_date?: string | null
+  mastery_date?: string | null
+  maintenance_interval_days?: number | null
 }
 
 export class DataService {
@@ -86,76 +93,128 @@ export class DataService {
       name: sanitizeInput(data.name),
     }
 
-    return withRetry(async () => {
-      const response = await supabase
-        .from('topics')
-        .insert(sanitizedData)
-        .select()
-        .single()
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('topics')
+          .insert(sanitizedData)
+          .select()
+          .single()
 
-      const result = await handleSupabaseResponse<Topic>(response)
+        return await handleSupabaseResponse<Topic>(response)
+      })
       
       if (result.data) {
         // Invalidate cache
         cacheService.delete(this.CACHE_KEYS.topics(data.user_id))
+        localStorageCache.remove(this.CACHE_KEYS.topics(data.user_id))
       }
 
       return result
-    })
+    } catch (error) {
+      // If offline, queue the operation
+      if (!navigator.onLine) {
+        offlineQueue.addOperation({
+          type: 'create',
+          table: 'topics',
+          data: sanitizedData
+        })
+        
+        // Return optimistic response
+        const optimisticTopic: Topic = {
+          id: `temp_${Date.now()}`,
+          ...sanitizedData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as Topic
+        
+        // Update local cache with optimistic data
+        const cachedTopics = localStorageCache.get<Topic[]>(this.CACHE_KEYS.topics(data.user_id)) || []
+        localStorageCache.set(this.CACHE_KEYS.topics(data.user_id), [optimisticTopic, ...cachedTopics], 24 * 60 * 60 * 1000)
+        
+        return { data: optimisticTopic, error: null }
+      }
+      
+      return { data: null, error: error as Error }
+    }
   }
 
   async getTopics(userId: string): Promise<SupabaseListResult<Topic>> {
     const cacheKey = this.CACHE_KEYS.topics(userId)
     
-    // Check cache first
+    // Check in-memory cache first
     const cached = cacheService.get<Topic[]>(cacheKey)
     if (cached) {
       return { data: cached, error: null }
     }
 
-    return withRetry(async () => {
-      const response = await supabase
-        .from('topics')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('topics')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
 
-      const result = await handleSupabaseListResponse<Topic>(response)
+        return await handleSupabaseListResponse<Topic>(response)
+      })
       
       if (result.data && !result.error) {
-        // Cache for 5 minutes
+        // Cache in memory for 5 minutes
         cacheService.set(cacheKey, result.data, 5 * 60 * 1000)
+        // Also cache in localStorage for offline access (24 hours)
+        localStorageCache.set(cacheKey, result.data, 24 * 60 * 60 * 1000)
       }
 
       return result
-    })
+    } catch (error) {
+      // If online request fails, try localStorage cache
+      const offlineData = localStorageCache.get<Topic[]>(cacheKey)
+      if (offlineData) {
+        return { data: offlineData, error: null }
+      }
+      // If no offline data, return the error
+      return { data: [], error: error as Error }
+    }
   }
 
   async getTopic(topicId: string): Promise<SupabaseResult<Topic>> {
     const cacheKey = this.CACHE_KEYS.topic(topicId)
     
-    // Check cache first
+    // Check in-memory cache first
     const cached = cacheService.get<Topic>(cacheKey)
     if (cached) {
       return { data: cached, error: null }
     }
 
-    return withRetry(async () => {
-      const response = await supabase
-        .from('topics')
-        .select('*')
-        .eq('id', topicId)
-        .single()
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('topics')
+          .select('*')
+          .eq('id', topicId)
+          .single()
 
-      const result = await handleSupabaseResponse<Topic>(response)
+        return await handleSupabaseResponse<Topic>(response)
+      })
       
       if (result.data && !result.error) {
-        // Cache for 5 minutes
+        // Cache in memory for 5 minutes
         cacheService.set(cacheKey, result.data, 5 * 60 * 1000)
+        // Also cache in localStorage for offline access (24 hours)
+        localStorageCache.set(cacheKey, result.data, 24 * 60 * 60 * 1000)
       }
 
       return result
-    })
+    } catch (error) {
+      // If online request fails, try localStorage cache
+      const offlineData = localStorageCache.get<Topic>(cacheKey)
+      if (offlineData) {
+        return { data: offlineData, error: null }
+      }
+      // If no offline data, return the error
+      return { data: null, error: error as Error }
+    }
   }
 
   async updateTopic(topicId: string, data: UpdateTopicData): Promise<SupabaseResult<Topic>> {
@@ -173,24 +232,48 @@ export class DataService {
       updated_at: new Date().toISOString(),
     }
 
-    return withRetry(async () => {
-      const response = await supabase
-        .from('topics')
-        .update(sanitizedData)
-        .eq('id', topicId)
-        .select()
-        .single()
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('topics')
+          .update(sanitizedData)
+          .eq('id', topicId)
+          .select()
+          .single()
 
-      const result = await handleSupabaseResponse<Topic>(response)
+        return await handleSupabaseResponse<Topic>(response)
+      })
       
       if (result.data) {
         // Invalidate cache
         cacheService.delete(this.CACHE_KEYS.topic(topicId))
         cacheService.delete(this.CACHE_KEYS.topics(result.data.user_id))
+        localStorageCache.remove(this.CACHE_KEYS.topic(topicId))
+        localStorageCache.remove(this.CACHE_KEYS.topics(result.data.user_id))
       }
 
       return result
-    })
+    } catch (error) {
+      // If offline, queue the operation
+      if (!navigator.onLine) {
+        offlineQueue.addOperation({
+          type: 'update',
+          table: 'topics',
+          data: { id: topicId, ...sanitizedData }
+        })
+        
+        // Get existing topic from cache
+        const existingTopic = localStorageCache.get<Topic>(this.CACHE_KEYS.topic(topicId))
+        if (existingTopic) {
+          const updatedTopic = { ...existingTopic, ...sanitizedData } as Topic
+          // Update local cache
+          localStorageCache.set(this.CACHE_KEYS.topic(topicId), updatedTopic, 24 * 60 * 60 * 1000)
+          return { data: updatedTopic, error: null }
+        }
+      }
+      
+      return { data: null, error: error as Error }
+    }
   }
 
   async deleteTopic(topicId: string): Promise<SupabaseResult<void>> {
@@ -210,8 +293,11 @@ export class DataService {
       // Invalidate cache
       cacheService.delete(this.CACHE_KEYS.topic(topicId))
       cacheService.delete(this.CACHE_KEYS.topicItems(topicId))
+      localStorageCache.remove(this.CACHE_KEYS.topic(topicId))
+      localStorageCache.remove(this.CACHE_KEYS.topicItems(topicId))
       if (topic) {
         cacheService.delete(this.CACHE_KEYS.topics(topic.user_id))
+        localStorageCache.remove(this.CACHE_KEYS.topics(topic.user_id))
       }
 
       return { data: undefined, error: null }
@@ -250,6 +336,8 @@ export class DataService {
         // Invalidate cache
         cacheService.delete(this.CACHE_KEYS.topicItems(data.topic_id))
         cacheService.delete(this.CACHE_KEYS.userItems(data.user_id))
+        localStorageCache.remove(this.CACHE_KEYS.topicItems(data.topic_id))
+        localStorageCache.remove(this.CACHE_KEYS.userItems(data.user_id))
       }
 
       return result
@@ -290,10 +378,12 @@ export class DataService {
         
         uniqueTopicIds.forEach(topicId => {
           cacheService.delete(this.CACHE_KEYS.topicItems(topicId))
+          localStorageCache.remove(this.CACHE_KEYS.topicItems(topicId))
         })
         
         uniqueUserIds.forEach(userId => {
           cacheService.delete(this.CACHE_KEYS.userItems(userId))
+          localStorageCache.remove(this.CACHE_KEYS.userItems(userId))
         })
       }
 
@@ -304,55 +394,79 @@ export class DataService {
   async getTopicItems(topicId: string): Promise<SupabaseListResult<LearningItem>> {
     const cacheKey = this.CACHE_KEYS.topicItems(topicId)
     
-    // Check cache first
+    // Check in-memory cache first
     const cached = cacheService.get<LearningItem[]>(cacheKey)
     if (cached) {
       return { data: cached, error: null }
     }
 
-    return withRetry(async () => {
-      const response = await supabase
-        .from('learning_items')
-        .select('*')
-        .eq('topic_id', topicId)
-        .order('created_at', { ascending: true })
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('learning_items')
+          .select('*')
+          .eq('topic_id', topicId)
+          .order('created_at', { ascending: true })
 
-      const result = await handleSupabaseListResponse<LearningItem>(response)
+        return await handleSupabaseListResponse<LearningItem>(response)
+      })
       
       if (result.data && !result.error) {
-        // Cache for 5 minutes
+        // Cache in memory for 5 minutes
         cacheService.set(cacheKey, result.data, 5 * 60 * 1000)
+        // Also cache in localStorage for offline access (24 hours)
+        localStorageCache.set(cacheKey, result.data, 24 * 60 * 60 * 1000)
       }
 
       return result
-    })
+    } catch (error) {
+      // If online request fails, try localStorage cache
+      const offlineData = localStorageCache.get<LearningItem[]>(cacheKey)
+      if (offlineData) {
+        return { data: offlineData, error: null }
+      }
+      // If no offline data, return the error
+      return { data: [], error: error as Error }
+    }
   }
 
   async getUserItems(userId: string): Promise<SupabaseListResult<LearningItem>> {
     const cacheKey = this.CACHE_KEYS.userItems(userId)
     
-    // Check cache first
+    // Check in-memory cache first
     const cached = cacheService.get<LearningItem[]>(cacheKey)
     if (cached) {
       return { data: cached, error: null }
     }
 
-    return withRetry(async () => {
-      const response = await supabase
-        .from('learning_items')
-        .select('*')
-        .eq('user_id', userId)
-        .order('next_review_at', { ascending: true, nullsFirst: true })
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('learning_items')
+          .select('*')
+          .eq('user_id', userId)
+          .order('next_review_at', { ascending: true, nullsFirst: true })
 
-      const result = await handleSupabaseListResponse<LearningItem>(response)
+        return await handleSupabaseListResponse<LearningItem>(response)
+      })
       
       if (result.data && !result.error) {
-        // Cache for 2 minutes (shorter since review times change frequently)
+        // Cache in memory for 2 minutes (shorter since review times change frequently)
         cacheService.set(cacheKey, result.data, 2 * 60 * 1000)
+        // Also cache in localStorage for offline access (6 hours)
+        localStorageCache.set(cacheKey, result.data, 6 * 60 * 60 * 1000)
       }
 
       return result
-    })
+    } catch (error) {
+      // If online request fails, try localStorage cache
+      const offlineData = localStorageCache.get<LearningItem[]>(cacheKey)
+      if (offlineData) {
+        return { data: offlineData, error: null }
+      }
+      // If no offline data, return the error
+      return { data: [], error: error as Error }
+    }
   }
 
   async updateLearningItem(
@@ -387,6 +501,8 @@ export class DataService {
         // Invalidate cache
         cacheService.delete(this.CACHE_KEYS.topicItems(result.data.topic_id))
         cacheService.delete(this.CACHE_KEYS.userItems(result.data.user_id))
+        localStorageCache.remove(this.CACHE_KEYS.topicItems(result.data.topic_id))
+        localStorageCache.remove(this.CACHE_KEYS.userItems(result.data.user_id))
       }
 
       return result
@@ -411,6 +527,8 @@ export class DataService {
       if (item) {
         cacheService.delete(this.CACHE_KEYS.topicItems(item.topic_id))
         cacheService.delete(this.CACHE_KEYS.userItems(item.user_id))
+        localStorageCache.remove(this.CACHE_KEYS.topicItems(item.topic_id))
+        localStorageCache.remove(this.CACHE_KEYS.userItems(item.user_id))
       }
 
       return { data: undefined, error: null }
@@ -458,6 +576,235 @@ export class DataService {
   // Clear all caches
   clearCache() {
     cacheService.clear()
+    localStorageCache.clearAll()
+  }
+
+  // Mastery and Archive Management Methods
+
+  async updateItemMasteryStatus(
+    itemId: string,
+    status: MasteryStatus,
+    maintenanceInterval?: number
+  ): Promise<SupabaseResult<LearningItem>> {
+    const updateData: UpdateLearningItemData = {
+      mastery_status: status,
+      updated_at: new Date().toISOString()
+    }
+
+    // Handle status-specific updates
+    if (status === 'archived') {
+      updateData.archive_date = new Date().toISOString()
+    } else if (status === 'maintenance' && maintenanceInterval) {
+      updateData.maintenance_interval_days = maintenanceInterval
+    } else if (status === 'repeat') {
+      // Reset review stats for repeat mode
+      updateData.review_count = 0
+      updateData.interval_days = 0
+      updateData.ease_factor = 2.5
+      updateData.last_reviewed_at = null
+      updateData.next_review_at = null
+      updateData.mastery_date = null
+    } else if (status === 'mastered') {
+      updateData.mastery_date = new Date().toISOString()
+    }
+
+    return this.updateLearningItem(itemId, updateData)
+  }
+
+  async archiveTopic(topicId: string): Promise<SupabaseResult<Topic>> {
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('topics')
+          .update({
+            archive_status: 'archived',
+            archive_date: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', topicId)
+          .select()
+          .single()
+
+        return await handleSupabaseResponse<Topic>(response)
+      })
+
+      if (result.data) {
+        // Invalidate caches - both regular and archived
+        cacheService.delete(this.CACHE_KEYS.topic(topicId))
+        cacheService.delete(this.CACHE_KEYS.topics(result.data.user_id))
+        cacheService.delete(`archived_topics:${result.data.user_id}`)
+        localStorageCache.remove(this.CACHE_KEYS.topic(topicId))
+        localStorageCache.remove(this.CACHE_KEYS.topics(result.data.user_id))
+        localStorageCache.remove(`archived_topics:${result.data.user_id}`)
+      }
+
+      return result
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  }
+
+  async unarchiveTopic(topicId: string): Promise<SupabaseResult<Topic>> {
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('topics')
+          .update({
+            archive_status: 'active',
+            archive_date: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', topicId)
+          .select()
+          .single()
+
+        return await handleSupabaseResponse<Topic>(response)
+      })
+
+      if (result.data) {
+        // Invalidate caches - both regular and archived
+        cacheService.delete(this.CACHE_KEYS.topic(topicId))
+        cacheService.delete(this.CACHE_KEYS.topics(result.data.user_id))
+        cacheService.delete(`archived_topics:${result.data.user_id}`)
+        localStorageCache.remove(this.CACHE_KEYS.topic(topicId))
+        localStorageCache.remove(this.CACHE_KEYS.topics(result.data.user_id))
+        localStorageCache.remove(`archived_topics:${result.data.user_id}`)
+      }
+
+      return result
+    } catch (error) {
+      return { data: null, error: error as Error }
+    }
+  }
+
+  async getArchivedTopics(userId: string): Promise<SupabaseListResult<Topic>> {
+    const cacheKey = `archived_topics:${userId}`
+    
+    // Check cache first
+    const cached = cacheService.get<Topic[]>(cacheKey)
+    if (cached) {
+      return { data: cached, error: null }
+    }
+
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('topics')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('archive_status', 'archived')
+          .order('archive_date', { ascending: false })
+
+        return await handleSupabaseListResponse<Topic>(response)
+      })
+      
+      if (result.data && !result.error) {
+        // Cache for 5 minutes
+        cacheService.set(cacheKey, result.data, 5 * 60 * 1000)
+        localStorageCache.set(cacheKey, result.data, 24 * 60 * 60 * 1000)
+      }
+
+      return result
+    } catch (error) {
+      // Try localStorage cache if offline
+      const offlineData = localStorageCache.get<Topic[]>(cacheKey)
+      if (offlineData) {
+        return { data: offlineData, error: null }
+      }
+      return { data: [], error: error as Error }
+    }
+  }
+
+  async getArchivedItems(userId: string): Promise<SupabaseListResult<LearningItem>> {
+    const cacheKey = `archived_items:${userId}`
+    
+    // Check cache first
+    const cached = cacheService.get<LearningItem[]>(cacheKey)
+    if (cached) {
+      return { data: cached, error: null }
+    }
+
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('learning_items')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('mastery_status', 'archived')
+          .order('archive_date', { ascending: false })
+
+        return await handleSupabaseListResponse<LearningItem>(response)
+      })
+      
+      if (result.data && !result.error) {
+        // Cache for 5 minutes
+        cacheService.set(cacheKey, result.data, 5 * 60 * 1000)
+        localStorageCache.set(cacheKey, result.data, 24 * 60 * 60 * 1000)
+      }
+
+      return result
+    } catch (error) {
+      // Try localStorage cache if offline
+      const offlineData = localStorageCache.get<LearningItem[]>(cacheKey)
+      if (offlineData) {
+        return { data: offlineData, error: null }
+      }
+      return { data: [], error: error as Error }
+    }
+  }
+
+  async bulkUpdateMasteryStatus(
+    itemIds: string[],
+    status: MasteryStatus
+  ): Promise<SupabaseListResult<LearningItem>> {
+    const updateData: UpdateLearningItemData = {
+      mastery_status: status,
+      updated_at: new Date().toISOString()
+    }
+
+    // Add status-specific fields
+    if (status === 'archived') {
+      updateData.archive_date = new Date().toISOString()
+    } else if (status === 'repeat') {
+      updateData.review_count = 0
+      updateData.interval_days = 0
+      updateData.ease_factor = 2.5
+      updateData.last_reviewed_at = null
+      updateData.next_review_at = null
+      updateData.mastery_date = null
+    }
+
+    try {
+      const result = await withRetry(async () => {
+        const response = await supabase
+          .from('learning_items')
+          .update(updateData)
+          .in('id', itemIds)
+          .select()
+
+        return await handleSupabaseListResponse<LearningItem>(response)
+      })
+
+      if (result.data && result.data.length > 0) {
+        // Clear all relevant caches
+        const uniqueUserIds = new Set(result.data.map(item => item.user_id))
+        const uniqueTopicIds = new Set(result.data.map(item => item.topic_id))
+        
+        uniqueUserIds.forEach(userId => {
+          cacheService.delete(this.CACHE_KEYS.userItems(userId))
+          localStorageCache.remove(this.CACHE_KEYS.userItems(userId))
+        })
+        
+        uniqueTopicIds.forEach(topicId => {
+          cacheService.delete(this.CACHE_KEYS.topicItems(topicId))
+          localStorageCache.remove(this.CACHE_KEYS.topicItems(topicId))
+        })
+      }
+
+      return result
+    } catch (error) {
+      return { data: [], error: error as Error }
+    }
   }
 }
 

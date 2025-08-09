@@ -1,9 +1,28 @@
+import { useState, useEffect } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { syncService } from '../services/syncService'
 
 export function OfflineIndicator() {
   const isOnline = useOnlineStatus()
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
+  
+  useEffect(() => {
+    const unsubscribe = syncService.onSyncStatusChange((syncing) => {
+      setIsSyncing(syncing)
+    })
+    
+    const interval = setInterval(() => {
+      setPendingCount(syncService.getPendingOperationsCount())
+    }, 1000)
+    
+    return () => {
+      unsubscribe()
+      clearInterval(interval)
+    }
+  }, [])
 
-  if (isOnline) return null
+  if (isOnline && !isSyncing && pendingCount === 0) return null
 
   return (
     <div
@@ -39,7 +58,13 @@ export function OfflineIndicator() {
         <path d="M19 11.5a7.5 7.5 0 0 1-15 0" />
       </svg>
       <span className="body-small">
-        You're offline. Changes will sync when connection is restored.
+        {!isOnline ? (
+          <>You're offline. {pendingCount > 0 && `${pendingCount} changes`} will sync when connection is restored.</>
+        ) : isSyncing ? (
+          <>Syncing {pendingCount} pending changes...</>
+        ) : (
+          <>{pendingCount} changes waiting to sync</>
+        )}
       </span>
     </div>
   )

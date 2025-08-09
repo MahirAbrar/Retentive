@@ -5,4 +5,4 @@ export { offlineService } from './offlineService'
 
 // Export other services as-is
 export { authService } from './authFixed'
-export { spacedRepetitionService } from './spacedRepetitionGamified'
+export { spacedRepetitionGamified } from './spacedRepetitionGamified'

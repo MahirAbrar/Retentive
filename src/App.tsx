@@ -1,9 +1,11 @@
 import './App.css'
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ToastProvider } from './components/ui'
 import { AuthProvider } from './hooks/useAuthFixed'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AchievementProvider } from './hooks/useAchievements'
+import { syncService } from './services/syncService'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPageFixed'
 // import { ComponentShowcase } from './components/ComponentShowcase'
@@ -23,6 +25,14 @@ import { OfflineIndicator } from './components/OfflineIndicator'
 import { HeaderFixed } from './components/layout/HeaderFixed'
 
 function App() {
+  // Initialize sync service on app load
+  useEffect(() => {
+    // Sync pending operations if online
+    if (navigator.onLine) {
+      syncService.syncPendingOperations()
+    }
+  }, [])
+  
   // Check if running in Electron
   // In development, Electron loads from localhost but has electronAPI
   // In production, it uses file:// protocol

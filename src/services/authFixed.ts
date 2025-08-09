@@ -4,6 +4,7 @@ import { secureStorage } from './secureStorage'
 import { offlineService } from './offlineService'
 import { gamificationService as gamificationServiceOffline } from './gamificationServiceOffline'
 import { gamificationService } from './gamificationService'
+import { localStorageCache } from './localStorageCache'
 import type { User } from '../types/database'
 import type { Session } from '@supabase/supabase-js'
 import { handleError } from '../utils/errors'
@@ -71,8 +72,11 @@ export class AuthService {
             isAuthenticated: true,
           })
           
-          // Update offline service with user ID
+          // Cache user data for offline access
           if (user.id) {
+            localStorageCache.set('current_user', user, 7 * 24 * 60 * 60 * 1000) // 7 days
+            localStorageCache.set('current_session', { userId: user.id, email: user.email }, 7 * 24 * 60 * 60 * 1000)
+            
             offlineService.setUserId(user.id)
             gamificationServiceOffline.setUserId(user.id)
             
@@ -84,7 +88,7 @@ export class AuthService {
               await window.electronAPI.database.user.upsert({
                 id: user.id,
                 email: user.email,
-                display_name: user.display_name
+                display_name: user.email // Use email as display name since User type doesn't have display_name
               })
             }
           }
@@ -98,6 +102,9 @@ export class AuthService {
           isLoading: false,
           isAuthenticated: false,
         })
+        // Clear cached session data
+        localStorageCache.remove('current_user')
+        localStorageCache.remove('current_session')
         break
     }
   }
@@ -122,12 +129,18 @@ export class AuthService {
       if (error) throw error
       
       if (session?.user) {
+        const user = this.mapSupabaseUser(session.user)
         this.updateSessionState({
-          user: this.mapSupabaseUser(session.user),
+          user,
           session,
           isLoading: false,
           isAuthenticated: true,
         })
+        // Cache for offline
+        if (user.id) {
+          localStorageCache.set('current_user', user, 7 * 24 * 60 * 60 * 1000)
+          localStorageCache.set('current_session', { userId: user.id, email: user.email }, 7 * 24 * 60 * 60 * 1000)
+        }
       } else {
         this.updateSessionState({
           user: null,
@@ -137,13 +150,29 @@ export class AuthService {
         })
       }
     } catch (error) {
-      handleError(error, 'Load session')
-      this.updateSessionState({
-        user: null,
-        session: null,
-        isLoading: false,
-        isAuthenticated: false,
-      })
+      // Try to load from cache if offline
+      const cachedUser = localStorageCache.get<User>('current_user')
+      if (cachedUser) {
+        this.updateSessionState({
+          user: cachedUser,
+          session: null, // Session not available offline
+          isLoading: false,
+          isAuthenticated: true,
+        })
+        // Update offline service with cached user ID
+        if (cachedUser.id) {
+          offlineService.setUserId(cachedUser.id)
+          gamificationServiceOffline.setUserId(cachedUser.id)
+        }
+      } else {
+        handleError(error, 'Load session')
+        this.updateSessionState({
+          user: null,
+          session: null,
+          isLoading: false,
+          isAuthenticated: false,
+        })
+      }
     }
   }
 
@@ -202,6 +231,10 @@ export class AuthService {
       if (window.electronAPI?.secureStorage) {
         await secureStorage.clear()
       }
+      
+      // Clear cached session data
+      localStorageCache.remove('current_user')
+      localStorageCache.remove('current_session')
       
       // Clear session state
       this.updateSessionState({

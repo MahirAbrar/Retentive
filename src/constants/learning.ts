@@ -32,11 +32,23 @@ export const PRIORITY_LABELS: Record<number, string> = {
 }
 
 export const BASE_INTERVALS = {
+  ultracram: {
+    again: 0.0007, // ~1 minute (1/1440 of a day)
+    hard: 0.0014, // ~2 minutes
+    good: 0.0021, // ~3 minutes
+    easy: 0.0035, // ~5 minutes
+  },
   cram: {
     again: 0.0007, // ~1 minute (1/1440 of a day)
     hard: 0.0014, // ~2 minutes
     good: 0.0021, // ~3 minutes
     easy: 0.0035, // ~5 minutes
+  },
+  extended: {
+    again: 0.0007, // ~1 minute
+    hard: 0.0021, // ~3 minutes
+    good: 0.0035, // ~5 minutes
+    easy: 0.007, // ~10 minutes
   },
   steady: {
     again: 0.0007, // ~1 minute

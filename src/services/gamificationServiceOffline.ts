@@ -1,6 +1,6 @@
 import { offlineService } from './offlineService'
 import { GAMIFICATION_CONFIG } from '../config/gamification'
-import type { LearningItem, ReviewSession } from '../types'
+import type { LearningItem } from '../types/database'
 import { formatDateForDB } from '../utils/date'
 
 export interface GamificationStats {
@@ -76,7 +76,7 @@ export class GamificationService {
   ): Promise<{ points: number; timingBonus: number; isPerfectTiming: boolean }> {
     const mode = GAMIFICATION_CONFIG.LEARNING_MODES[item.learning_mode]
     if (!item.next_review_at || item.review_count === 0) {
-      return { points: GAMIFICATION_CONFIG.POINTS.BASE_REVIEW, timingBonus: 1.0, isPerfectTiming: false }
+      return { points: GAMIFICATION_CONFIG.POINTS.baseReview, timingBonus: 1.0, isPerfectTiming: false }
     }
 
     const scheduledTime = new Date(item.next_review_at)
@@ -84,7 +84,7 @@ export class GamificationService {
     const hoursEarly = (scheduledTime.getTime() - actualTime.getTime()) / (1000 * 60 * 60)
     const hoursLate = -hoursEarly
 
-    let timingBonus = mode.pointsMultiplier.late
+    let timingBonus: number = mode.pointsMultiplier.late
     let isPerfectTiming = false
 
     if (hoursEarly <= mode.windowBefore && hoursLate <= mode.windowAfter) {
@@ -94,8 +94,8 @@ export class GamificationService {
       timingBonus = mode.pointsMultiplier.inWindow
     }
 
-    const basePoints = GAMIFICATION_CONFIG.POINTS.BASE_REVIEW
-    const comboBonus = Math.min(this.sessionStats.sessionCombo, 10) * GAMIFICATION_CONFIG.POINTS.COMBO_MULTIPLIER
+    const basePoints = GAMIFICATION_CONFIG.POINTS.baseReview
+    const comboBonus = Math.min(this.sessionStats.sessionCombo, 10) * GAMIFICATION_CONFIG.POINTS.comboBonus[Math.min(this.sessionStats.sessionCombo, 10) as keyof typeof GAMIFICATION_CONFIG.POINTS.comboBonus] || 0
     const points = Math.round((basePoints + comboBonus) * timingBonus)
 
     return { points, timingBonus, isPerfectTiming }
@@ -107,7 +107,7 @@ export class GamificationService {
   ): Promise<number> {
     if (!this.userId) throw new Error('User ID not set')
 
-    const { points, timingBonus, isPerfectTiming } = await this.calculateReviewPoints(item, reviewedAt)
+    const { points, isPerfectTiming } = await this.calculateReviewPoints(item, reviewedAt)
     
     // Update session stats
     this.sessionStats.sessionPoints += points
@@ -151,7 +151,7 @@ export class GamificationService {
     return points
   }
 
-  async recordMastery(item: LearningItem): Promise<number> {
+  async recordMastery(_item: LearningItem): Promise<number> {
     if (!this.userId) throw new Error('User ID not set')
     
     const points = GAMIFICATION_CONFIG.MASTERY.bonusPoints
@@ -190,12 +190,12 @@ export class GamificationService {
 
   calculateLevel(totalPoints: number): number {
     let level = 1
-    let pointsForNextLevel = GAMIFICATION_CONFIG.LEVELS.basePoints
+    let pointsForNextLevel = GAMIFICATION_CONFIG.FEATURES.levels.experienceBase
 
     while (totalPoints >= pointsForNextLevel) {
       level++
-      pointsForNextLevel += GAMIFICATION_CONFIG.LEVELS.basePoints * 
-        Math.pow(GAMIFICATION_CONFIG.LEVELS.multiplier, level - 1)
+      pointsForNextLevel += GAMIFICATION_CONFIG.FEATURES.levels.experienceBase * 
+        Math.pow(GAMIFICATION_CONFIG.FEATURES.levels.experienceGrowth, level - 1)
     }
 
     return level
@@ -203,12 +203,12 @@ export class GamificationService {
 
   getPointsForLevel(level: number): { current: number; next: number } {
     let current = 0
-    let next = GAMIFICATION_CONFIG.LEVELS.basePoints
+    let next = GAMIFICATION_CONFIG.FEATURES.levels.experienceBase
 
     for (let i = 1; i < level; i++) {
       current = next
-      next += GAMIFICATION_CONFIG.LEVELS.basePoints * 
-        Math.pow(GAMIFICATION_CONFIG.LEVELS.multiplier, i)
+      next += GAMIFICATION_CONFIG.FEATURES.levels.experienceBase * 
+        Math.pow(GAMIFICATION_CONFIG.FEATURES.levels.experienceGrowth, i)
     }
 
     return { current, next }

@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Topic, LearningItem, ReviewSession } from '../types'
+import type { Topic, LearningItem, ReviewSession } from '../types/database'
 
 export class OfflineService {
   private isElectron = window.electronAPI !== undefined

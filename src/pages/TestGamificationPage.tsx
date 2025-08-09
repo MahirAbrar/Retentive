@@ -228,7 +228,7 @@ export function TestGamificationPage() {
               </Button>
               <Button 
                 onClick={clearAllReviews}
-                variant="error"
+                variant="primary"
                 disabled={loading}
               >
                 Clear All Review History

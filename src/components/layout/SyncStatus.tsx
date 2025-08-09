@@ -1,4 +1,3 @@
-import React from 'react'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import styles from './SyncStatus.module.css'
 

@@ -168,7 +168,6 @@ export class SpacedRepetitionGamifiedService {
   }
 
   getItemsByStatus(items: LearningItem[]) {
-    const now = new Date()
     
     const overdue: LearningItem[] = []
     const due: LearningItem[] = []
@@ -198,6 +197,26 @@ export class SpacedRepetitionGamifiedService {
     })
     
     return { overdue, due, upcoming, mastered }
+  }
+
+  calculateMaintenanceInterval(item: LearningItem): number {
+    // Use current interval or default based on mode
+    const currentInterval = item.maintenance_interval_days || item.interval_days || 1
+    const nextInterval = currentInterval * 2
+    
+    // Cap based on learning mode
+    switch (item.learning_mode) {
+      case 'ultracram':
+        return Math.min(nextInterval, 60) // 2 months max
+      case 'cram':
+        return Math.min(nextInterval, 90) // 3 months max
+      case 'extended':
+        return Math.min(nextInterval, 180) // 6 months max
+      case 'steady':
+        return Math.min(nextInterval, 365) // 1 year max
+      default:
+        return nextInterval
+    }
   }
 }
 

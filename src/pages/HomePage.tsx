@@ -17,6 +17,7 @@ interface PriorityStats {
 export function HomePage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [isGuideExpanded, setIsGuideExpanded] = useState(!user) // Expanded when not logged in, collapsed when logged in
   const [stats, setStats] = useState({
     overdue: 0,
     dueToday: 0,
@@ -53,11 +54,11 @@ export function HomePage() {
     return stats.overdue + stats.dueToday
   }, [stats.overdue, stats.dueToday])
 
-  // Memoize the progress percentage
-  const progressPercentage = useMemo(() => {
-    if (stats.totalItems === 0) return 0
-    return Math.round((stats.mastered / stats.totalItems) * 100)
-  }, [stats.mastered, stats.totalItems])
+  // Memoize the progress percentage (commented out as not currently used)
+  // const progressPercentage = useMemo(() => {
+  //   if (stats.totalItems === 0) return 0
+  //   return Math.round((stats.mastered / stats.totalItems) * 100)
+  // }, [stats.mastered, stats.totalItems])
 
   return (
     <div>
@@ -322,42 +323,215 @@ export function HomePage() {
           </div>
         )}
 
-        {/* Main Actions */}
+        {/* Getting Started Guide */}
         <Card variant="elevated">
           <CardHeader>
-            <h2 className="h3">Get Started</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="h3">Getting Started</h2>
+              <Button 
+                variant="ghost" 
+                size="small"
+                onClick={() => setIsGuideExpanded(!isGuideExpanded)}
+                style={{ padding: '0.25rem 0.5rem' }}
+              >
+                {isGuideExpanded ? '−' : '+'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <p className="body" style={{ marginBottom: '2rem' }}>
-              Ready to start learning? Create your first topic and add items to study.
-            </p>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              {user ? (
-                <>
-                  <Link to="/topics">
-                    <Button variant="primary" size="large">
-                      View Topics
-                    </Button>
-                  </Link>
-                  <Link to="/topics/new">
-                    <Button variant="secondary" size="large">
-                      Add New Topic
-                    </Button>
-                  </Link>
-                  <Link to="/stats">
-                    <Button variant="ghost" size="large">
-                      View Statistics
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <Link to="/login">
-                  <Button variant="primary" size="large">
-                    Get Started
-                  </Button>
-                </Link>
-              )}
-            </div>
+            {isGuideExpanded ? (
+              <div style={{ display: 'grid', gap: '2rem' }}>
+                {/* Why Use Retentive */}
+                <section>
+                  <h3 className="h4" style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>🎯 Why Use Retentive?</h3>
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>📚 Scientifically Proven Learning</h4>
+                      <p className="body-small text-secondary">
+                        Retentive uses spaced repetition, a learning technique proven to increase retention by up to 200%. 
+                        Instead of cramming, you review information at optimal intervals just before you're about to forget it.
+                      </p>
+                    </div>
+                    <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>🧠 Multiple Learning Modes</h4>
+                      <p className="body-small text-secondary">
+                        Choose from Ultra-Cram (30 minutes), Standard Cram (4 hours), Extended Cram (1 day), or Steady mode (gradual learning). 
+                        Each mode is optimized for different learning scenarios and time constraints.
+                      </p>
+                    </div>
+                    <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>🏆 Gamification & Progress Tracking</h4>
+                      <p className="body-small text-secondary">
+                        Earn achievements, maintain streaks, and track your mastery progress. 
+                        Turn learning into an engaging experience with rewards and visual progress indicators.
+                      </p>
+                    </div>
+                    <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>💾 Works Offline</h4>
+                      <p className="body-small text-secondary">
+                        Study anywhere, anytime. Your data syncs automatically when you're back online. 
+                        Perfect for commutes, flights, or anywhere without reliable internet.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* How to Use */}
+                <section>
+                  <h3 className="h4" style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>📖 How to Use Retentive</h3>
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>1</span>
+                      <div>
+                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Create Topics</h4>
+                        <p className="body-small text-secondary">
+                          Organize your learning by creating topics (e.g., "Spanish Vocabulary", "Medical Terms", "History Facts").
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>2</span>
+                      <div>
+                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Add Subtopics</h4>
+                        <p className="body-small text-secondary">
+                          Break down topics into specific items to learn (e.g., individual words, concepts, or facts).
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>3</span>
+                      <div>
+                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Choose Your Learning Mode</h4>
+                        <p className="body-small text-secondary">
+                          Select between different modes based on your timeline:
+                          <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                            <li><strong>Ultra-Cram:</strong> Quick review (30 min intervals)</li>
+                            <li><strong>Standard Cram:</strong> Exam prep (4 hour intervals)</li>
+                            <li><strong>Extended Cram:</strong> Intensive study (1 day intervals)</li>
+                            <li><strong>Steady:</strong> Long-term retention (gradually increasing intervals)</li>
+                          </ul>
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>4</span>
+                      <div>
+                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Review When Due</h4>
+                        <p className="body-small text-secondary">
+                          Items appear for review at scientifically optimal intervals. Rate your recall (Again/Hard/Good/Easy) to adjust future scheduling.
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>5</span>
+                      <div>
+                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Master Your Knowledge</h4>
+                        <p className="body-small text-secondary">
+                          After 5 successful reviews, items are marked as "mastered" and won't appear again unless you reset them.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Best Practices */}
+                <section>
+                  <h3 className="h4" style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>💡 Best Practices</h3>
+                  <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-success-light)', borderRadius: 'var(--radius-sm)' }}>
+                      <p className="body-small">
+                        <strong>Daily Reviews:</strong> Spend 10-15 minutes daily reviewing due items for best retention.
+                      </p>
+                    </div>
+                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-info-light)', borderRadius: 'var(--radius-sm)' }}>
+                      <p className="body-small">
+                        <strong>Be Honest:</strong> Rate your recall honestly - it helps the algorithm optimize your learning.
+                      </p>
+                    </div>
+                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-warning-light)', borderRadius: 'var(--radius-sm)' }}>
+                      <p className="body-small">
+                        <strong>Start Small:</strong> Begin with 5-10 items per topic and gradually increase as you build the habit.
+                      </p>
+                    </div>
+                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-gray-100)', borderRadius: 'var(--radius-sm)' }}>
+                      <p className="body-small">
+                        <strong>Use Priorities:</strong> Set higher priorities (1-5) for important items to review them more frequently.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Call to Action */}
+                <div style={{ 
+                  padding: '1.5rem', 
+                  backgroundColor: 'var(--color-primary-light)', 
+                  borderRadius: 'var(--radius-md)',
+                  textAlign: 'center'
+                }}>
+                  <p className="body" style={{ marginBottom: '1rem', fontWeight: '500' }}>
+                    Ready to supercharge your learning?
+                  </p>
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {user ? (
+                      <>
+                        <Link to="/topics">
+                          <Button variant="primary" size="large">
+                            View Topics
+                          </Button>
+                        </Link>
+                        <Link to="/topics/new">
+                          <Button variant="secondary" size="large">
+                            Create Your First Topic
+                          </Button>
+                        </Link>
+                      </>
+                    ) : (
+                      <Link to="/login">
+                        <Button variant="primary" size="large">
+                          Sign Up Free
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Collapsed view
+              <div>
+                <p className="body" style={{ marginBottom: '1.5rem' }}>
+                  Master anything with scientifically-proven spaced repetition learning.
+                </p>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {user ? (
+                    <>
+                      {totalDueItems > 0 && (
+                        <Link to="/topics">
+                          <Button variant="primary" size="large">
+                            Review {totalDueItems} Due Items
+                          </Button>
+                        </Link>
+                      )}
+                      <Link to="/topics/new">
+                        <Button variant="secondary" size="large">
+                          Add New Topic
+                        </Button>
+                      </Link>
+                      <Link to="/topics">
+                        <Button variant="ghost" size="large">
+                          View All Topics
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    <Link to="/login">
+                      <Button variant="primary" size="large">
+                        Get Started
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

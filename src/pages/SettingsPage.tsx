@@ -124,6 +124,8 @@ export function SettingsPage() {
   }
 
   const handleResetData = async () => {
+    if (!user) return
+    
     if (!confirm('Are you sure you want to delete all your topics and learning items? This action cannot be undone.')) {
       return
     }

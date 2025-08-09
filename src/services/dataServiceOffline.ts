@@ -122,7 +122,7 @@ export class DataService {
       await offlineService.deleteTopic(id)
       return { data: undefined, error: null }
     } catch (error) {
-      return { data: null, error: error as Error }
+      return { data: undefined, error: error as Error }
     }
   }
   
@@ -141,7 +141,7 @@ export class DataService {
       const topics = await offlineService.getTopics()
       return { data: topics, error: null, count: topics.length }
     } catch (error) {
-      return { data: null, error: error as Error, count: 0 }
+      return { data: [], error: error as Error, count: 0 }
     }
   }
   
@@ -200,7 +200,7 @@ export class DataService {
       await offlineService.deleteLearningItem(id)
       return { data: undefined, error: null }
     } catch (error) {
-      return { data: null, error: error as Error }
+      return { data: undefined, error: error as Error }
     }
   }
   
@@ -211,7 +211,7 @@ export class DataService {
       const items = await offlineService.getLearningItems(topicId)
       return { data: items, error: null, count: items.length }
     } catch (error) {
-      return { data: null, error: error as Error, count: 0 }
+      return { data: [], error: error as Error, count: 0 }
     }
   }
   
@@ -223,7 +223,7 @@ export class DataService {
       const items = await offlineService.getLearningItems()
       return { data: items, error: null, count: items.length }
     } catch (error) {
-      return { data: null, error: error as Error, count: 0 }
+      return { data: [], error: error as Error, count: 0 }
     }
   }
   
@@ -242,7 +242,7 @@ export class DataService {
       
       return { data: dueItems, error: null, count: dueItems.length }
     } catch (error) {
-      return { data: null, error: error as Error, count: 0 }
+      return { data: [], error: error as Error, count: 0 }
     }
   }
 }

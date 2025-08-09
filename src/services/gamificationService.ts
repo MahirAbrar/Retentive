@@ -691,15 +691,15 @@ export class GamificationService {
   }
 
   calculateLevel(totalPoints: number): number {
-    const { experienceBase, experienceGrowth } = GAMIFICATION_CONFIG.FEATURES.levels
+    const { experienceBase } = GAMIFICATION_CONFIG.FEATURES.levels
     let level = 1
-    let requiredXP = experienceBase
+    let requiredXP = experienceBase as number
     let accumulatedXP = 0
     
     while (accumulatedXP + requiredXP <= totalPoints) {
       accumulatedXP += requiredXP
       level++
-      requiredXP = Math.floor(experienceBase * Math.pow(experienceGrowth, level - 1))
+      requiredXP = experienceBase as number
     }
     
     return level

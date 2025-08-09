@@ -28,6 +28,49 @@ export class SpacedRepetitionService {
     item: LearningItem,
     difficulty: ReviewDifficulty
   ): ReviewResult {
+    // Handle different mastery statuses
+    if (item.mastery_status === 'archived') {
+      // Archived items don't get reviewed
+      return {
+        nextReviewAt: '',
+        intervalDays: 0,
+        easeFactor: item.ease_factor,
+      }
+    }
+    
+    if (item.mastery_status === 'maintenance') {
+      // Maintenance mode: double the interval each time
+      const maintenanceInterval = this.calculateMaintenanceInterval(item)
+      const nextReviewAt = new Date()
+      nextReviewAt.setDate(nextReviewAt.getDate() + maintenanceInterval)
+      
+      return {
+        nextReviewAt: nextReviewAt.toISOString(),
+        intervalDays: maintenanceInterval,
+        easeFactor: item.ease_factor,
+      }
+    }
+    
+    if (item.mastery_status === 'repeat') {
+      // Repeat mode: treat as first review
+      const newEaseFactor = 2.5
+      const intervalDays = this.calculateInterval(
+        { ...item, review_count: 0, interval_days: 0 },
+        difficulty,
+        newEaseFactor
+      )
+      
+      const nextReviewAt = new Date()
+      nextReviewAt.setDate(nextReviewAt.getDate() + Math.ceil(intervalDays))
+      
+      return {
+        nextReviewAt: nextReviewAt.toISOString(),
+        intervalDays,
+        easeFactor: newEaseFactor,
+      }
+    }
+    
+    // Normal review calculation
     const newEaseFactor = this.calculateEaseFactor(item.ease_factor, difficulty)
     const intervalDays = this.calculateInterval(
       item,
@@ -42,6 +85,26 @@ export class SpacedRepetitionService {
       nextReviewAt: nextReviewAt.toISOString(),
       intervalDays,
       easeFactor: newEaseFactor,
+    }
+  }
+
+  private calculateMaintenanceInterval(item: LearningItem): number {
+    // Use stored maintenance interval or calculate based on mode
+    const currentInterval = item.maintenance_interval_days || item.interval_days
+    const nextInterval = currentInterval * 2
+    
+    // Cap based on learning mode
+    switch (item.learning_mode) {
+      case 'ultracram':
+        return Math.min(nextInterval, 60) // 2 months max
+      case 'cram':
+        return Math.min(nextInterval, 90) // 3 months max
+      case 'extended':
+        return Math.min(nextInterval, 180) // 6 months max
+      case 'steady':
+        return Math.min(nextInterval, 365) // 1 year max
+      default:
+        return nextInterval
     }
   }
 
@@ -106,6 +169,12 @@ export class SpacedRepetitionService {
     const now = new Date()
     
     return items.filter(item => {
+      // Skip archived items
+      if (item.mastery_status === 'archived') return false
+      
+      // Skip items that are mastered but not in maintenance
+      if (item.mastery_status === 'mastered' && item.review_count >= 5) return false
+      
       if (!item.next_review_at) return true // Never reviewed
       
       const reviewDate = new Date(item.next_review_at)
@@ -129,6 +198,12 @@ export class SpacedRepetitionService {
     future.setDate(future.getDate() + days)
     
     return items.filter(item => {
+      // Skip archived items
+      if (item.mastery_status === 'archived') return false
+      
+      // Skip items that are mastered but not in maintenance
+      if (item.mastery_status === 'mastered' && item.review_count >= 5) return false
+      
       if (!item.next_review_at) return false
       
       const reviewDate = new Date(item.next_review_at)
@@ -146,8 +221,35 @@ export class SpacedRepetitionService {
     const due: LearningItem[] = []
     const upcoming: LearningItem[] = []
     const mastered: LearningItem[] = []
+    const archived: LearningItem[] = []
+    const maintenance: LearningItem[] = []
     
     items.forEach(item => {
+      // Handle different mastery statuses
+      if (item.mastery_status === 'archived') {
+        archived.push(item)
+        return
+      }
+      
+      if (item.mastery_status === 'maintenance') {
+        maintenance.push(item)
+        // Also check if maintenance review is due
+        if (item.next_review_at) {
+          const reviewDate = new Date(item.next_review_at)
+          const daysDiff = (reviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+          if (daysDiff <= 0) {
+            due.push(item)
+          }
+        }
+        return
+      }
+      
+      if (item.mastery_status === 'mastered' || item.review_count >= 5) {
+        mastered.push(item)
+        return
+      }
+      
+      // Normal items
       if (!item.next_review_at) {
         due.push(item) // Never reviewed items are due
       } else {
@@ -158,15 +260,44 @@ export class SpacedRepetitionService {
           overdue.push(item)
         } else if (daysDiff <= 0) {
           due.push(item)
-        } else if (item.interval_days >= 21) {
-          mastered.push(item)
         } else {
           upcoming.push(item)
         }
       }
     })
     
-    return { overdue, due, upcoming, mastered }
+    return { overdue, due, upcoming, mastered, archived, maintenance }
+  }
+
+  // Helper method to check if item should show mastery dialog
+  shouldShowMasteryDialog(item: LearningItem, reviewCount: number): boolean {
+    return reviewCount === 5 && 
+           (!item.mastery_status || item.mastery_status === 'active') &&
+           item.review_count === 4 // About to become 5
+  }
+
+  // Helper to get active items only (for review queue)
+  getActiveItems(items: LearningItem[]): LearningItem[] {
+    return items.filter(item => 
+      !item.mastery_status || 
+      item.mastery_status === 'active' || 
+      item.mastery_status === 'maintenance' ||
+      item.mastery_status === 'repeat'
+    )
+  }
+
+  // Helper to get archived items
+  getArchivedItems(items: LearningItem[]): LearningItem[] {
+    return items.filter(item => item.mastery_status === 'archived')
+  }
+
+  // Helper to get mastered items
+  getMasteredItems(items: LearningItem[]): LearningItem[] {
+    return items.filter(item => 
+      item.mastery_status === 'mastered' || 
+      item.mastery_status === 'maintenance' ||
+      (item.review_count >= 5 && !item.mastery_status)
+    )
   }
 }
 
