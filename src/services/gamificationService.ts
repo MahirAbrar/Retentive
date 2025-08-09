@@ -146,7 +146,7 @@ export class GamificationService {
     
     try {
       // Try to get stats from database first
-      let { data: dbStats, error } = await supabase
+      const { data: dbStats, error } = await supabase
         .from('user_gamification_stats')
         .select('*')
         .eq('user_id', userId)
@@ -158,7 +158,8 @@ export class GamificationService {
       }
       
       // If no stats exist, create them
-      if (!dbStats) {
+      let statsToUse = dbStats
+      if (!statsToUse) {
         const streak = await this.calculateStreakFromHistory(userId)
         
         const { data: newStats, error: insertError } = await supabase
@@ -179,22 +180,22 @@ export class GamificationService {
           return null
         }
         
-        dbStats = newStats
+        statsToUse = newStats
       }
       
       // Always recalculate streak from history to ensure accuracy
       const actualStreak = await this.calculateStreakFromHistory(userId)
-      if (actualStreak !== dbStats.current_streak) {
-        console.log(`Streak mismatch detected. DB: ${dbStats.current_streak}, Actual: ${actualStreak}. Updating...`)
+      if (actualStreak !== statsToUse.current_streak) {
+        console.log(`Streak mismatch detected. DB: ${statsToUse.current_streak}, Actual: ${actualStreak}. Updating...`)
         await supabase
           .from('user_gamification_stats')
           .update({ 
             current_streak: actualStreak,
-            longest_streak: Math.max(actualStreak, dbStats.longest_streak || 0)
+            longest_streak: Math.max(actualStreak, statsToUse.longest_streak || 0)
           })
           .eq('user_id', userId)
-        dbStats.current_streak = actualStreak
-        dbStats.longest_streak = Math.max(actualStreak, dbStats.longest_streak || 0)
+        statsToUse.current_streak = actualStreak
+        statsToUse.longest_streak = Math.max(actualStreak, statsToUse.longest_streak || 0)
       }
       
       // Get today's stats
@@ -216,11 +217,11 @@ export class GamificationService {
       
       const stats: UserGamificationStats = {
         userId,
-        totalPoints: dbStats.total_points || 0,
-        currentLevel: dbStats.current_level || 1,
-        currentStreak: dbStats.current_streak || 0,
-        longestStreak: dbStats.longest_streak || 0,
-        lastReviewDate: dbStats.last_review_date,
+        totalPoints: statsToUse.total_points || 0,
+        currentLevel: statsToUse.current_level || 1,
+        currentStreak: statsToUse.current_streak || 0,
+        longestStreak: statsToUse.longest_streak || 0,
+        lastReviewDate: statsToUse.last_review_date,
         todayReviews: todayStats?.reviews_completed || 0,
         todayPoints: todayStats?.points_earned || 0,
         achievements: achievements?.map(a => a.achievement_id) || []

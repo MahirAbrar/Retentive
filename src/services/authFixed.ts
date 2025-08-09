@@ -41,6 +41,10 @@ export class AuthService {
     this.initializeAuth()
   }
   
+  /**
+   * Get singleton instance of AuthService
+   * @returns {AuthService} The auth service instance
+   */
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService()
@@ -176,6 +180,11 @@ export class AuthService {
     }
   }
 
+  /**
+   * Register new user with email and password
+   * @param credentials - Email and password for new account
+   * @returns User object or error
+   */
   async signUp({ email, password }: AuthCredentials): Promise<AuthResponse> {
     return withRetry(async () => {
       try {
@@ -199,6 +208,11 @@ export class AuthService {
     })
   }
 
+  /**
+   * Sign in user with email and password
+   * @param credentials - Email and password
+   * @returns User object or error
+   */
   async signIn({ email, password }: AuthCredentials): Promise<AuthResponse> {
     return withRetry(async () => {
       try {
@@ -222,6 +236,10 @@ export class AuthService {
     })
   }
 
+  /**
+   * Sign out current user and clear session
+   * @returns Error if failed, null if successful
+   */
   async signOut(): Promise<{ error: Error | null }> {
     try {
       const { error } = await supabase.auth.signOut()

@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import { cacheService } from './cacheService'
 import { localStorageCache } from './localStorageCache'
 import { offlineQueue } from './offlineQueue'
-import type { Topic, LearningItem, MasteryStatus } from '../types/database'
+import type { Topic, LearningItem, MasteryStatus, LearningMode } from '../types/database'
 import { 
   validateTopicName, 
   validatePriority, 
@@ -25,13 +25,13 @@ import {
 export interface CreateTopicData {
   name: string
   user_id: string
-  learning_mode: 'cram' | 'steady'
+  learning_mode: LearningMode
   priority: number
 }
 
 export interface UpdateTopicData {
   name?: string
-  learning_mode?: 'cram' | 'steady'
+  learning_mode?: LearningMode
   priority?: number
 }
 
@@ -39,13 +39,13 @@ export interface CreateLearningItemData {
   topic_id: string
   user_id: string
   content: string
-  learning_mode: 'cram' | 'steady'
+  learning_mode: LearningMode
   priority: number
 }
 
 export interface UpdateLearningItemData {
   content?: string
-  learning_mode?: 'cram' | 'steady'
+  learning_mode?: LearningMode
   priority?: number
   last_reviewed_at?: string | null
   next_review_at?: string | null
@@ -344,6 +344,11 @@ export class DataService {
     })
   }
 
+  /**
+   * Create multiple learning items
+   * @param items - Array of item data
+   * @returns Array of created items or error
+   */
   async createLearningItems(items: CreateLearningItemData[]): Promise<SupabaseListResult<LearningItem>> {
     // Validate all items
     items.forEach((item, index) => {
@@ -509,6 +514,11 @@ export class DataService {
     })
   }
 
+  /**
+   * Delete a learning item
+   * @param itemId - Item ID to delete
+   * @returns Success or error
+   */
   async deleteLearningItem(itemId: string): Promise<SupabaseResult<void>> {
     // Get item first to invalidate caches
     const { data: item } = await this.getLearningItem(itemId)
@@ -535,6 +545,11 @@ export class DataService {
     })
   }
 
+  /**
+   * Get a single learning item by ID
+   * @param itemId - Item ID
+   * @returns Item data or error
+   */
   async getLearningItem(itemId: string): Promise<SupabaseResult<LearningItem>> {
     return withRetry(async () => {
       const response = await supabase

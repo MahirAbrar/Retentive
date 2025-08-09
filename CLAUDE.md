@@ -23,36 +23,19 @@ This file contains important information for Claude to remember across sessions.
    - `npm run lint`
    - `npm run typecheck`
 
-## Current Status (Last Updated: Phase 4 Complete)
-- ✅ Project initialized with Vite + React + TypeScript + Electron
-- ✅ Git repository configured with comprehensive .gitignore
-- ✅ Supabase client library installed and configured
-- ✅ Environment files created (.env, .env.example)
-- ✅ Supabase credentials added and connection verified
-- ✅ Prettier installed and configured for code formatting
-- ✅ Project folder structure created (src/components, services, hooks, utils, styles)
-- ✅ ESLint configured with React and Electron rules
-- ✅ TypeScript interfaces for all data models created
-- ✅ Constants for learning modes and spaced repetition defined
-- ✅ AuthService class implemented with full authentication flow
-- ✅ DataService class implemented with CRUD operations
-- ✅ SpacedRepetitionService class with algorithm implementation
-- ✅ Utility functions created (date, validation, format)
-- ✅ Database schema created in Supabase
-- ✅ Swiss design system with Bree Serif font and cream background
-- ✅ Base UI components created (Button, Input, Card, Modal, Loading, Toast)
-- ✅ React Router installed and configured
-- ✅ Authentication hooks (useAuth, useUser) created
-- ✅ Login/Register page with form validation
-- ✅ Layout components (Header, Layout) created
-- ✅ TopicForm component for creating new topics
-- ✅ Protected routes for authenticated users
-- ✅ TopicList with inline review functionality (single Study button)
-- ✅ Search includes both topics and subtopics
-- ✅ Mastery system (items marked as mastered after 5 reviews)
-- ✅ Dashboard with real-time stats and progress metrics
-- ✅ Stats page with charts and analytics
-- 🔄 Next: Phase 5.1 - Settings Management
+## Current Status (Last Updated: Phase 10 - Mastery System Complete)
+- ✅ Core app infrastructure (Vite, React, TypeScript, Electron, Supabase)
+- ✅ Complete authentication system with offline support
+- ✅ Full CRUD operations for topics and learning items
+- ✅ Spaced repetition algorithm with multiple learning modes
+- ✅ Swiss design system with dark mode support
+- ✅ Gamification system (points, levels, achievements, streaks)
+- ✅ Notification system with desktop reminders
+- ✅ Offline mode with sync capabilities
+- ✅ Advanced mastery system (archive/maintenance/repeat options)
+- ✅ Real-time updates and data synchronization
+- ✅ Comprehensive stats and analytics dashboard
+- 🔄 Next: Release preparation and documentation
 
 ## Key Commands
 - `npm run dev:electron` - Run app in development mode
@@ -75,9 +58,27 @@ This file contains important information for Claude to remember across sessions.
   - Functional over decorative
   - Clear visual hierarchy
 
-## Code Standards
-- No comments unless requested
-- TypeScript strict mode
-- Functional React components with hooks
-- CSS Modules for styling
-- Follow existing code patterns
+## Code Quality Standards
+
+### Must Follow
+- **TypeScript**: Strict mode, all methods fully typed
+- **Components**: Functional with hooks, React.memo for heavy components
+- **Services**: Singleton pattern, JSDoc comments, error handling
+- **Naming**: PascalCase (components), camelCase (functions/methods)
+- **Imports**: External → internal → relative
+- **CSS**: CSS Modules, design tokens via CSS variables
+- **Security**: Input validation, sanitization, secure storage
+
+### Key Patterns
+- Services use getInstance() singleton pattern
+- All async operations use try-catch with proper error handling
+- Components have TypeScript interfaces for all props
+- Use absolute imports with path aliases (@/*)
+- Effect cleanup in useEffect hooks
+- Optimistic updates for better UX
+
+### Before Committing
+- Run `npm run lint` and `npm run typecheck`
+- Fix all errors and warnings
+- Test critical user flows
+- Update CLAUDE.md if architecture changes

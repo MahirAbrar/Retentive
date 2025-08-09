@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Card, CardHeader, CardContent, useToast } from '@/components/ui'
-import { dataService } from '@/services/data'
+import { dataService } from '@/services/dataService'
 import { useUser } from '@/hooks/useAuth'
 import { validateTopicName, parseSubtopics } from '@/utils/validation'
 import { LEARNING_MODES, PRIORITY_LEVELS } from '@/constants/learning'

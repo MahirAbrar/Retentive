@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, memo } from 'react'
 import { gamificationService } from '../../services/gamificationService'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { LevelProgress } from './LevelProgress'
 import { StreakIndicator } from './StreakIndicator'
 import styles from './GamificationStats.module.css'
 
-export function GamificationStats() {
+export const GamificationStats = memo(function GamificationStats() {
   const { user } = useAuth()
   const [stats, setStats] = useState({
     totalPoints: 0,
@@ -80,4 +80,4 @@ export function GamificationStats() {
       )}
     </div>
   )
-}
+})
