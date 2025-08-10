@@ -7,6 +7,7 @@ import { LEARNING_MODES, PRIORITY_LABELS } from '../constants/learning'
 import type { LearningMode } from '../types/database'
 import { sanitizeInput } from '../utils/sanitize'
 import { useAutoSave } from '../hooks/useAutoSave'
+import { cacheService } from '../services/cacheService'
 
 export function NewTopicPage() {
   const navigate = useNavigate()
@@ -126,6 +127,9 @@ export function NewTopicPage() {
       
       // Clear draft after successful submission
       localStorage.removeItem('newTopicDraft')
+      
+      // Invalidate topics cache so the new topic shows immediately
+      cacheService.delete(`topics:${user.id}`)
       
       navigate('/topics')
     } catch (error) {

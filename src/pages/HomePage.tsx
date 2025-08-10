@@ -564,7 +564,19 @@ export function HomePage() {
 
       <footer style={{ textAlign: 'center', marginTop: '4rem' }}>
         <p className="body-small text-secondary">
-          Built with Swiss design principles • Clean, minimal, functional
+          Developed by{' '}
+          <a 
+            href="https://mahirabrar.net" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ 
+              color: 'var(--color-primary)', 
+              textDecoration: 'none',
+              borderBottom: '1px solid var(--color-primary)'
+            }}
+          >
+            Hamid Abrar Mahir
+          </a>
         </p>
       </footer>
     </div>

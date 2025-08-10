@@ -4,6 +4,7 @@ import { Card, CardHeader, CardContent, Button, Badge, useToast, ConfirmDialog, 
 import { MasteryDialog } from '../MasteryDialog'
 import type { Topic, LearningItem, LearningMode, MasteryStatus } from '../../types/database'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
+import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
 // import { TopicCard } from './TopicCard' // Will integrate later
 // import { LearningItemRow } from './LearningItemRow' // Will integrate later
 import { topicsService } from '../../services/topicsFixed'
@@ -138,21 +139,6 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
     return date.toLocaleDateString()
   }
 
-  const getItemStatus = (item: LearningItem) => {
-    // For items that have never been studied, show "Ready to learn" instead of due dates
-    if (item.review_count === 0) {
-      return { label: 'Ready to learn', color: 'var(--color-info)' }
-    }
-    
-    if (!item.next_review_at) return { label: 'New', color: 'var(--color-info)' }
-    
-    const now = new Date()
-    const reviewDate = new Date(item.next_review_at)
-    
-    if (reviewDate < now) return { label: 'Overdue', color: 'var(--color-error)' }
-    if (reviewDate.toDateString() === now.toDateString()) return { label: 'Due today', color: 'var(--color-warning)' }
-    return { label: formatNextReview(item.next_review_at), color: 'var(--color-success)' }
-  }
 
   const isDue = (item: LearningItem) => {
     // New items (never studied) are not considered "due" - they're ready to learn
@@ -726,7 +712,6 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
                       )}
                       <div style={{ display: 'grid', gap: '0.75rem' }}>
                       {items.map((item) => {
-                        const status = getItemStatus(item)
                         const isProcessing = processingItems.has(item.id)
                         
                         // Check if item is due
@@ -773,16 +758,95 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
                                     {item.content}
                                   </p>
                                   <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', alignItems: 'center' }}>
-                                    <span className="body-small" style={{ color: status.color }}>
-                                      {status.label}
-                                    </span>
                                     <span className="body-small text-secondary">
-                                      {spacedRepetitionGamified.getMasteryStage(item.review_count).emoji} {spacedRepetitionGamified.getMasteryStage(item.review_count).label}
+                                      Reviews: {item.review_count}
                                     </span>
-                                    <span className="body-small text-secondary" style={{ opacity: 0.7 }}>
-                                      {item.review_count > 0 && `${item.review_count} review${item.review_count !== 1 ? 's' : ''}`}
-                                      {item.review_count === 0 && 'Never reviewed'}
-                                    </span>
+                                    {item.next_review_at && item.review_count < GAMIFICATION_CONFIG.MASTERY.reviewsRequired && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        {(() => {
+                                          const reviewDate = new Date(item.next_review_at)
+                                          const now = new Date()
+                                          const diffMs = reviewDate.getTime() - now.getTime()
+                                          const isDueNow = diffMs <= 0
+                                          const timeDisplay = isDueNow ? 'Due now' : `Due in ${formatDuration(diffMs)}`
+                                          const exactDate = formatReviewDate(reviewDate)
+                                          
+                                          return (
+                                            <>
+                                              <span className="body-small text-secondary" style={{ 
+                                                color: isDueNow ? 'var(--color-warning)' : 'var(--color-text-secondary)' 
+                                              }}>
+                                                {timeDisplay}
+                                              </span>
+                                              <span className="body-small text-secondary">•</span>
+                                              <span className="body-small text-secondary">
+                                                {exactDate}
+                                              </span>
+                                              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                                                <button
+                                                  onMouseEnter={(e) => {
+                                                    const tooltip = e.currentTarget.querySelector('.tooltip') as HTMLElement
+                                                    if (tooltip) tooltip.style.display = 'block'
+                                                  }}
+                                                  onMouseLeave={(e) => {
+                                                    const tooltip = e.currentTarget.querySelector('.tooltip') as HTMLElement
+                                                    if (tooltip) tooltip.style.display = 'none'
+                                                  }}
+                                                  style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'help',
+                                                    padding: '2px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    color: 'var(--color-text-secondary)',
+                                                    fontSize: '14px'
+                                                  }}
+                                                >
+                                                  ⓘ
+                                                  <div className="tooltip" style={{
+                                                    display: 'none',
+                                                    position: 'absolute',
+                                                    bottom: '100%',
+                                                    left: '50%',
+                                                    transform: 'translateX(-50%)',
+                                                    marginBottom: '8px',
+                                                    background: 'var(--color-surface)',
+                                                    border: '1px solid var(--color-gray-200)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    padding: '0.5rem',
+                                                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                                                    zIndex: 100,
+                                                    minWidth: '250px',
+                                                    fontSize: '12px',
+                                                    whiteSpace: 'nowrap'
+                                                  }}>
+                                                    <div style={{ marginBottom: '0.25rem', fontWeight: 'bold' }}>
+                                                      Optimal Review Window ({item.learning_mode})
+                                                    </div>
+                                                    {(() => {
+                                                      const window = getOptimalReviewWindow(item.learning_mode)
+                                                      return (
+                                                        <>
+                                                          <div>🟢 Perfect: {window.perfect}</div>
+                                                          <div>🟡 Early: {window.early}</div>
+                                                          <div>🔴 Late: {window.late}</div>
+                                                        </>
+                                                      )
+                                                    })()}
+                                                  </div>
+                                                </button>
+                                              </div>
+                                            </>
+                                          )
+                                        })()}
+                                      </div>
+                                    )}
+                                    {item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired && (
+                                      <span className="body-small" style={{ color: 'var(--color-success)' }}>
+                                        ✓ Mastered
+                                      </span>
+                                    )}
                                     <ReviewWindowIndicator item={item} />
                                   </div>
                                 </>

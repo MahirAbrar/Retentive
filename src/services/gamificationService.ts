@@ -692,15 +692,17 @@ export class GamificationService {
   }
 
   calculateLevel(totalPoints: number): number {
-    const { experienceBase } = GAMIFICATION_CONFIG.FEATURES.levels
+    const { experienceBase, experienceGrowth } = GAMIFICATION_CONFIG.FEATURES.levels
     let level = 1
-    let requiredXP = experienceBase as number
     let accumulatedXP = 0
     
-    while (accumulatedXP + requiredXP <= totalPoints) {
+    while (true) {
+      const requiredXP = Math.floor(experienceBase * Math.pow(experienceGrowth, level - 1))
+      if (accumulatedXP + requiredXP > totalPoints) {
+        break
+      }
       accumulatedXP += requiredXP
       level++
-      requiredXP = experienceBase as number
     }
     
     return level
@@ -714,21 +716,24 @@ export class GamificationService {
     const level = this.calculateLevel(currentPoints)
     const { experienceBase, experienceGrowth } = GAMIFICATION_CONFIG.FEATURES.levels
     
-    // Calculate total points needed for current level
+    // Calculate total points needed to reach current level
     let levelStartPoints = 0
     for (let i = 1; i < level; i++) {
       levelStartPoints += Math.floor(experienceBase * Math.pow(experienceGrowth, i - 1))
     }
     
+    // Points required for current level
     const pointsForCurrentLevel = Math.floor(experienceBase * Math.pow(experienceGrowth, level - 1))
-    const currentLevelProgress = currentPoints - levelStartPoints
-    const pointsNeeded = pointsForCurrentLevel - currentLevelProgress
-    const progressPercentage = (currentLevelProgress / pointsForCurrentLevel) * 100
+    
+    // Progress within current level
+    const currentLevelProgress = Math.max(0, currentPoints - levelStartPoints)
+    const pointsNeeded = Math.max(0, pointsForCurrentLevel - currentLevelProgress)
+    const progressPercentage = Math.min(100, Math.max(0, (currentLevelProgress / pointsForCurrentLevel) * 100))
     
     return {
-      currentLevelProgress,
-      pointsNeeded,
-      progressPercentage
+      currentLevelProgress: Math.max(0, currentLevelProgress),
+      pointsNeeded: Math.max(0, pointsNeeded),
+      progressPercentage: isNaN(progressPercentage) ? 0 : progressPercentage
     }
   }
 

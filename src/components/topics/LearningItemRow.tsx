@@ -1,15 +1,15 @@
-import React, { memo, useCallback, useMemo } from 'react'
+import React, { memo, useCallback, useMemo, useState } from 'react'
 import { Button, Input } from '../ui'
 import type { LearningItem } from '../../types/database'
 import { ReviewWindowIndicator } from '../gamification/ReviewWindowIndicator'
 import { GAMIFICATION_CONFIG } from '../../config/gamification'
+import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
 
 interface LearningItemRowProps {
   item: LearningItem
   isEditing: boolean
   editContent: string
   isProcessing: boolean
-  isDue: boolean
   onReview: (item: LearningItem) => void
   onEdit: (itemId: string, content: string) => void
   onSaveEdit: (item: LearningItem) => void
@@ -23,7 +23,6 @@ export const LearningItemRow = memo(function LearningItemRow({
   isEditing,
   editContent,
   isProcessing,
-  isDue,
   onReview,
   onEdit,
   onSaveEdit,
@@ -51,26 +50,34 @@ export const LearningItemRow = memo(function LearningItemRow({
     onEditContentChange(e.target.value)
   }, [onEditContentChange])
 
+  // State for showing info tooltip
+  const [showInfo, setShowInfo] = useState(false)
+
   // Memoize the next review display
-  const nextReviewDisplay = useMemo(() => {
+  const nextReviewInfo = useMemo(() => {
     if (item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired) {
-      return '✓ Mastered'
+      return { 
+        primary: '✓ Mastered',
+        secondary: null,
+        exact: null,
+        isDue: false
+      }
     }
-    if (!item.next_review_at) return null
+    if (!item.next_review_at) return { primary: null, secondary: null, exact: null, isDue: false }
     
     const reviewDate = new Date(item.next_review_at)
     const now = new Date()
-    const hoursUntil = Math.floor((reviewDate.getTime() - now.getTime()) / (1000 * 60 * 60))
-    const daysUntil = Math.floor(hoursUntil / 24)
+    const diffMs = reviewDate.getTime() - now.getTime()
     
-    if (hoursUntil < 0) return 'Due now'
-    if (hoursUntil < 1) return 'Due in < 1 hour'
-    if (hoursUntil < 24) return `Due in ${hoursUntil} hours`
-    return `Due in ${daysUntil} days`
+    const isDue = diffMs <= 0
+    const primary = isDue ? 'Due now' : `Due in ${formatDuration(diffMs)}`
+    const exact = formatReviewDate(reviewDate)
+    
+    return { primary, secondary: null, exact, isDue }
   }, [item.review_count, item.next_review_at])
 
   const isMastered = item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired
-  const showStudyButton = (isDue || item.review_count === 0) && !isMastered
+  const showStudyButton = (nextReviewInfo.isDue || item.review_count === 0) && !isMastered
 
   return (
     <div style={{ 
@@ -108,10 +115,76 @@ export const LearningItemRow = memo(function LearningItemRow({
         ) : (
           <div>
             <p className="body">{item.content}</p>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', alignItems: 'center' }}>
               <span className="body-small text-secondary">
                 Reviews: {item.review_count}
               </span>
+              {nextReviewInfo.primary && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="body-small text-secondary" style={{ 
+                    color: nextReviewInfo.isDue ? 'var(--color-warning)' : 'var(--color-text-secondary)' 
+                  }}>
+                    {nextReviewInfo.primary}
+                  </span>
+                  {nextReviewInfo.exact && (
+                    <>
+                      <span className="body-small text-secondary">•</span>
+                      <span className="body-small text-secondary">
+                        {nextReviewInfo.exact}
+                      </span>
+                    </>
+                  )}
+                  <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                    <button
+                      onMouseEnter={() => setShowInfo(true)}
+                      onMouseLeave={() => setShowInfo(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'help',
+                        padding: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: 'var(--color-text-secondary)',
+                        fontSize: '14px'
+                      }}
+                    >
+                      ⓘ
+                    </button>
+                    {showInfo && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        marginBottom: '8px',
+                        background: 'var(--color-surface)',
+                        border: '1px solid var(--color-gray-200)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '0.5rem',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                        zIndex: 100,
+                        minWidth: '250px',
+                        fontSize: '12px'
+                      }}>
+                        <div style={{ marginBottom: '0.25rem', fontWeight: 'bold' }}>
+                          Optimal Review Window ({item.learning_mode})
+                        </div>
+                        {(() => {
+                          const window = getOptimalReviewWindow(item.learning_mode)
+                          return (
+                            <>
+                              <div>🟢 Perfect: {window.perfect}</div>
+                              <div>🟡 Early: {window.early}</div>
+                              <div>🔴 Late: {window.late}</div>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {item.review_count > 0 && item.next_review_at && (
                 <ReviewWindowIndicator
                   item={item}
@@ -137,7 +210,7 @@ export const LearningItemRow = memo(function LearningItemRow({
               </Button>
             ) : (
               <span className="body-small" style={{ color: 'var(--color-success)' }}>
-                {nextReviewDisplay}
+                {nextReviewInfo.primary}
               </span>
             )}
             <Button
@@ -172,7 +245,6 @@ export const LearningItemRow = memo(function LearningItemRow({
     prevProps.item.next_review_at === nextProps.item.next_review_at &&
     prevProps.isEditing === nextProps.isEditing &&
     prevProps.editContent === nextProps.editContent &&
-    prevProps.isProcessing === nextProps.isProcessing &&
-    prevProps.isDue === nextProps.isDue
+    prevProps.isProcessing === nextProps.isProcessing
   )
 })
