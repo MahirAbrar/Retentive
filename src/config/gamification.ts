@@ -102,6 +102,31 @@ export const GAMIFICATION_CONFIG = {
       }
     },
     
+    test: {
+      name: "Test Mode",
+      description: "Quick 30-second intervals for testing mastery system",
+      
+      // Exact intervals in hours (30 seconds = 0.00833 hours)
+      intervals: [
+        0.00833,  // Review 1: 30 seconds
+        0.00833,  // Review 2: 30 seconds
+        0.00833,  // Review 3: 30 seconds
+        0.00833,  // Review 4: 30 seconds
+        0.00833,  // Review 5: 30 seconds (mastered)
+      ],
+      
+      // Review windows
+      windowBefore: 0,      // Can't review early in test mode
+      windowAfter: 0.00833, // 30 second grace period
+      
+      // Points for reviewing in different windows
+      pointsMultiplier: {
+        onTime: 3.0,        // Within 10 seconds of due time
+        inWindow: 2.0,      // Within the window
+        late: 1.0,          // Outside window
+      }
+    },
+    
     // Easy to add more modes later:
     // intense: {
     //   name: "Intense Mode",

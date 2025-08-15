@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { supabase } from './supabase'
 import type { Topic, LearningItem } from '../types/database'
 
@@ -58,7 +59,7 @@ class TopicsService {
 
   async createTopic(topic: Omit<Topic, 'id' | 'created_at' | 'updated_at'>): Promise<TopicsResponse<Topic>> {
     try {
-      console.log('Creating topic with data:', topic)
+      logger.log('Creating topic with data:', topic)
       const { data, error } = await supabase
         .from('topics')
         .insert(topic)
@@ -66,13 +67,13 @@ class TopicsService {
         .single()
 
       if (error) {
-        console.error('Supabase error details:', error)
+        logger.error('Supabase error details:', error)
         throw error
       }
 
       return { data, error: null }
     } catch (error) {
-      console.error('Error in createTopic:', error)
+      logger.error('Error in createTopic:', error)
       return {
         data: null,
         error: error instanceof Error ? error : new Error('Failed to create topic'),

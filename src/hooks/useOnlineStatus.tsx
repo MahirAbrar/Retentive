@@ -36,32 +36,51 @@ export function useOnlineStatus() {
   }, [])
 
   useEffect(() => {
-    // Subscribe to sync status changes
-    offlineService.onSyncStatusChange((status) => {
-      setIsSyncing(status.syncing)
-      setSyncStatus({
-        pendingOperations: status.pendingOperations,
-        lastSync: status.lastSync
+    // Subscribe to sync status changes (only if running in Electron)
+    if (window.electronAPI?.database) {
+      offlineService.onSyncStatusChange((status) => {
+        setIsSyncing(status.syncing)
+        setSyncStatus({
+          pendingOperations: status.pendingOperations,
+          lastSync: status.lastSync
+        })
       })
-    })
+    }
 
-    // Get initial sync status
+    // Get initial sync status (only if running in Electron)
     const getStatus = async () => {
-      const status = await offlineService.getSyncStatus()
-      setSyncStatus({
-        pendingOperations: status.pendingOperations,
-        lastSync: status.lastSync
-      })
+      try {
+        // Check if we're running in Electron
+        if (window.electronAPI?.database) {
+          const status = await offlineService.getSyncStatus()
+          setSyncStatus({
+            pendingOperations: status.pendingOperations,
+            lastSync: status.lastSync
+          })
+        }
+      } catch (error) {
+        // Silently ignore errors in browser mode
+        console.debug('Sync status not available in browser mode')
+      }
     }
     
     getStatus()
   }, [])
 
   const sync = async () => {
+    // Only sync if running in Electron
+    if (!window.electronAPI?.database) {
+      console.debug('Sync not available in browser mode')
+      return { success: true, synced: 0, failed: 0 }
+    }
+    
     setIsSyncing(true)
     try {
       const result = await offlineService.syncAll()
       return result
+    } catch (error) {
+      console.error('Sync failed:', error)
+      return { success: false, synced: 0, failed: 0 }
     } finally {
       setIsSyncing(false)
     }

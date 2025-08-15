@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { offlineService } from './offlineService'
 import { GAMIFICATION_CONFIG } from '../config/gamification'
 import type { LearningItem } from '../types/database'
@@ -272,7 +273,7 @@ export class GamificationService {
       
       return streak
     } catch (error) {
-      console.error('Error calculating streak:', error)
+      logger.error('Error calculating streak:', error)
       return 0
     }
   }

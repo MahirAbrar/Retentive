@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import styles from './Button.module.css'
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -10,7 +10,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   as?: React.ElementType
 }
 
-export function Button({
+export const Button = memo(function Button({
   variant = 'primary',
   size = 'medium',
   fullWidth = false,
@@ -48,4 +48,4 @@ export function Button({
       )}
     </Component>
   )
-}
+})

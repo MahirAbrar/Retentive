@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 interface QueuedOperation {
   id: string
   type: 'create' | 'update' | 'delete'
@@ -21,7 +22,7 @@ class OfflineQueue {
         this.queue = JSON.parse(stored)
       }
     } catch (error) {
-      console.error('Failed to load offline queue:', error)
+      logger.error('Failed to load offline queue:', error)
       this.queue = []
     }
   }
@@ -30,7 +31,7 @@ class OfflineQueue {
     try {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.queue))
     } catch (error) {
-      console.error('Failed to save offline queue:', error)
+      logger.error('Failed to save offline queue:', error)
     }
   }
 

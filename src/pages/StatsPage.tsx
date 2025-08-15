@@ -1,9 +1,14 @@
-import { useState, useEffect } from 'react'
+import { logger } from '../utils/logger'
+import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react'
 import { Card, CardHeader, CardContent, Badge } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import { getExtendedStats } from '../services/statsService'
+import { cacheService } from '../services/cacheService'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+
+// Lazy load TimingPerformance for better initial load
+const TimingPerformance = lazy(() => import('../components/stats/TimingPerformance').then(module => ({ default: module.TimingPerformance })))
 
 interface ReviewSession {
   id: string
@@ -32,34 +37,113 @@ interface DailyActivity {
   reviews: number
 }
 
+// Memoized chart components
+const DailyActivityChart = memo(function DailyActivityChart({ data }: { data: DailyActivity[] }) {
+  return (
+  <ResponsiveContainer width="100%" height={200}>
+    <LineChart data={data}>
+      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" />
+      <XAxis 
+        dataKey="date" 
+        tick={{ fontSize: 12 }}
+        tickFormatter={(date) => new Date(date).toLocaleDateString('en', { weekday: 'short' })}
+      />
+      <YAxis tick={{ fontSize: 12 }} />
+      <Tooltip 
+        contentStyle={{ 
+          backgroundColor: 'var(--color-surface)', 
+          border: '1px solid var(--color-gray-200)',
+          borderRadius: 'var(--radius-sm)'
+        }}
+        formatter={(value: number) => [`${value} reviews`, 'Reviews']}
+        labelFormatter={(date) => new Date(date).toLocaleDateString()}
+      />
+      <Line 
+        type="monotone" 
+        dataKey="reviews" 
+        stroke="var(--color-primary)" 
+        strokeWidth={2}
+        dot={{ fill: 'var(--color-primary)', r: 4 }}
+      />
+    </LineChart>
+  </ResponsiveContainer>
+  )
+})
+
+const TopicCompletionChart = memo(function TopicCompletionChart({ data }: { data: TopicStats[] }) {
+  return (
+  <ResponsiveContainer width="100%" height={200}>
+    <BarChart data={data.slice(0, 5)}>
+      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" />
+      <XAxis 
+        dataKey="topic_name" 
+        tick={{ fontSize: 12 }}
+        angle={-45}
+        textAnchor="end"
+        height={80}
+      />
+      <YAxis 
+        tick={{ fontSize: 12 }}
+        label={{ value: 'Completion %', angle: -90, position: 'insideLeft' }}
+      />
+      <Tooltip 
+        contentStyle={{ 
+          backgroundColor: 'var(--color-surface)', 
+          border: '1px solid var(--color-gray-200)',
+          borderRadius: 'var(--radius-sm)'
+        }}
+        formatter={(value: number) => `${Math.round(value)}%`}
+      />
+      <Bar dataKey="completion_rate" fill="var(--color-primary)" />
+    </BarChart>
+  </ResponsiveContainer>
+  )
+})
 
 export function StatsPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<any>(null)
   const [formattedSessions, setFormattedSessions] = useState<ReviewSession[]>([])
+  const [visibleSessions, setVisibleSessions] = useState(10) // Pagination for recent activity
   const [topicStats, setTopicStats] = useState<TopicStats[]>([])
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([])
   const [dateRange, setDateRange] = useState('week')
+  const [pendingDateRange, setPendingDateRange] = useState('week')
   const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [sessionsLoading, setSessionsLoading] = useState(true)
+  const [topicsLoading, setTopicsLoading] = useState(true)
   const [streakWarning, setStreakWarning] = useState<{ show: boolean; hoursLeft: number }>({ show: false, hoursLeft: 0 })
 
-  useEffect(() => {
-    if (user) {
-      loadStats()
-    }
-  }, [user, dateRange])
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     if (!user) return
     
+    // Check cache first for instant loading
+    const cacheKey = `stats-page:${user.id}:${dateRange}`
+    const cached = cacheService.get<{
+      sessions: ReviewSession[]
+      topicStats: TopicStats[]
+      dailyActivity: DailyActivity[]
+    }>(cacheKey)
+    
+    if (cached) {
+      setFormattedSessions(cached.sessions)
+      setTopicStats(cached.topicStats)
+      setDailyActivity(cached.dailyActivity)
+      setSessionsLoading(false)
+      setTopicsLoading(false)
+    }
+    
+    // Set individual loading states
+    setStatsLoading(true)
+    if (!cached) {
+      setSessionsLoading(true)
+      setTopicsLoading(true)
+    }
     setLoading(true)
     
     try {
-      // Get extended stats
-      const extendedStats = await getExtendedStats(user.id)
-      setStats(extendedStats)
-      
-      // Get recent review sessions
+      // Calculate date range once
       const startDate = new Date()
       if (dateRange === 'week') {
         startDate.setDate(startDate.getDate() - 7)
@@ -69,101 +153,111 @@ export function StatsPage() {
         startDate.setFullYear(2020) // Far back enough
       }
       
-      const { data: sessions, error: sessionsError } = await supabase
-        .from('review_sessions')
-        .select(`
-          id,
-          reviewed_at,
-          difficulty,
-          interval_days,
-          learning_item_id
-        `)
-        .eq('user_id', user.id)
-        .gte('reviewed_at', startDate.toISOString())
-        .order('reviewed_at', { ascending: false })
-        .limit(50)
-      
-      if (sessionsError) {
-        console.error('Error fetching review sessions:', sessionsError)
-      }
-      
-      console.log('Fetched sessions:', sessions?.length || 0, 'sessions')
-      
-      // Now fetch the learning items and topics data separately
-      let formattedSessionsData: ReviewSession[] = []
-      if (sessions && sessions.length > 0) {
-        // Get all unique learning item IDs
-        const itemIds = [...new Set(sessions.map(s => s.learning_item_id))]
+      // Run all independent queries in parallel for better performance
+      const [extendedStats, sessionsResult, topicsResult, itemsResult] = await Promise.all([
+        // Get extended stats
+        getExtendedStats(user.id),
         
-        // Fetch learning items with their topics
-        const { data: items } = await supabase
-          .from('learning_items')
+        // Get recent review sessions with joined data in single query
+        supabase
+          .from('review_sessions')
           .select(`
             id,
-            content,
-            topic_id
+            reviewed_at,
+            difficulty,
+            interval_days,
+            learning_items!inner (
+              id,
+              content,
+              topics!inner (
+                id,
+                name
+              )
+            )
           `)
-          .in('id', itemIds)
+          .eq('user_id', user.id)
+          .gte('reviewed_at', startDate.toISOString())
+          .order('reviewed_at', { ascending: false })
+          .limit(100), // Increased limit but still bounded
         
-        // Get all unique topic IDs
-        const topicIds = items ? [...new Set(items.map(i => i.topic_id))] : []
-        
-        // Fetch topics
-        const { data: topics } = await supabase
+        // Get topics for stats
+        supabase
           .from('topics')
           .select('id, name')
-          .in('id', topicIds)
+          .eq('user_id', user.id),
         
-        // Create maps for quick lookup
-        const topicsMap = new Map(topics?.map(t => [t.id, t]) || [])
-        const itemsMap = new Map(items?.map(i => [i.id, { ...i, topic: topicsMap.get(i.topic_id) }]) || [])
-        
-        // Format sessions with joined data
-        formattedSessionsData = sessions.map((session: any) => {
-          const item = itemsMap.get(session.learning_item_id)
-          return {
-            id: session.id,
-            reviewed_at: session.reviewed_at,
-            difficulty: session.difficulty,
-            interval_days: session.interval_days,
-            learning_item: {
-              content: item?.content || '',
-              topic: {
-                name: item?.topic?.name || ''
-              }
+        // Get all items with stats
+        supabase
+          .from('learning_items')
+          .select('topic_id, review_count, ease_factor')
+          .eq('user_id', user.id)
+      ])
+      
+      // Set extended stats immediately for fast initial render
+      setStats(extendedStats)
+      setStatsLoading(false) // Stats cards can show now
+      
+      // Process sessions data (already joined with items and topics)
+      let formattedSessionsData: ReviewSession[] = []
+      if (!sessionsResult.error && sessionsResult.data) {
+        formattedSessionsData = sessionsResult.data.map((session: any) => ({
+          id: session.id,
+          reviewed_at: session.reviewed_at,
+          difficulty: session.difficulty,
+          interval_days: session.interval_days,
+          learning_item: {
+            content: session.learning_items?.content || '',
+            topic: {
+              name: session.learning_items?.topics?.name || ''
             }
           }
-        })
+        }))
+      } else if (sessionsResult.error) {
+        logger.error('Error fetching review sessions:', sessionsResult.error)
       }
       
       setFormattedSessions(formattedSessionsData)
-      console.log('Formatted sessions:', formattedSessionsData.length, 'sessions')
+      setSessionsLoading(false) // Sessions section can show now
       
-      // Process daily activity data
+      // Process daily activity data more efficiently
       const activityMap = new Map<string, number>()
-      const days = dateRange === 'week' ? 7 : dateRange === 'month' ? 30 : 365
+      const daysToShow = 7 // Always show 7 days in chart
+      const daysToProcess = dateRange === 'week' ? 7 : dateRange === 'month' ? 30 : Math.min(formattedSessionsData.length, 90) // Limit processing
       
-      // Initialize all days with 0
-      for (let i = 0; i < days; i++) {
+      // Initialize only needed days
+      for (let i = 0; i < daysToShow; i++) {
         const date = new Date()
         date.setDate(date.getDate() - i)
         const dateStr = date.toISOString().split('T')[0]
         activityMap.set(dateStr, 0)
       }
       
-      // Count reviews per day using formattedSessionsData
-      formattedSessionsData.forEach(session => {
-        const dateStr = session.reviewed_at.split('T')[0]
-        activityMap.set(dateStr, (activityMap.get(dateStr) || 0) + 1)
-      })
+      // Count reviews per day (only process what we need)
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - daysToProcess)
+      
+      formattedSessionsData
+        .filter(session => new Date(session.reviewed_at) >= cutoffDate)
+        .forEach(session => {
+          const dateStr = session.reviewed_at.split('T')[0]
+          if (activityMap.has(dateStr)) {
+            activityMap.set(dateStr, (activityMap.get(dateStr) || 0) + 1)
+          }
+        })
       
       // Convert to array and sort by date
       const activityData = Array.from(activityMap.entries())
         .map(([date, reviews]) => ({ date, reviews }))
         .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(-7) // Show last 7 days for better visualization
       
       setDailyActivity(activityData)
+      
+      // Cache the processed data for 2 minutes
+      cacheService.set(cacheKey, {
+        sessions: formattedSessionsData,
+        topicStats: topicStatsData,
+        dailyActivity: activityData
+      }, 2 * 60 * 1000)
       
       // Check if streak is about to end
       if (extendedStats.streakDays > 0) {
@@ -191,22 +285,19 @@ export function StatsPage() {
         }
       }
       
-      // Get topic-level statistics
-      const { data: topics } = await supabase
-        .from('topics')
-        .select(`
-          id,
-          name,
-          learning_items (
-            id,
-            review_count,
-            ease_factor
-          )
-        `)
-        .eq('user_id', user.id)
+      // Process topic stats using already fetched data
+      const itemsByTopic = new Map<string, any[]>()
+      if (itemsResult.data) {
+        for (const item of itemsResult.data) {
+          if (!itemsByTopic.has(item.topic_id)) {
+            itemsByTopic.set(item.topic_id, [])
+          }
+          itemsByTopic.get(item.topic_id)!.push(item)
+        }
+      }
       
-      const topicStatsData = (topics || []).map(topic => {
-        const items = topic.learning_items || []
+      const topicStatsData = (topicsResult.data || []).map(topic => {
+        const items = itemsByTopic.get(topic.id) || []
         const reviewedItems = items.filter((item: any) => item.review_count > 0)
         const avgEase = reviewedItems.length > 0
           ? reviewedItems.reduce((sum: number, item: any) => sum + item.ease_factor, 0) / reviewedItems.length
@@ -223,14 +314,35 @@ export function StatsPage() {
       })
       
       setTopicStats(topicStatsData)
+      setTopicsLoading(false) // Topic stats can show now
     } catch (error) {
-      console.error('Error loading stats:', error)
+      logger.error('Error loading stats:', error)
     } finally {
       setLoading(false)
+      // Ensure all loading states are off
+      setStatsLoading(false)
+      setSessionsLoading(false)
+      setTopicsLoading(false)
     }
-  }
+  }, [user, dateRange])
 
-  const formatDifficulty = (difficulty: string) => {
+  useEffect(() => {
+    if (user) {
+      loadStats()
+    }
+  }, [user, dateRange, loadStats])
+
+  // Debounce date range changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (pendingDateRange !== dateRange) {
+        setDateRange(pendingDateRange)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [pendingDateRange, dateRange])
+
+  const formatDifficulty = useCallback((difficulty: string) => {
     const colors = {
       again: 'var(--color-error)',
       hard: 'var(--color-warning)',
@@ -238,9 +350,9 @@ export function StatsPage() {
       easy: 'var(--color-info)'
     }
     return colors[difficulty as keyof typeof colors] || 'var(--color-gray-600)'
-  }
+  }, [])
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
     const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
@@ -250,16 +362,34 @@ export function StatsPage() {
     if (diffHours < 48) return 'Yesterday'
     if (diffHours < 168) return `${Math.floor(diffHours / 24)}d ago`
     return date.toLocaleDateString()
-  }
+  }, [])
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '3rem' }}>
-        <p className="body text-secondary">Loading statistics...</p>
-      </div>
-    )
-  }
+  // Memoized calculations
+  const avgCompletion = useMemo(() => 
+    topicStats.length > 0 
+      ? Math.round(topicStats.reduce((sum, t) => sum + t.completion_rate, 0) / topicStats.length)
+      : 0
+  , [topicStats])
 
+  const avgReviewsPerDay = useMemo(() => 
+    dailyActivity.length > 0 && dailyActivity.some(d => d.reviews > 0)
+      ? (dailyActivity.reduce((sum, d) => sum + d.reviews, 0) / dailyActivity.filter(d => d.reviews > 0).length).toFixed(1)
+      : '0'
+  , [dailyActivity])
+
+  const peakDayReviews = useMemo(() => 
+    dailyActivity.length > 0 && dailyActivity.some(d => d.reviews > 0)
+      ? Math.max(...dailyActivity.map(d => d.reviews))
+      : 0
+  , [dailyActivity])
+
+  const avgItemsPerTopic = useMemo(() => 
+    topicStats.length > 0 
+      ? Math.round(topicStats.reduce((sum, t) => sum + t.total_items, 0) / topicStats.length)
+      : 0
+  , [topicStats])
+
+  // Show content progressively as it loads
   return (
     <div style={{ maxWidth: 'var(--container-xl)', margin: '0 auto' }}>
       <header style={{ marginBottom: '2rem' }}>
@@ -273,46 +403,46 @@ export function StatsPage() {
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
-            onClick={() => setDateRange('week')}
+            onClick={() => setPendingDateRange('week')}
             style={{
               padding: '0.5rem 1rem',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: dateRange === 'week' ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: dateRange === 'week' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+              backgroundColor: pendingDateRange === 'week' ? 'var(--color-primary)' : 'var(--color-surface)',
+              color: pendingDateRange === 'week' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              fontWeight: dateRange === 'week' ? '600' : '400'
+              fontWeight: pendingDateRange === 'week' ? '600' : '400'
             }}
           >
             Last Week
           </button>
           <button
-            onClick={() => setDateRange('month')}
+            onClick={() => setPendingDateRange('month')}
             style={{
               padding: '0.5rem 1rem',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: dateRange === 'month' ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: dateRange === 'month' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+              backgroundColor: pendingDateRange === 'month' ? 'var(--color-primary)' : 'var(--color-surface)',
+              color: pendingDateRange === 'month' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              fontWeight: dateRange === 'month' ? '600' : '400'
+              fontWeight: pendingDateRange === 'month' ? '600' : '400'
             }}
           >
             Last Month
           </button>
           <button
-            onClick={() => setDateRange('all')}
+            onClick={() => setPendingDateRange('all')}
             style={{
               padding: '0.5rem 1rem',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: dateRange === 'all' ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: dateRange === 'all' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+              backgroundColor: pendingDateRange === 'all' ? 'var(--color-primary)' : 'var(--color-surface)',
+              color: pendingDateRange === 'all' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              fontWeight: dateRange === 'all' ? '600' : '400'
+              fontWeight: pendingDateRange === 'all' ? '600' : '400'
             }}
           >
             All Time
@@ -321,21 +451,39 @@ export function StatsPage() {
       </div>
 
       <div style={{ display: 'grid', gap: '2rem' }}>
-        {/* Summary Stats */}
+        {/* Summary Stats - Show immediately with skeleton if loading */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
           <Card>
             <CardContent>
               <div style={{ textAlign: 'center' }}>
-                <p className="h2">{formattedSessions.length}</p>
-                <p className="body-small text-secondary">Reviews ({dateRange})</p>
+                {sessionsLoading ? (
+                  <>
+                    <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                    <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
+                  </>
+                ) : (
+                  <>
+                    <p className="h2">{formattedSessions.length}</p>
+                    <p className="body-small text-secondary">Reviews ({dateRange})</p>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent>
               <div style={{ textAlign: 'center', position: 'relative' }}>
-                <p className="h2">{stats?.streakDays || 0}</p>
-                <p className="body-small text-secondary">Day Streak</p>
+                {statsLoading ? (
+                  <>
+                    <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                    <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
+                  </>
+                ) : (
+                  <>
+                    <p className="h2">{stats?.streakDays || 0}</p>
+                    <p className="body-small text-secondary">Day Streak</p>
+                  </>
+                )}
                 {streakWarning.show && (
                   <div style={{
                     position: 'absolute',
@@ -358,8 +506,17 @@ export function StatsPage() {
           <Card>
             <CardContent>
               <div style={{ textAlign: 'center', position: 'relative' }}>
-                <p className="h2">{stats?.mastered || 0}</p>
-                <p className="body-small text-secondary">Mastered</p>
+                {statsLoading ? (
+                  <>
+                    <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                    <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
+                  </>
+                ) : (
+                  <>
+                    <p className="h2">{stats?.mastered || 0}</p>
+                    <p className="body-small text-secondary">Mastered</p>
+                  </>
+                )}
                 <div 
                   style={{
                     position: 'absolute',
@@ -387,12 +544,17 @@ export function StatsPage() {
           <Card>
             <CardContent>
               <div style={{ textAlign: 'center' }}>
-                <p className="h2">
-                  {topicStats.length > 0 
-                    ? Math.round(topicStats.reduce((sum, t) => sum + t.completion_rate, 0) / topicStats.length)
-                    : 0}%
-                </p>
-                <p className="body-small text-secondary">Avg Completion</p>
+                {topicsLoading ? (
+                  <>
+                    <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                    <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
+                  </>
+                ) : (
+                  <>
+                    <p className="h2">{avgCompletion}%</p>
+                    <p className="body-small text-secondary">Avg Completion</p>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -409,33 +571,7 @@ export function StatsPage() {
               {dailyActivity.length === 0 ? (
                 <p className="body text-secondary">No activity data</p>
               ) : (
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={dailyActivity}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(date) => new Date(date).toLocaleDateString('en', { weekday: 'short' })}
-                    />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'var(--color-surface)', 
-                        border: '1px solid var(--color-gray-200)',
-                        borderRadius: 'var(--radius-sm)'
-                      }}
-                      formatter={(value: number) => [`${value} reviews`, 'Reviews']}
-                      labelFormatter={(date) => new Date(date).toLocaleDateString()}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="reviews" 
-                      stroke="var(--color-primary)" 
-                      strokeWidth={2}
-                      dot={{ fill: 'var(--color-primary)', r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <DailyActivityChart data={dailyActivity} />
               )}
             </CardContent>
           </Card>
@@ -451,11 +587,7 @@ export function StatsPage() {
                 <div style={{ display: 'grid', gap: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="body">Avg Reviews/Day</span>
-                    <span className="h4">
-                      {dailyActivity.length > 0 && dailyActivity.some(d => d.reviews > 0)
-                        ? (dailyActivity.reduce((sum, d) => sum + d.reviews, 0) / dailyActivity.filter(d => d.reviews > 0).length).toFixed(1)
-                        : '0'}
-                    </span>
+                    <span className="h4">{avgReviewsPerDay}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="body">This {dateRange === 'week' ? 'Week' : dateRange === 'month' ? 'Month' : 'Period'}</span>
@@ -463,11 +595,7 @@ export function StatsPage() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="body">Peak Day</span>
-                    <span className="h4">
-                      {dailyActivity.length > 0 && dailyActivity.some(d => d.reviews > 0)
-                        ? Math.max(...dailyActivity.map(d => d.reviews))
-                        : '0'} reviews
-                    </span>
+                    <span className="h4">{peakDayReviews} reviews</span>
                   </div>
                 </div>
               </CardContent>
@@ -486,11 +614,7 @@ export function StatsPage() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="body">Items/Topic</span>
-                    <span className="h4">
-                      {topicStats.length > 0 
-                        ? Math.round(topicStats.reduce((sum, t) => sum + t.total_items, 0) / topicStats.length)
-                        : 0}
-                    </span>
+                    <span className="h4">{avgItemsPerTopic}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="body">Retention Rate</span>
@@ -518,31 +642,7 @@ export function StatsPage() {
               <>
                 {/* Bar Chart for Topic Completion */}
                 <div style={{ marginBottom: '2rem' }}>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={topicStats.slice(0, 5)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" />
-                      <XAxis 
-                        dataKey="topic_name" 
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 12 }}
-                        label={{ value: 'Completion %', angle: -90, position: 'insideLeft' }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'var(--color-surface)', 
-                          border: '1px solid var(--color-gray-200)',
-                          borderRadius: 'var(--radius-sm)'
-                        }}
-                        formatter={(value: number) => `${Math.round(value)}%`}
-                      />
-                      <Bar dataKey="completion_rate" fill="var(--color-primary)" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <TopicCompletionChart data={topicStats} />
                 </div>
                 
                 <div style={{ display: 'grid', gap: '1rem' }}>
@@ -604,7 +704,7 @@ export function StatsPage() {
               <p className="body text-secondary">No recent reviews</p>
             ) : (
               <div style={{ display: 'grid', gap: '0.5rem' }}>
-                {formattedSessions.slice(0, 10).map(session => (
+                {formattedSessions.slice(0, visibleSessions).map(session => (
                   <div 
                     key={session.id}
                     style={{ 
@@ -632,41 +732,42 @@ export function StatsPage() {
                     }} />
                   </div>
                 ))}
+                {formattedSessions.length > visibleSessions && (
+                  <button
+                    onClick={() => setVisibleSessions(prev => Math.min(prev + 10, formattedSessions.length))}
+                    style={{
+                      padding: '0.5rem',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--color-surface)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Show More ({formattedSessions.length - visibleSessions} remaining)
+                  </button>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Suggestions for additional stats */}
-        <Card variant="bordered">
-          <CardHeader>
-            <h3 className="h4">📊 Additional Stats Ideas</h3>
-          </CardHeader>
-          <CardContent>
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-sm)' }}>
-                <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Study Time Heatmap</h4>
-                <p className="body-small text-secondary">Visualize your most productive study hours and days of the week to optimize your learning schedule.</p>
+        {/* Timing Performance Section */}
+        <Suspense fallback={
+          <Card variant="bordered">
+            <CardHeader>
+              <h3 className="h4">📊 Timing Performance</h3>
+            </CardHeader>
+            <CardContent>
+              <div style={{ padding: '2rem', textAlign: 'center' }}>
+                <div style={{ height: '100px', backgroundColor: 'var(--color-gray-100)', borderRadius: '8px', marginBottom: '1rem' }} />
+                <p className="body-small text-secondary">Loading timing statistics...</p>
               </div>
-              <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-sm)' }}>
-                <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Memory Retention Curve</h4>
-                <p className="body-small text-secondary">Track how well you retain information over time based on review intervals and performance.</p>
-              </div>
-              <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-sm)' }}>
-                <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Knowledge Growth Timeline</h4>
-                <p className="body-small text-secondary">See your learning journey with milestones for topics mastered and total items learned.</p>
-              </div>
-              <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-sm)' }}>
-                <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Difficulty Progression</h4>
-                <p className="body-small text-secondary">Monitor how item difficulty changes over time as you improve.</p>
-              </div>
-              <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-sm)' }}>
-                <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Focus Score</h4>
-                <p className="body-small text-secondary">Measure consistency and depth of study sessions to identify optimal learning patterns.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        }>
+          <TimingPerformance />
+        </Suspense>
       </div>
     </div>
   )

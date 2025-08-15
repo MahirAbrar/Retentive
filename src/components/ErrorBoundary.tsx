@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { Component } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
 import { Button, Card, CardHeader, CardContent } from './ui'
@@ -35,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('ErrorBoundary caught an error:', error, errorInfo)
+      logger.error('ErrorBoundary caught an error:', error, errorInfo)
     }
     
     // Update state with error details
@@ -160,7 +161,7 @@ export function withErrorBoundary<T extends (...args: any[]) => any>(
       if (errorHandler) {
         errorHandler(error as Error)
       } else {
-        console.error('Unhandled error:', error)
+        logger.error('Unhandled error:', error)
       }
       throw error
     }

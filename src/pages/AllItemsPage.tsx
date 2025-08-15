@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { logger } from '../utils/logger'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import type { LearningItem, Topic } from '../types/database'
 import { calculateNextReview } from '../utils/spacedRepetition'
+import { formatNextReview } from '../utils/formatters'
 
 interface ItemWithTopic extends LearningItem {
   topic?: Topic
@@ -18,6 +20,8 @@ export function AllItemsPage() {
   const [items, setItems] = useState<ItemWithTopic[]>([])
   const [loading, setLoading] = useState(true)
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set())
+  const [visibleCount, setVisibleCount] = useState(50) // Start with 50 items
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     if (user) {
@@ -43,7 +47,7 @@ export function AllItemsPage() {
       setItems(data || [])
     } catch (error) {
       addToast('error', 'Failed to load items')
-      console.error('Error loading items:', error)
+      logger.error('Error loading items:', error)
     } finally {
       setLoading(false)
     }
@@ -104,7 +108,7 @@ export function AllItemsPage() {
       addToast('success', `Done! Next review: ${formatNextReview(nextReview.next_review_at)}`)
     } catch (error) {
       addToast('error', 'Failed to update item')
-      console.error('Error updating item:', error)
+      logger.error('Error updating item:', error)
     } finally {
       // Remove from processing set
       setProcessingItems(prev => {
@@ -115,21 +119,9 @@ export function AllItemsPage() {
     }
   }
 
-  const formatNextReview = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMinutes = Math.floor((date.getTime() - now.getTime()) / (1000 * 60))
-    const diffHours = Math.floor(diffMinutes / 60)
-    const diffDays = Math.floor(diffHours / 24)
-    
-    if (diffMinutes < 60) return `${diffMinutes} minutes`
-    if (diffHours < 24) return `${diffHours} hours`
-    if (diffDays === 1) return 'tomorrow'
-    if (diffDays < 7) return `in ${diffDays} days`
-    return date.toLocaleDateString()
-  }
+  // formatNextReview is now imported from utils/formatters
 
-  const getItemStatus = (item: LearningItem) => {
+  const getItemStatus = useCallback((item: LearningItem) => {
     if (!item.next_review_at) return { label: 'New', color: 'var(--color-info)' }
     
     const now = new Date()
@@ -138,12 +130,30 @@ export function AllItemsPage() {
     if (reviewDate < now) return { label: 'Overdue', color: 'var(--color-error)' }
     if (reviewDate.toDateString() === now.toDateString()) return { label: 'Due today', color: 'var(--color-warning)' }
     return { label: formatNextReview(item.next_review_at), color: 'var(--color-success)' }
-  }
+  }, [])
 
-  const isDue = (item: LearningItem) => {
+  const isDue = useCallback((item: LearningItem) => {
     if (!item.next_review_at) return true
     return new Date(item.next_review_at) <= new Date()
-  }
+  }, [])
+  
+  // Memoize filtered and visible items
+  const filteredItems = useMemo(() => {
+    if (!searchTerm) return items
+    const term = searchTerm.toLowerCase()
+    return items.filter(item => 
+      item.content.toLowerCase().includes(term) ||
+      item.topic?.name?.toLowerCase().includes(term)
+    )
+  }, [items, searchTerm])
+  
+  const visibleItems = useMemo(() => {
+    return filteredItems.slice(0, visibleCount)
+  }, [filteredItems, visibleCount])
+  
+  const handleLoadMore = useCallback(() => {
+    setVisibleCount(prev => Math.min(prev + 50, filteredItems.length))
+  }, [filteredItems.length])
 
   if (loading) {
     return (
@@ -247,6 +257,18 @@ export function AllItemsPage() {
               )
             })}
           </div>
+          
+          {/* Load more button */}
+          {filteredItems.length > visibleCount && (
+            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+              <Button 
+                variant="secondary" 
+                onClick={handleLoadMore}
+              >
+                Load More ({filteredItems.length - visibleCount} remaining)
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,3 +1,4 @@
+import { logger } from './logger'
 import { PostgrestError } from '@supabase/supabase-js'
 
 export class AppError extends Error {
@@ -136,9 +137,9 @@ export function handleError(error: unknown, context?: string): void {
   const errorContext = context ? `[${context}] ` : ''
   
   if (process.env.NODE_ENV === 'development') {
-    console.error(`${errorContext}${message}`, error)
+    logger.error(`${errorContext}${message}`, error)
   } else {
-    console.error(`${errorContext}${message}`)
+    logger.error(`${errorContext}${message}`)
   }
   
   // In production, you might want to send errors to a monitoring service

@@ -610,15 +610,21 @@ export class DataService {
     if (status === 'archived') {
       updateData.archive_date = new Date().toISOString()
     } else if (status === 'maintenance' && maintenanceInterval) {
-      updateData.maintenance_interval_days = maintenanceInterval
+      // Ensure maintenance interval is an integer
+      updateData.maintenance_interval_days = Math.round(maintenanceInterval)
+      // Set next review date based on maintenance interval
+      updateData.next_review_at = new Date(Date.now() + Math.round(maintenanceInterval) * 24 * 60 * 60 * 1000).toISOString()
     } else if (status === 'repeat') {
-      // Reset review stats for repeat mode
+      // Reset review stats for repeat mode - item becomes "new" again
       updateData.review_count = 0
       updateData.interval_days = 0
       updateData.ease_factor = 2.5
       updateData.last_reviewed_at = null
       updateData.next_review_at = null
       updateData.mastery_date = null
+      updateData.mastery_status = 'active' // Reset to active status
+      updateData.archive_date = null
+      updateData.maintenance_interval_days = null
     } else if (status === 'mastered') {
       updateData.mastery_date = new Date().toISOString()
     }

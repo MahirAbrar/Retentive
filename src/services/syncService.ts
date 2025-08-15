@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { supabase } from './supabase'
 import { offlineQueue } from './offlineQueue'
 import { localStorageCache } from './localStorageCache'
@@ -22,12 +23,12 @@ class SyncService {
   private setupListeners() {
     // Listen for online/offline events
     window.addEventListener('online', () => {
-      console.log('Connection restored, syncing...')
+      logger.log('Connection restored, syncing...')
       this.syncPendingOperations()
     })
     
     window.addEventListener('offline', () => {
-      console.log('Connection lost, operations will be queued')
+      logger.log('Connection lost, operations will be queued')
     })
     
     // Check and sync on page load/focus
@@ -56,7 +57,7 @@ class SyncService {
         offlineQueue.removeOperation(operation.id)
         success++
       } catch (error) {
-        console.error(`Failed to sync operation ${operation.id}:`, error)
+        logger.error(`Failed to sync operation ${operation.id}:`, error)
         failed++
         
         // If operation is too old (> 7 days), remove it
@@ -147,7 +148,7 @@ class SyncService {
       try {
         callback(syncing)
       } catch (error) {
-        console.error('Sync callback error:', error)
+        logger.error('Sync callback error:', error)
       }
     })
   }

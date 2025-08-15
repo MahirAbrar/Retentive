@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { gamificationService } from '../../services/gamificationService'
+import { logger } from '../../utils/logger'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { useAchievements } from '../../hooks/useAchievements'
 import { LevelProgress } from './LevelProgress'
@@ -33,11 +34,11 @@ export function GamificationDashboard() {
   const [checkingAchievements, setCheckingAchievements] = useState(false)
   const [perfectTimingCount, setPerfectTimingCount] = useState(0)
   const [sessionReviewCount, setSessionReviewCount] = useState(0)
+  const [lastActivity, setLastActivity] = useState(Date.now())
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
+  const loadStats = useCallback(async () => {
     if (!user) return
-
-    const loadStats = async () => {
       try {
         const userStats = await gamificationService.getUserStats(user.id)
         if (userStats) {
@@ -64,11 +65,14 @@ export function GamificationDashboard() {
         // Get session review count (reviews today)
         setSessionReviewCount(userStats?.todayReviews || 0)
       } catch (error) {
-        console.error('Error loading gamification stats:', error)
+        logger.error('Error loading gamification stats:', error)
       } finally {
         setLoading(false)
       }
-    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
 
     loadStats()
     
@@ -84,16 +88,38 @@ export function GamificationDashboard() {
           todayPoints: updatedStats.todayPoints,
           achievements: updatedStats.achievements
         })
+        setLastActivity(Date.now()) // Update activity timestamp
       }
     })
     
-    // Refresh stats every 30 seconds
-    const interval = setInterval(loadStats, 30000)
+    // Intelligent polling - reduce frequency when inactive
+    const setupPolling = () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
+      
+      const timeSinceActivity = Date.now() - lastActivity
+      const pollInterval = timeSinceActivity > 5 * 60 * 1000 ? 60000 : 30000 // 1 min if inactive, 30s if active
+      
+      pollIntervalRef.current = setInterval(() => {
+        const currentTimeSinceActivity = Date.now() - lastActivity
+        if (currentTimeSinceActivity < 10 * 60 * 1000) { // Only poll if active in last 10 min
+          loadStats()
+        }
+      }, pollInterval)
+    }
+    
+    setupPolling()
+    const activityInterval = setInterval(setupPolling, 60000) // Re-evaluate polling every minute
+    
     return () => {
-      clearInterval(interval)
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
+      clearInterval(activityInterval)
       unsubscribe()
     }
-  }, [user])
+  }, [user, loadStats, lastActivity])
 
   if (!user || loading) {
     return (
@@ -141,7 +167,7 @@ export function GamificationDashboard() {
         addToast('info', 'No new achievements to unlock')
       }
     } catch (error) {
-      console.error('Error checking achievements:', error)
+      logger.error('Error checking achievements:', error)
       addToast('error', 'Failed to check achievements')
     } finally {
       setCheckingAchievements(false)

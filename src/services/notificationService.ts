@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger'
+
 interface NotificationSettings {
   dailyReminder: {
     enabled: boolean
@@ -17,7 +19,7 @@ export class NotificationService {
     try {
       return await window.electronAPI.notifications.schedule('daily', { userId, time })
     } catch (error) {
-      console.error('Error scheduling daily reminder:', error)
+      logger.error('Error scheduling daily reminder:', error)
       return false
     }
   }
@@ -31,7 +33,7 @@ export class NotificationService {
     try {
       return await window.electronAPI.notifications.schedule('streak', { userId })
     } catch (error) {
-      console.error('Error scheduling streak alerts:', error)
+      logger.error('Error scheduling streak alerts:', error)
       return false
     }
   }
@@ -45,7 +47,7 @@ export class NotificationService {
     try {
       return await window.electronAPI.notifications.cancel(type, userId)
     } catch (error) {
-      console.error('Error cancelling notification:', error)
+      logger.error('Error cancelling notification:', error)
       return false
     }
   }
@@ -59,7 +61,7 @@ export class NotificationService {
     try {
       return await window.electronAPI.notifications.test()
     } catch (error) {
-      console.error('Error sending test notification:', error)
+      logger.error('Error sending test notification:', error)
       return false
     }
   }
@@ -85,7 +87,7 @@ export class NotificationService {
       
       return true
     } catch (error) {
-      console.error('Error applying notification settings:', error)
+      logger.error('Error applying notification settings:', error)
       return false
     }
   }

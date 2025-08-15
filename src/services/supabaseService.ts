@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { supabase } from './supabase'
 import type { Session, Subscription } from '@supabase/supabase-js'
 
@@ -55,7 +56,7 @@ export class SupabaseService {
         try {
           callback(event, session)
         } catch (error) {
-          console.error('Error in auth state callback:', error)
+          logger.error('Error in auth state callback:', error)
         }
       })
 
@@ -135,10 +136,10 @@ export class SupabaseService {
         try {
           const { error } = await supabase.auth.refreshSession()
           if (error) {
-            console.error('Failed to refresh token:', error)
+            logger.error('Failed to refresh token:', error)
           }
         } catch (error) {
-          console.error('Error refreshing token:', error)
+          logger.error('Error refreshing token:', error)
         }
       }, refreshIn)
     }
@@ -196,7 +197,7 @@ export class SupabaseService {
         try {
           callback(this.connectionStatus)
         } catch (error) {
-          console.error('Error in connection status callback:', error)
+          logger.error('Error in connection status callback:', error)
         }
       })
     }
@@ -225,7 +226,7 @@ export class SupabaseService {
         this.updateConnectionStatus(true)
       }
     } catch (error) {
-      console.error('Reconnection attempt failed:', error)
+      logger.error('Reconnection attempt failed:', error)
     }
   }
 

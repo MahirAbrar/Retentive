@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { offlineService } from './offlineService'
 import type { Topic, LearningItem } from '../types/database'
 import { 
@@ -58,7 +59,7 @@ export class DataService {
           offlineService.setUserId(parsed.currentSession.user.id)
         }
       } catch (e) {
-        console.error('Failed to parse auth data:', e)
+        logger.error('Failed to parse auth data:', e)
       }
     }
   }

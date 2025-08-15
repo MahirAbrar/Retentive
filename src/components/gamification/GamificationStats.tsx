@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger'
 import { useEffect, useState, memo } from 'react'
 import { gamificationService } from '../../services/gamificationService'
 import { useAuth } from '../../hooks/useAuthFixed'
@@ -28,7 +29,7 @@ export const GamificationStats = memo(function GamificationStats() {
           })
         }
       } catch (error) {
-        console.error('Error loading gamification stats:', error)
+        logger.error('Error loading gamification stats:', error)
       } finally {
         setLoading(false)
       }

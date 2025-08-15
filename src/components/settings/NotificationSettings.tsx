@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardContent, Button } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
@@ -16,6 +17,7 @@ interface NotificationSettings {
 export function NotificationSettings() {
   const { user } = useAuth()
   const { addToast } = useToast()
+  const isElectron = !!window.electronAPI
   const [settings, setSettings] = useState<NotificationSettings>({
     dailyReminder: {
       enabled: true,
@@ -25,6 +27,62 @@ export function NotificationSettings() {
     milestones: true
   })
   const [saving, setSaving] = useState(false)
+
+  // If not in Electron, show a message
+  if (!isElectron) {
+    return (
+      <Card>
+        <CardHeader>
+          <h3 className="h4">Notification Settings</h3>
+        </CardHeader>
+        <CardContent>
+          <div style={{ 
+            padding: '2rem',
+            textAlign: 'center',
+            backgroundColor: 'var(--color-warning-light)',
+            borderRadius: 'var(--radius-md)'
+          }}>
+            <p className="body" style={{ marginBottom: '1rem' }}>
+              <strong>Desktop App Required</strong>
+            </p>
+            <p className="body-small text-secondary" style={{ marginBottom: '1.5rem' }}>
+              Notifications are only available in the desktop app. Download it to receive:
+            </p>
+            <ul style={{ 
+              listStyle: 'none',
+              padding: 0,
+              marginBottom: '1.5rem',
+              textAlign: 'left',
+              display: 'inline-block'
+            }}>
+              <li className="body-small" style={{ marginBottom: '0.5rem' }}>✅ Daily study reminders</li>
+              <li className="body-small" style={{ marginBottom: '0.5rem' }}>✅ Due item notifications</li>
+              <li className="body-small" style={{ marginBottom: '0.5rem' }}>✅ Streak maintenance alerts</li>
+              <li className="body-small">✅ Achievement celebrations</li>
+            </ul>
+            <div>
+              <a
+                href="https://github.com/mahirtantod/retentive-app/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-block',
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: 'var(--color-primary)',
+                  color: 'var(--color-background)',
+                  borderRadius: 'var(--radius-sm)',
+                  textDecoration: 'none',
+                  fontWeight: 'bold'
+                }}
+              >
+                Download Desktop App
+              </a>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   useEffect(() => {
     // Load settings from secure storage
@@ -46,7 +104,7 @@ export function NotificationSettings() {
   }, [user])
 
   const loadSettings = async () => {
-    if (!window.electronAPI) return
+    if (!isElectron || !window.electronAPI) return
 
     try {
       const saved = await window.electronAPI.secureStorage.get('notificationSettings')
@@ -54,12 +112,12 @@ export function NotificationSettings() {
         setSettings(JSON.parse(saved))
       }
     } catch (error) {
-      console.error('Error loading notification settings:', error)
+      logger.error('Error loading notification settings:', error)
     }
   }
 
   const handleSave = async () => {
-    if (!user) return
+    if (!user || !isElectron) return
 
     setSaving(true)
     try {
@@ -79,13 +137,15 @@ export function NotificationSettings() {
       }
     } catch (error) {
       addToast('error', 'Error saving notification settings')
-      console.error('Error saving notification settings:', error)
+      logger.error('Error saving notification settings:', error)
     } finally {
       setSaving(false)
     }
   }
 
   const handleTestNotification = async () => {
+    if (!isElectron) return
+    
     const success = await notificationService.sendTestNotification()
     if (success) {
       addToast('success', 'Test notification sent!')
@@ -229,7 +289,7 @@ export function NotificationSettings() {
                 <Button 
                   variant="ghost" 
                   onClick={async () => {
-                    if (!user) return
+                    if (!user || !isElectron) return
                     
                     const success = await window.electronAPI.notifications.testDaily(user.id)
                     if (success) {
@@ -242,31 +302,13 @@ export function NotificationSettings() {
                   Test Daily Now
                 </Button>
                 
-                <Button 
-                  variant="ghost" 
-                  onClick={async () => {
-                    // Set the time to 1 minute from now for testing
-                    const now = new Date()
-                    now.setMinutes(now.getMinutes() + 1)
-                    const testTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-                    
-                    await window.electronAPI.notifications.schedule('daily', { 
-                      userId: user?.id, 
-                      time: testTime 
-                    })
-                    
-                    addToast('info', `Daily reminder scheduled for ${testTime} (in 1 minute)`)
-                  }}
-                >
-                  Schedule (1 min)
-                </Button>
               </>
             )}
             
             <Button 
               variant="ghost" 
               onClick={async () => {
-                if (!user) return
+                if (!user || !isElectron) return
                 
                 // Schedule a test notification for 10 seconds from now
                 const testDueAt = new Date(Date.now() + 10000).toISOString()
@@ -288,10 +330,6 @@ export function NotificationSettings() {
             >
               Test Due (10s)
             </Button>
-            
-            <p className="body-small text-secondary">
-              Notifications require the app to be running
-            </p>
           </div>
         </div>
       </CardContent>

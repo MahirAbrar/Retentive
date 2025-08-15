@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { useState } from 'react'
 import { Button, Card, CardHeader, CardContent, Input, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
@@ -41,7 +42,7 @@ export function TestGamificationPage() {
       // Refresh stats
       await gamificationService.refreshUserStats(user.id)
     } catch (error) {
-      console.error('Error adding test review:', error)
+      logger.error('Error adding test review:', error)
       addToast('error', 'Failed to add test review')
     } finally {
       setLoading(false)
@@ -68,7 +69,7 @@ export function TestGamificationPage() {
       // Refresh stats
       await gamificationService.refreshUserStats(user.id)
     } catch (error) {
-      console.error('Error clearing reviews:', error)
+      logger.error('Error clearing reviews:', error)
       addToast('error', 'Failed to clear reviews')
     } finally {
       setLoading(false)
@@ -90,7 +91,7 @@ export function TestGamificationPage() {
       
       addToast('success', `Created ${days} day streak!`)
     } catch (error) {
-      console.error('Error simulating streak:', error)
+      logger.error('Error simulating streak:', error)
       addToast('error', 'Failed to simulate streak')
     } finally {
       setLoading(false)
@@ -112,7 +113,7 @@ export function TestGamificationPage() {
       
       addToast('success', 'Created broken streak (should show 1 day)')
     } catch (error) {
-      console.error('Error simulating broken streak:', error)
+      logger.error('Error simulating broken streak:', error)
       addToast('error', 'Failed to simulate broken streak')
     } finally {
       setLoading(false)

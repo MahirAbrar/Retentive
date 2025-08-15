@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import styles from './SyncStatus.module.css'
 
@@ -10,10 +11,10 @@ export function SyncStatus() {
     try {
       const result = await sync()
       if (result.failed > 0) {
-        console.error('Sync errors:', result.errors)
+        logger.error('Sync errors:', result.errors)
       }
     } catch (error) {
-      console.error('Sync failed:', error)
+      logger.error('Sync failed:', error)
     }
   }
 

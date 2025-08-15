@@ -1,5 +1,6 @@
 import type { LearningItem } from '../types/database'
 import { GAMIFICATION_CONFIG } from '../config/gamification'
+import { logger } from '../utils/logger'
 
 export interface ReviewResult {
   nextReviewAt: string
@@ -22,6 +23,27 @@ export class SpacedRepetitionGamifiedService {
   }
 
   calculateNextReview(item: LearningItem): ReviewResult {
+    // Special handling for maintenance items
+    if (item.mastery_status === 'maintenance') {
+      // Double the maintenance interval for next review
+      const currentInterval = item.maintenance_interval_days || item.interval_days || 30
+      const nextInterval = this.calculateMaintenanceInterval({
+        ...item,
+        interval_days: currentInterval
+      })
+      
+      const now = new Date()
+      const nextReviewAt = new Date(now.getTime() + nextInterval * 24 * 60 * 60 * 1000)
+      
+      return {
+        nextReviewAt: nextReviewAt.toISOString(),
+        intervalDays: nextInterval,
+        easeFactor: item.ease_factor,
+        isMastered: true,
+        masteryProgress: 1
+      }
+    }
+    
     const mode = GAMIFICATION_CONFIG.LEARNING_MODES[item.learning_mode]
     
     // Get the current review number (0-indexed)
@@ -63,7 +85,7 @@ export class SpacedRepetitionGamifiedService {
       
       // If no next_review_at is set but item has been reviewed, something is wrong
       if (!item.next_review_at) {
-        console.warn('Item has review_count > 0 but no next_review_at:', item)
+        logger.warn('Item has review_count > 0 but no next_review_at:', item)
         return false
       }
       
@@ -202,6 +224,12 @@ export class SpacedRepetitionGamifiedService {
   calculateMaintenanceInterval(item: LearningItem): number {
     // Use current interval or default based on mode
     const currentInterval = item.maintenance_interval_days || item.interval_days || 1
+    
+    // For test mode, use a fixed 1-day maintenance interval
+    if (item.learning_mode === 'test') {
+      return 1 // Always 1 day for test mode
+    }
+    
     const nextInterval = currentInterval * 2
     
     // Cap based on learning mode
@@ -214,8 +242,11 @@ export class SpacedRepetitionGamifiedService {
         return Math.min(nextInterval, 180) // 6 months max
       case 'steady':
         return Math.min(nextInterval, 365) // 1 year max
+      case 'test':
+        return 1 // 1 day for test mode
       default:
-        return nextInterval
+        // Ensure we return at least 1 day to avoid database integer issues
+        return Math.max(1, Math.round(nextInterval))
     }
   }
 }

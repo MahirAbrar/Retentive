@@ -102,6 +102,17 @@ export function getOptimalReviewWindow(learningMode: string): { early: string, l
         late: 'Up to 7 days late'
       }
     case 'steady':
+      return {
+        early: '12 hours before due',
+        perfect: 'Within 1 day of due time',
+        late: 'Up to 3 days late'
+      }
+    case 'test':
+      return {
+        early: 'Not applicable',
+        perfect: 'Within 10 seconds of due time',
+        late: 'Up to 30 seconds late'
+      }
     default:
       return {
         early: '12 hours before due',

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { useState, useEffect } from 'react'
 import { Button, Card, CardHeader, CardContent, useToast } from '../components/ui'
 import { gamificationService } from '../services/gamificationService'
@@ -29,7 +30,7 @@ export function TestGamificationPersistence() {
       
       setDbStats(dbData)
     } catch (error) {
-      console.error('Error loading stats:', error)
+      logger.error('Error loading stats:', error)
       addToast('error', 'Failed to load stats')
     } finally {
       setLoading(false)
@@ -55,7 +56,7 @@ export function TestGamificationPersistence() {
       // Reload stats after a brief delay
       setTimeout(loadStats, 500)
     } catch (error) {
-      console.error('Error adding points:', error)
+      logger.error('Error adding points:', error)
       addToast('error', 'Failed to add points')
     }
   }
@@ -81,7 +82,7 @@ export function TestGamificationPersistence() {
       addToast('success', 'Stats reset successfully')
       loadStats()
     } catch (error) {
-      console.error('Error resetting stats:', error)
+      logger.error('Error resetting stats:', error)
       addToast('error', 'Failed to reset stats')
     }
   }

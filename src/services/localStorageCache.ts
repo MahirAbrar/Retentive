@@ -2,6 +2,8 @@
  * Simple localStorage-based cache for offline functionality
  */
 
+import { logger } from '../utils/logger'
+
 interface CacheItem<T> {
   data: T
   timestamp: number
@@ -23,7 +25,7 @@ class LocalStorageCache {
       }
       localStorage.setItem(this.prefix + key, JSON.stringify(cacheItem))
     } catch (e) {
-      console.warn('Failed to cache item:', e)
+      logger.warn('Failed to cache item:', e)
       // Handle quota exceeded error
       if (e instanceof DOMException && e.code === 22) {
         this.clearExpired()

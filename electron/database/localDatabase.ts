@@ -46,7 +46,7 @@ class LocalDatabaseImpl implements LocalDatabase {
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         name TEXT NOT NULL,
-        learning_mode TEXT NOT NULL CHECK (learning_mode IN ('cram', 'steady')),
+        learning_mode TEXT NOT NULL CHECK (learning_mode IN ('ultracram', 'cram', 'extended', 'steady', 'test')),
         priority INTEGER NOT NULL DEFAULT 5 CHECK (priority >= 1 AND priority <= 10),
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,

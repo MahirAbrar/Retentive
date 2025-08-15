@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { logger } from '../../utils/logger'
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardContent, Button, Badge, useToast, ConfirmDialog, Input, Modal } from '../ui'
 import { MasteryDialog } from '../MasteryDialog'
 import type { Topic, LearningItem, LearningMode, MasteryStatus } from '../../types/database'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
 import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
+import { formatNextReview } from '../../utils/formatters'
 // import { TopicCard } from './TopicCard' // Will integrate later
 // import { LearningItemRow } from './LearningItemRow' // Will integrate later
 import { topicsService } from '../../services/topicsFixed'
@@ -27,10 +29,10 @@ interface TopicListProps {
   loading?: boolean
 }
 
-export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived = false, loading }: TopicListProps) {
+function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchived = false, loading }: TopicListProps) {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
   const [topicItems, setTopicItems] = useState<Record<string, LearningItem[]>>({})
-  const [topicStats, setTopicStats] = useState<Record<string, { total: number; due: number; new: number }>>({})
+  const [topicStats, setTopicStats] = useState<Record<string, { total: number; due: number; new: number; archived?: number }>>({})
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set())
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set())
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; topicId: string | null; topicName: string }>({ open: false, topicId: null, topicName: '' })
@@ -45,42 +47,70 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
   const { addToast } = useToast()
   const { user } = useAuth()
   const { showAchievements } = useAchievements()
-
-  // Load item counts for all topics on mount
-  useEffect(() => {
-    topics.forEach(topic => {
-      loadTopicStats(topic.id)
-    })
+  
+  // Memoize sorted topics to prevent unnecessary re-sorts
+  const sortedTopics = useMemo(() => {
+    return [...topics].sort((a, b) => b.priority - a.priority)
   }, [topics])
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (_e: MouseEvent) => {
-      if (openMenuId) {
-        setOpenMenuId(null)
-      }
-    }
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [openMenuId])
+  // Define isDue first since it's used by other functions
+  const isDue = useCallback((item: LearningItem) => {
+    // New items (never studied) are not considered "due" - they're ready to learn
+    if (item.review_count === 0) return false
+    
+    // Archived items are never due
+    if (item.mastery_status === 'archived') return false
+    
+    const dueItems = spacedRepetitionGamified.getDueItems([item])
+    return dueItems.length > 0
+  }, [])
 
   const loadTopicStats = useCallback(async (topicId: string) => {
+    // Check cache first for performance
+    const cacheKey = `topic-stats-${topicId}`
+    const cached = cacheService.get<{ total: number; due: number; new: number; archived: number }>(cacheKey)
+    
+    if (cached) {
+      setTopicStats(prev => ({
+        ...prev,
+        [topicId]: cached
+      }))
+      return
+    }
+    
     try {
       const { data, error } = await topicsService.getTopicItems(topicId)
       if (error) throw error
       
       const items = data || []
-      const dueCount = items.filter(item => item.review_count > 0 && isDue(item)).length
-      const newCount = items.filter(item => item.review_count === 0).length
+      const activeItems = items.filter(item => item.mastery_status !== 'archived')
+      const archivedCount = items.filter(item => item.mastery_status === 'archived').length
+      const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
+      const newCount = activeItems.filter(item => item.review_count === 0).length
+      
+      const stats = { 
+        total: activeItems.length, 
+        due: dueCount, 
+        new: newCount,
+        archived: archivedCount 
+      }
+      
+      // Cache for 1 minute
+      cacheService.set(cacheKey, stats, 60 * 1000)
       
       setTopicStats(prev => ({
         ...prev,
-        [topicId]: { total: items.length, due: dueCount, new: newCount }
+        [topicId]: stats
       }))
     } catch (error) {
-      console.error('Error loading topic stats:', error)
+      logger.error('Error loading topic stats:', error)
+      // Set default values on error
+      setTopicStats(prev => ({
+        ...prev,
+        [topicId]: { total: 0, due: 0, new: 0, archived: 0 }
+      }))
     }
-  }, [])
+  }, [isDue])
 
   const toggleTopic = useCallback(async (topicId: string) => {
     const newExpanded = new Set(expandedTopics)
@@ -100,17 +130,25 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
           
           setTopicItems(prev => ({ ...prev, [topicId]: data || [] }))
           
-          // Update stats after loading items
+          // Update stats after loading items (invalidate cache)
           const items = data || []
-          const dueCount = items.filter(item => item.review_count > 0 && isDue(item)).length
-          const newCount = items.filter(item => item.review_count === 0).length
+          const activeItems = items.filter(item => item.mastery_status !== 'archived')
+          const archivedCount = items.filter(item => item.mastery_status === 'archived').length
+          const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
+          const newCount = activeItems.filter(item => item.review_count === 0).length
+          const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+          
+          // Update cache with fresh data
+          const cacheKey = `topic-stats-${topicId}`
+          cacheService.set(cacheKey, stats, 60 * 1000)
+          
           setTopicStats(prev => ({
             ...prev,
-            [topicId]: { total: items.length, due: dueCount, new: newCount }
+            [topicId]: stats
           }))
         } catch (error) {
           addToast('error', 'Failed to load items')
-          console.error('Error loading items:', error)
+          logger.error('Error loading items:', error)
         } finally {
           setLoadingItems(prev => {
             const newSet = new Set(prev)
@@ -122,31 +160,33 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
     }
     
     setExpandedTopics(newExpanded)
-  }, [expandedTopics, topicItems, loadingItems, addToast])
+  }, [expandedTopics, topicItems, loadingItems, addToast, isDue])
 
-
-  const formatNextReview = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMinutes = Math.floor((date.getTime() - now.getTime()) / (1000 * 60))
-    const diffHours = Math.floor(diffMinutes / 60)
-    const diffDays = Math.floor(diffHours / 24)
+  // Load stats for all topics on mount and when topics change
+  useEffect(() => {
+    const loadAllStats = async () => {
+      // Load stats for all topics in parallel for better performance
+      const statsPromises = topics.map(topic => loadTopicStats(topic.id))
+      await Promise.all(statsPromises)
+    }
     
-    if (diffMinutes < 60) return `${diffMinutes} minutes`
-    if (diffHours < 24) return `${diffHours} hours`
-    if (diffDays === 1) return 'tomorrow'
-    if (diffDays < 7) return `in ${diffDays} days`
-    return date.toLocaleDateString()
-  }
+    if (topics.length > 0) {
+      loadAllStats()
+    }
+  }, [topics, loadTopicStats])
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (_e: MouseEvent) => {
+      if (openMenuId) {
+        setOpenMenuId(null)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [openMenuId])
 
-  const isDue = (item: LearningItem) => {
-    // New items (never studied) are not considered "due" - they're ready to learn
-    if (item.review_count === 0) return false
-    
-    const dueItems = spacedRepetitionGamified.getDueItems([item])
-    return dueItems.length > 0
-  }
+  // formatNextReview is now imported from utils/formatters
 
   // Removed unused function
 
@@ -216,7 +256,7 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
         .single()
 
       if (error) {
-        console.error('Error adding item:', error)
+        logger.error('Error adding item:', error)
         throw error
       }
 
@@ -228,18 +268,26 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
 
       // Update stats
       const items = [...(topicItems[topicId] || []), data]
-      const dueCount = items.filter(item => item.review_count > 0 && isDue(item)).length
-      const newCount = items.filter(item => item.review_count === 0).length
+      const activeItems = items.filter(item => item.mastery_status !== 'archived')
+      const archivedCount = items.filter(item => item.mastery_status === 'archived').length
+      const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
+      const newCount = activeItems.filter(item => item.review_count === 0).length
+      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+      
       setTopicStats(prev => ({
         ...prev,
-        [topicId]: { total: items.length, due: dueCount, new: newCount }
+        [topicId]: stats
       }))
+      
+      // Update cache with new stats
+      const cacheKey = `topic-stats-${topicId}`
+      cacheService.set(cacheKey, stats, 60 * 1000)
 
       addToast('success', 'Item added successfully')
       setAddingItemToTopic(null)
       setNewItemContent('')
       
-      // Invalidate stats cache
+      // Invalidate global stats cache
       if (user) cacheService.invalidate(`stats:${user.id}`)
     } catch (error) {
       addToast('error', 'Failed to add item')
@@ -271,17 +319,25 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
 
       // Update stats
       const newItems = topicItems[item.topic_id].filter(i => i.id !== item.id)
-      const dueCount = newItems.filter(i => i.review_count > 0 && isDue(i)).length
-      const newCount = newItems.filter(i => i.review_count === 0).length
+      const activeItems = newItems.filter(i => i.mastery_status !== 'archived')
+      const archivedCount = newItems.filter(i => i.mastery_status === 'archived').length
+      const dueCount = activeItems.filter(i => i.review_count > 0 && isDue(i)).length
+      const newCount = activeItems.filter(i => i.review_count === 0).length
+      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+      
       setTopicStats(prev => ({
         ...prev,
-        [item.topic_id]: { total: newItems.length, due: dueCount, new: newCount }
+        [item.topic_id]: stats
       }))
+      
+      // Update cache with new stats
+      const cacheKey = `topic-stats-${item.topic_id}`
+      cacheService.set(cacheKey, stats, 60 * 1000)
 
       addToast('success', 'Item deleted successfully')
       setDeleteItemConfirm({ open: false, item: null })
       
-      // Invalidate stats cache
+      // Invalidate global stats cache
       if (user) cacheService.invalidate(`stats:${user.id}`)
     } catch (error) {
       addToast('error', 'Failed to delete item')
@@ -290,6 +346,12 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
 
   const handleReviewItem = async (item: LearningItem) => {
     if (!user) return
+    
+    // Prevent reviewing archived items
+    if (item.mastery_status === 'archived') {
+      addToast('error', 'Cannot review archived items. Unarchive first to continue reviewing.')
+      return
+    }
     
     setProcessingItems(prev => new Set(prev).add(item.id))
     
@@ -331,19 +393,27 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
             topicId: topic.id,
             dueAt: updatedItem.next_review_at
           })
-          console.log(`Scheduled notification for item ${item.id} at ${updatedItem.next_review_at}`)
+          logger.log(`Scheduled notification for item ${item.id} at ${updatedItem.next_review_at}`)
         }
+      }
+      
+      // Update maintenance interval if this is a maintenance item
+      const updateData: any = {
+        review_count: updatedItem.review_count,
+        last_reviewed_at: updatedItem.last_reviewed_at,
+        next_review_at: updatedItem.next_review_at,
+        interval_days: updatedItem.interval_days,
+        ease_factor: updatedItem.ease_factor
+      }
+      
+      if (item.mastery_status === 'maintenance') {
+        // Update the maintenance interval for next time (ensure it's an integer)
+        updateData.maintenance_interval_days = Math.round(reviewResult.intervalDays)
       }
       
       const { error } = await supabase
         .from('learning_items')
-        .update({
-          review_count: updatedItem.review_count,
-          last_reviewed_at: updatedItem.last_reviewed_at,
-          next_review_at: updatedItem.next_review_at,
-          interval_days: updatedItem.interval_days,
-          ease_factor: updatedItem.ease_factor
-        })
+        .update(updateData)
         .eq('id', item.id)
       
       if (error) throw error
@@ -391,16 +461,24 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
         i.id === item.id ? updatedItem : i
       )
       // Need to pass the updated item to isDue, not the original
-      const dueCount = updatedItems.filter(i => {
+      const activeItems = updatedItems.filter(i => i.mastery_status !== 'archived')
+      const archivedCount = updatedItems.filter(i => i.mastery_status === 'archived').length
+      const dueCount = activeItems.filter(i => {
         if (i.review_count === 0) return false
         // For the item we just reviewed, check using the updated version
         return isDue(i.id === item.id ? updatedItem : i)
       }).length
-      const newCount = updatedItems.filter(i => i.review_count === 0).length
+      const newCount = activeItems.filter(i => i.review_count === 0).length
+      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+      
       setTopicStats(prev => ({
         ...prev,
-        [item.topic_id]: { total: updatedItems.length, due: dueCount, new: newCount }
+        [item.topic_id]: stats
       }))
+      
+      // Update cache with new stats
+      const cacheKey = `topic-stats-${item.topic_id}`
+      cacheService.set(cacheKey, stats, 60 * 1000)
       
       // Show feedback
       const masteryStage = spacedRepetitionGamified.getMasteryStage(updatedItem.review_count)
@@ -410,10 +488,20 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
         message += ` (Combo +${comboBonus}!)`
       }
       
-      if (reviewResult.isMastered || updatedItem.review_count === 5) {
+      // Only show mastery dialog if item just reached mastery (review_count === 5) and isn't already in maintenance/archived
+      const shouldShowMasteryDialog = (reviewResult.isMastered || updatedItem.review_count === 5) && 
+          item.mastery_status !== 'maintenance' && 
+          item.mastery_status !== ('archived' as MasteryStatus) &&
+          item.mastery_status !== 'mastered'
+      
+      if (shouldShowMasteryDialog) {
         // Show mastery dialog instead of just a toast
         setMasteryDialogItem(updatedItem)
         addToast('success', `🎉 Item mastered! ${masteryStage.emoji} +${GAMIFICATION_CONFIG.MASTERY.bonusPoints} bonus points!`)
+      } else if (item.mastery_status === 'maintenance') {
+        // Special message for maintenance reviews
+        const nextMaintenance = Math.round(reviewResult.intervalDays)
+        addToast('success', `🔄 Maintenance review complete! Next review in ${nextMaintenance} days.`)
       } else {
         const hoursUntilNext = Math.round(reviewResult.intervalDays * 24)
         const minutesUntilNext = Math.round(reviewResult.intervalDays * 24 * 60)
@@ -443,7 +531,7 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
       // Calculate maintenance interval if needed
       let maintenanceInterval: number | undefined
       if (status === 'maintenance') {
-        maintenanceInterval = spacedRepetitionGamified.calculateMaintenanceInterval(masteryDialogItem)
+        maintenanceInterval = Math.round(spacedRepetitionGamified.calculateMaintenanceInterval(masteryDialogItem))
       }
       
       // Update the item's mastery status
@@ -455,11 +543,45 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
       
       if (error) throw error
       
-      // Update local state
-      const updatedItem = {
-        ...masteryDialogItem,
-        mastery_status: status,
-        maintenance_interval_days: maintenanceInterval
+      // Update local state based on the status
+      let updatedItem: LearningItem
+      
+      if (status === 'repeat') {
+        // Reset all review-related fields for repeat mode
+        updatedItem = {
+          ...masteryDialogItem,
+          mastery_status: 'active', // Reset to active status
+          review_count: 0,
+          interval_days: 0,
+          ease_factor: 2.5,
+          last_reviewed_at: null,
+          next_review_at: null,
+          mastery_date: null,
+          archive_date: null,
+          maintenance_interval_days: null
+        }
+      } else if (status === 'archived') {
+        updatedItem = {
+          ...masteryDialogItem,
+          mastery_status: status,
+          archive_date: new Date().toISOString(),
+          maintenance_interval_days: null
+        }
+      } else if (status === 'maintenance') {
+        updatedItem = {
+          ...masteryDialogItem,
+          mastery_status: status,
+          maintenance_interval_days: maintenanceInterval,
+          next_review_at: new Date(Date.now() + (maintenanceInterval || 0) * 24 * 60 * 60 * 1000).toISOString()
+        }
+      } else {
+        // For 'mastered' status
+        updatedItem = {
+          ...masteryDialogItem,
+          mastery_status: status,
+          mastery_date: new Date().toISOString(),
+          maintenance_interval_days: null
+        }
       }
       
       setTopicItems(prev => ({
@@ -528,7 +650,7 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
         {topics.map((topic, index) => {
         const isExpanded = expandedTopics.has(topic.id)
         const items = topicItems[topic.id] || []
-        const stats = topicStats[topic.id] || { total: 0, due: 0, new: 0 }
+        const stats = topicStats[topic.id] || { total: 0, due: 0, new: 0, archived: 0 }
         
         return (
           <Card 
@@ -567,6 +689,12 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
                     <p className="body-small text-secondary">Due</p>
                     <p className="body" style={{ color: stats.due > 0 ? 'var(--color-warning)' : 'inherit' }}>{stats.due}</p>
                   </div>
+                  {(stats.archived || 0) > 0 && (
+                    <div>
+                      <p className="body-small text-secondary">Archived</p>
+                      <p className="body" style={{ color: 'var(--color-gray-400)' }}>{stats.archived}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -842,9 +970,19 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
                                         })()}
                                       </div>
                                     )}
-                                    {item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired && (
+                                    {item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired && item.mastery_status === 'mastered' && (
                                       <span className="body-small" style={{ color: 'var(--color-success)' }}>
                                         ✓ Mastered
+                                      </span>
+                                    )}
+                                    {item.mastery_status === 'maintenance' && (
+                                      <span className="body-small" style={{ color: 'var(--color-info)' }}>
+                                        🔄 Maintenance
+                                      </span>
+                                    )}
+                                    {item.mastery_status === 'archived' && (
+                                      <span className="body-small" style={{ color: 'var(--color-gray-600)' }}>
+                                        📦 Archived
                                       </span>
                                     )}
                                     <ReviewWindowIndicator item={item} />
@@ -855,7 +993,21 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               {editingItem !== item.id && (
                                 <>
-                                  {(itemIsDue || item.review_count === 0) ? (
+                                  {item.mastery_status === 'archived' ? (
+                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                      <span className="body-small" style={{ color: 'var(--color-gray-600)' }}>
+                                        📦 Archived
+                                      </span>
+                                      <Button
+                                        variant="ghost"
+                                        size="small"
+                                        onClick={() => setMasteryDialogItem(item)}
+                                        style={{ padding: '0.25rem 0.5rem' }}
+                                      >
+                                        Manage
+                                      </Button>
+                                    </div>
+                                  ) : (itemIsDue || item.review_count === 0) ? (
                                     <Button 
                                       variant="primary" 
                                       size="small"
@@ -866,9 +1018,23 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
                                       Study
                                     </Button>
                                   ) : (
-                                    <span className="body-small" style={{ color: 'var(--color-success)' }}>
-                                      {item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired ? '✓ Mastered' : formatNextReview(item.next_review_at || '')}
-                                    </span>
+                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                      <span className="body-small" style={{ color: 'var(--color-success)' }}>
+                                        {item.mastery_status === 'mastered' ? '✓ Mastered' : 
+                                         item.mastery_status === 'maintenance' ? `🔄 ${formatNextReview(item.next_review_at || '')}` :
+                                         formatNextReview(item.next_review_at || '')}
+                                      </span>
+                                      {item.mastery_status === 'mastered' && (
+                                        <Button
+                                          variant="ghost"
+                                          size="small"
+                                          onClick={() => setMasteryDialogItem(item)}
+                                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                                        >
+                                          ⚙️
+                                        </Button>
+                                      )}
+                                    </div>
                                   )}
                                   <Button
                                     variant="ghost"
@@ -959,7 +1125,8 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
           onClose={() => setEditingTopic(null)}
           onSave={async (updatedTopic) => {
             try {
-              const { error } = await supabase
+              // Update the topic
+              const { error: topicError } = await supabase
                 .from('topics')
                 .update({
                   name: updatedTopic.name,
@@ -968,13 +1135,32 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
                 })
                 .eq('id', updatedTopic.id)
 
-              if (error) throw error
+              if (topicError) {
+                logger.error('Error updating topic:', topicError)
+                throw topicError
+              }
 
-              addToast('success', 'Topic updated successfully')
+              // If learning mode changed, update all associated learning items
+              if (updatedTopic.learning_mode !== editingTopic.learning_mode) {
+                const { error: itemsError } = await supabase
+                  .from('learning_items')
+                  .update({
+                    learning_mode: updatedTopic.learning_mode
+                  })
+                  .eq('topic_id', updatedTopic.id)
+                
+                if (itemsError) {
+                  logger.error('Error updating learning items:', itemsError)
+                  throw itemsError
+                }
+              }
+
+              addToast('success', 'Topic and items updated successfully')
               setEditingTopic(null)
               // Refresh topics list
               window.location.reload()
             } catch (error) {
+              logger.error('Failed to update:', error)
               addToast('error', 'Failed to update topic')
             }
           }}
@@ -996,6 +1182,19 @@ export function TopicList({ topics, onDelete, onArchive, onUnarchive, isArchived
   )
 }
 
+// Export with React.memo for performance optimization
+export const TopicList = memo(TopicListComponent, (prevProps, nextProps) => {
+  // Custom comparison function - only re-render if these props actually changed
+  return (
+    prevProps.topics === nextProps.topics &&
+    prevProps.isArchived === nextProps.isArchived &&
+    prevProps.loading === nextProps.loading &&
+    prevProps.onDelete === nextProps.onDelete &&
+    prevProps.onArchive === nextProps.onArchive &&
+    prevProps.onUnarchive === nextProps.onUnarchive
+  )
+})
+
 // Edit Topic Modal Component
 interface EditTopicModalProps {
   topic: Topic
@@ -1003,7 +1202,7 @@ interface EditTopicModalProps {
   onSave: (topic: Topic) => void
 }
 
-function EditTopicModal({ topic, onClose, onSave }: EditTopicModalProps) {
+const EditTopicModal = React.memo(function EditTopicModal({ topic, onClose, onSave }: EditTopicModalProps) {
   const [name, setName] = useState(topic?.name || '')
   const [learningMode, setLearningMode] = useState<LearningMode>(topic?.learning_mode || 'steady')
   const [priority, setPriority] = useState(topic?.priority || 5)
@@ -1079,4 +1278,4 @@ function EditTopicModal({ topic, onClose, onSave }: EditTopicModalProps) {
       </form>
     </Modal>
   )
-}
+})

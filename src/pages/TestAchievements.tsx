@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { useState } from 'react'
 import { Button, Card, CardHeader, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
@@ -20,7 +21,7 @@ export function TestAchievements() {
       showAchievements([achievementId])
       addToast('success', 'Achievement notification triggered!')
     } catch (error) {
-      console.error('Error testing achievement:', error)
+      logger.error('Error testing achievement:', error)
       addToast('error', 'Failed to test achievement')
     } finally {
       setLoading(false)
@@ -45,7 +46,7 @@ export function TestAchievements() {
         addToast('info', 'No new achievements (may already be unlocked)')
       }
     } catch (error) {
-      console.error('Error simulating review:', error)
+      logger.error('Error simulating review:', error)
       addToast('error', 'Failed to simulate review')
     } finally {
       setLoading(false)
@@ -72,7 +73,7 @@ export function TestAchievements() {
         }
       }
     } catch (error) {
-      console.error('Error simulating perfect timing:', error)
+      logger.error('Error simulating perfect timing:', error)
       addToast('error', 'Failed to simulate perfect timing')
     } finally {
       setLoading(false)

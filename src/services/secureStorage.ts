@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 // Secure storage adapter for Electron
 // Uses IPC to communicate with main process electron-store
 
@@ -21,7 +22,7 @@ class SecureStorageAdapter implements StorageAdapter {
         const value = await window.electronAPI.secureStorage.get(key)
         return value || null
       } catch (error) {
-        console.error('Error getting from secure storage:', error)
+        logger.error('Error getting from secure storage:', error)
         return null
       }
     } else {
@@ -35,7 +36,7 @@ class SecureStorageAdapter implements StorageAdapter {
       try {
         await window.electronAPI.secureStorage.set(key, value)
       } catch (error) {
-        console.error('Error setting secure storage:', error)
+        logger.error('Error setting secure storage:', error)
         throw error
       }
     } else {
@@ -49,7 +50,7 @@ class SecureStorageAdapter implements StorageAdapter {
       try {
         await window.electronAPI.secureStorage.remove(key)
       } catch (error) {
-        console.error('Error removing from secure storage:', error)
+        logger.error('Error removing from secure storage:', error)
         throw error
       }
     } else {
@@ -63,7 +64,7 @@ class SecureStorageAdapter implements StorageAdapter {
       try {
         await window.electronAPI.secureStorage.clear()
       } catch (error) {
-        console.error('Error clearing secure storage:', error)
+        logger.error('Error clearing secure storage:', error)
         throw error
       }
     } else {

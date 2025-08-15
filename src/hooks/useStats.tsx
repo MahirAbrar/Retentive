@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from './useAuthFixed'
@@ -48,7 +49,7 @@ export function StatsProvider({ children }: { children: ReactNode }) {
       const data = await getExtendedStats(user.id)
       setStats(data)
     } catch (error) {
-      console.error('Error fetching stats:', error)
+      logger.error('Error fetching stats:', error)
     } finally {
       setLoading(false)
     }

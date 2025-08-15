@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import styles from './Badge.module.css'
 
 export interface BadgeProps {
@@ -7,7 +7,7 @@ export interface BadgeProps {
   size?: 'small' | 'medium'
 }
 
-export function Badge({
+export const Badge = memo(function Badge({
   children,
   variant = 'primary',
   size = 'small',
@@ -19,4 +19,4 @@ export function Badge({
       {children}
     </span>
   )
-}
+})

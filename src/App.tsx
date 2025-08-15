@@ -1,28 +1,42 @@
 import './App.css'
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ToastProvider } from './components/ui'
 import { AuthProvider } from './hooks/useAuthFixed'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AchievementProvider } from './hooks/useAchievements'
 import { syncService } from './services/syncService'
-import { HomePage } from './pages/HomePage'
-import { LoginPage } from './pages/LoginPageFixed'
-// import { ComponentShowcase } from './components/ComponentShowcase'
-import { TopicsPage } from './pages/TopicsPage'
-import { NewTopicPage } from './pages/NewTopicPage'
-import { TopicDetailView } from './pages/TopicDetailView'
-import { SettingsPage } from './pages/SettingsPage'
-import { StatsPage } from './pages/StatsPage'
-import { ResetPasswordPage } from './pages/ResetPasswordPage'
-import { TestGamificationPage } from './pages/TestGamificationPage'
-import { DarkModeTest } from './pages/DarkModeTest'
-import { TestGamificationPersistence } from './pages/TestGamificationPersistence'
-import { TestAchievements } from './pages/TestAchievements'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineIndicator } from './components/OfflineIndicator'
 import { HeaderFixed } from './components/layout/HeaderFixed'
+import { WebDisclaimer } from './components/WebDisclaimer'
+
+// Lazy load all pages for code splitting
+const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })))
+const LoginPage = lazy(() => import('./pages/LoginPageFixed').then(m => ({ default: m.LoginPage })))
+const TopicsPage = lazy(() => import('./pages/TopicsPage').then(m => ({ default: m.TopicsPage })))
+const NewTopicPage = lazy(() => import('./pages/NewTopicPage').then(m => ({ default: m.NewTopicPage })))
+const TopicDetailView = lazy(() => import('./pages/TopicDetailView').then(m => ({ default: m.TopicDetailView })))
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const StatsPage = lazy(() => import('./pages/StatsPage').then(m => ({ default: m.StatsPage })))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
+const TestGamificationPage = lazy(() => import('./pages/TestGamificationPage').then(m => ({ default: m.TestGamificationPage })))
+const DarkModeTest = lazy(() => import('./pages/DarkModeTest').then(m => ({ default: m.DarkModeTest })))
+const TestGamificationPersistence = lazy(() => import('./pages/TestGamificationPersistence').then(m => ({ default: m.TestGamificationPersistence })))
+const TestAchievements = lazy(() => import('./pages/TestAchievements').then(m => ({ default: m.TestAchievements })))
+
+// Loading fallback component
+const PageLoader = () => (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    minHeight: '50vh' 
+  }}>
+    <div className="body">Loading...</div>
+  </div>
+)
 
 function App() {
   // Initialize sync service on app load
@@ -40,44 +54,6 @@ function App() {
   const isElectron = !!window.electronAPI || 
                      window.navigator.userAgent.includes('Electron') ||
                      window.location.protocol === 'file:'
-  
-  // Only show the warning if we're definitely in a web browser
-  if (!isElectron && !window.navigator.userAgent.includes('Electron')) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        height: '100vh',
-        backgroundColor: 'var(--color-background)',
-        color: 'var(--color-text)'
-      }}>
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <h1 className="h1" style={{ marginBottom: '1rem' }}>Desktop App Required</h1>
-          <p className="body" style={{ marginBottom: '2rem', maxWidth: '400px' }}>
-            Retentive is a desktop application for spaced repetition learning. 
-            Please download and install the desktop app to use all features.
-          </p>
-          <div style={{ 
-            padding: '1rem', 
-            backgroundColor: 'var(--color-gray-100)', 
-            borderRadius: 'var(--radius-md)',
-            marginTop: '2rem'
-          }}>
-            <p className="body-small text-secondary">
-              Features available only in the desktop app:
-            </p>
-            <ul style={{ textAlign: 'left', marginTop: '0.5rem' }} className="body-small">
-              <li>Study reminders and notifications</li>
-              <li>Secure offline storage</li>
-              <li>Background sync</li>
-              <li>System integration</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <ErrorBoundary>
@@ -87,10 +63,12 @@ function App() {
             <AuthProvider>
               <AchievementProvider>
                 <div style={{ minHeight: '100vh' }}>
+                  <WebDisclaimer />
                   <HeaderFixed />
 
                   <main style={{ padding: 'var(--space-8) var(--space-4)' }}>
-                    <Routes>
+                    <Suspense fallback={<PageLoader />}>
+                      <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -164,8 +142,9 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                </Routes>
-              </main>
+                      </Routes>
+                    </Suspense>
+                  </main>
             </div>
             <OfflineIndicator />
           </AchievementProvider>

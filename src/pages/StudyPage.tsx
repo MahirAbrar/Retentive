@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { logger } from '../utils/logger'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import type { LearningItem, ReviewDifficulty } from '../types/database'
 import { calculateNextReview } from '../utils/spacedRepetition'
+import { formatNextReview } from '../utils/formatters'
 
 export function StudyPage() {
   const { itemId } = useParams<{ itemId: string }>()
@@ -20,9 +22,9 @@ export function StudyPage() {
     if (itemId && user) {
       loadItem()
     }
-  }, [itemId, user])
+  }, [itemId, user, loadItem])
 
-  const loadItem = async () => {
+  const loadItem = useCallback(async () => {
     if (!itemId) return
     
     setLoading(true)
@@ -46,7 +48,7 @@ export function StudyPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [itemId, addToast, navigate])
 
   const handleReview = async (difficulty: ReviewDifficulty) => {
     if (!item || !user) return
@@ -90,26 +92,13 @@ export function StudyPage() {
       navigate(`/topics/${item.topic_id}`)
     } catch (error) {
       addToast('error', 'Failed to save review')
-      console.error('Error saving review:', error)
+      logger.error('Error saving review:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const formatNextReview = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMinutes = Math.floor((date.getTime() - now.getTime()) / (1000 * 60))
-    const diffHours = Math.floor(diffMinutes / 60)
-    const diffDays = Math.floor(diffHours / 24)
-    
-    if (diffMinutes < 60) return `${diffMinutes} minutes`
-    if (diffHours < 24) return `${diffHours} hours`
-    if (diffDays === 1) return 'tomorrow'
-    if (diffDays < 7) return `in ${diffDays} days`
-    if (diffDays < 30) return `in ${Math.floor(diffDays / 7)} weeks`
-    return `in ${Math.floor(diffDays / 30)} months`
-  }
+  // formatNextReview is now imported from utils/formatters
 
   if (loading) {
     return (

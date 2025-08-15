@@ -1,14 +1,15 @@
+import { logger } from '../../utils/logger'
 import { useState } from 'react'
 import { Button, Card, CardHeader, CardContent, useToast, ConfirmDialog } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
-import { exportUserData, downloadJSON, validateImportData } from '../../utils/dataExport'
+import { exportUserData, downloadJSON, validateImportData, type ExportData } from '../../utils/dataExport'
 import { importUserData, readJSONFile } from '../../utils/dataImport'
 
 export function DataManagement() {
   const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
   const [showImportConfirm, setShowImportConfirm] = useState(false)
-  const [importData, setImportData] = useState<any>(null)
+  const [importData, setImportData] = useState<ExportData | null>(null)
   const [mergeStrategy, setMergeStrategy] = useState<'merge' | 'replace'>('merge')
   const { user } = useAuth()
   const { addToast } = useToast()
@@ -24,7 +25,7 @@ export function DataManagement() {
       addToast('success', `Exported ${data.topics.length} topics and ${data.learningItems.length} items`)
     } catch (error) {
       addToast('error', 'Failed to export data')
-      console.error('Export error:', error)
+      logger.error('Export error:', error)
     } finally {
       setExporting(false)
     }
@@ -44,7 +45,7 @@ export function DataManagement() {
 
       setImportData(data)
       setShowImportConfirm(true)
-    } catch (error) {
+    } catch {
       addToast('error', 'Failed to read import file')
     }
   }
@@ -64,11 +65,11 @@ export function DataManagement() {
         window.location.reload()
       } else {
         addToast('warning', `Import completed with ${result.errors.length} errors`)
-        result.errors.forEach(error => console.error(error))
+        result.errors.forEach(error => logger.error(error))
       }
     } catch (error) {
       addToast('error', 'Import failed')
-      console.error('Import error:', error)
+      logger.error('Import error:', error)
     } finally {
       setImporting(false)
       setImportData(null)
@@ -106,17 +107,18 @@ export function DataManagement() {
             </p>
             
             <div style={{ marginBottom: '1rem' }}>
-              <label className="body-small" style={{ display: 'block', marginBottom: '0.5rem' }}>
-                Import Strategy:
-              </label>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
-                    type="radio"
-                    name="mergeStrategy"
-                    value="merge"
-                    checked={mergeStrategy === 'merge'}
-                    onChange={(e) => setMergeStrategy(e.target.value as 'merge' | 'replace')}
+              <fieldset style={{ border: 'none', padding: 0 }}>
+                <legend className="body-small" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                  Import Strategy:
+                </legend>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input
+                      type="radio"
+                      name="mergeStrategy"
+                      value="merge"
+                      checked={mergeStrategy === 'merge'}
+                      onChange={(e) => setMergeStrategy(e.target.value as 'merge' | 'replace')}
                   />
                   <span className="body-small">Merge with existing data</span>
                 </label>
@@ -129,8 +131,9 @@ export function DataManagement() {
                     onChange={(e) => setMergeStrategy(e.target.value as 'merge' | 'replace')}
                   />
                   <span className="body-small">Replace all data</span>
-                </label>
-              </div>
+                  </label>
+                </div>
+              </fieldset>
             </div>
 
             <input

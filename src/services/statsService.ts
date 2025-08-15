@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { cacheService } from './cacheService'
 import { requestDeduplicator } from './requestDeduplicator'
 import type { Priority } from '../types/database'
+import { logger } from '../utils/logger'
 
 interface Stats {
   overdue: number
@@ -81,7 +82,7 @@ export async function getStudyStats(userId: string): Promise<Stats> {
         mastered: mastered || 0
       }
     } catch (error) {
-      console.error('Error fetching study stats:', error)
+      logger.error('Error fetching study stats:', error)
       return {
         overdue: 0,
         dueToday: 0,
@@ -118,10 +119,10 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
     
-    // Get priority breakdown
-    const { data: topics } = await supabase
-      .from('topics')
-      .select('id, priority')
+    // Get priority breakdown with single query
+    const { data: itemsWithTopics } = await supabase
+      .from('learning_items')
+      .select('id, next_review_at, review_count, topics!inner(priority)')
       .eq('user_id', userId)
     
     // Priority categories
@@ -142,21 +143,15 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       low: { total: 0, due: 0 }
     }
     
-    // Get items per topic with their due status
-    for (const topic of topics || []) {
-      const { data: items } = await supabase
-        .from('learning_items')
-        .select('id, next_review_at, review_count')
-        .eq('topic_id', topic.id)
+    // Process all items in single pass
+    for (const item of itemsWithTopics || []) {
+      const priority = (item.topics as any).priority
+      const category = getPriorityCategory(priority)
+      priorityMap[category].total++
       
-      const topicTotal = items?.length || 0
-      const topicDue = items?.filter(item => 
-        item.review_count > 0 && (!item.next_review_at || new Date(item.next_review_at) <= now)
-      ).length || 0
-      
-      const category = getPriorityCategory(topic.priority)
-      priorityMap[category].total += topicTotal
-      priorityMap[category].due += topicDue
+      if (item.review_count > 0 && (!item.next_review_at || new Date(item.next_review_at) <= now)) {
+        priorityMap[category].due++
+      }
     }
     
     // Convert to array format
@@ -288,16 +283,11 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       .eq('review_count', 0)
     
     if (newItemsError) {
-      console.error('Error counting new items:', newItemsError)
+      logger.error('Error counting new items:', newItemsError)
     }
     
-    // Debug: Let's also check what we get without the review_count filter
-    const { count: totalCount } = await supabase
-      .from('learning_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-    
-    console.log('Debug - Total items:', totalCount, 'New items (review_count=0):', newItemsCount)
+    // Debug removed - use logger if needed
+    // logger.debug('New items:', newItemsCount)
     
     const result = {
       ...basicStats,
@@ -309,12 +299,12 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       newItemsCount: newItemsCount || 0
     }
     
-      // Cache for 1 hour (stats only change when user takes actions)
-      cacheService.set(cacheKey, result, 60 * 60 * 1000)
+      // Cache for 5 minutes (balance between freshness and performance)
+      cacheService.set(cacheKey, result, 5 * 60 * 1000)
       
       return result
     } catch (error) {
-      console.error('Error fetching extended stats:', error)
+      logger.error('Error fetching extended stats:', error)
       return {
         ...basicStats,
         priorityBreakdown: [],

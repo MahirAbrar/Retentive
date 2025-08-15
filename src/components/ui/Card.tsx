@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import styles from './Card.module.css'
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -7,7 +7,7 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
 
-export function Card({
+export const Card = memo(function Card({
   variant = 'default',
   padding = 'medium',
   className = '',
@@ -29,40 +29,40 @@ export function Card({
       {children}
     </div>
   )
-}
+})
 
 export interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
 
-export function CardHeader({ className = '', children, ...props }: CardHeaderProps) {
+export const CardHeader = memo(function CardHeader({ className = '', children, ...props }: CardHeaderProps) {
   return (
     <div className={`${styles.header} ${className}`} {...props}>
       {children}
     </div>
   )
-}
+})
 
 export interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
 
-export function CardContent({ className = '', children, ...props }: CardContentProps) {
+export const CardContent = memo(function CardContent({ className = '', children, ...props }: CardContentProps) {
   return (
     <div className={`${styles.content} ${className}`} {...props}>
       {children}
     </div>
   )
-}
+})
 
 export interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
 
-export function CardFooter({ className = '', children, ...props }: CardFooterProps) {
+export const CardFooter = memo(function CardFooter({ className = '', children, ...props }: CardFooterProps) {
   return (
     <div className={`${styles.footer} ${className}`} {...props}>
       {children}
     </div>
   )
-}
+})

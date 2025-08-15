@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, CardHeader, CardContent, Input, useToast } from '../components/ui'
@@ -167,7 +168,7 @@ export function SettingsPage() {
         .eq('user_id', user.id)
 
       if (statsError) {
-        console.warn('Failed to reset gamification stats:', statsError)
+        logger.warn('Failed to reset gamification stats:', statsError)
       }
 
       // Delete all review sessions
@@ -177,7 +178,7 @@ export function SettingsPage() {
         .eq('user_id', user.id)
 
       if (sessionsError) {
-        console.warn('Failed to delete review sessions:', sessionsError)
+        logger.warn('Failed to delete review sessions:', sessionsError)
       }
 
       // Delete all achievements
@@ -187,7 +188,7 @@ export function SettingsPage() {
         .eq('user_id', user.id)
 
       if (achievementsError) {
-        console.warn('Failed to delete achievements:', achievementsError)
+        logger.warn('Failed to delete achievements:', achievementsError)
       }
 
       addToast('success', 'All data has been reset successfully')
@@ -195,7 +196,7 @@ export function SettingsPage() {
       // Navigate to home page after reset
       navigate('/')
     } catch (error) {
-      console.error('Error resetting data:', error)
+      logger.error('Error resetting data:', error)
       addToast('error', 'Failed to reset data. Please try again.')
     } finally {
       setLoading(false)
@@ -370,52 +371,6 @@ export function SettingsPage() {
                 </p>
               </div>
               
-              <div>
-                <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Daily Review Reminder
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <input
-                    type="checkbox"
-                    id="dailyReminder"
-                    style={{ width: '1.25rem', height: '1.25rem' }}
-                  />
-                  <label htmlFor="dailyReminder" className="body">
-                    Send me a daily reminder to review items
-                  </label>
-                </div>
-                <p className="body-small text-secondary" style={{ marginTop: '0.5rem', marginLeft: '2.25rem' }}>
-                  Coming soon: Get notified when you have items due for review
-                </p>
-              </div>
-
-              <div>
-                <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Study Session Length
-                </label>
-                <select
-                  defaultValue="15"
-                  style={{
-                    width: '100%',
-                    padding: 'var(--space-3)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontFamily: 'inherit',
-                    fontSize: 'inherit',
-                    backgroundColor: 'var(--color-surface)',
-                    color: 'var(--color-text-primary)'
-                  }}
-                >
-                  <option value="5">5 minutes</option>
-                  <option value="10">10 minutes</option>
-                  <option value="15">15 minutes</option>
-                  <option value="30">30 minutes</option>
-                  <option value="60">1 hour</option>
-                </select>
-                <p className="body-small text-secondary" style={{ marginTop: '0.5rem' }}>
-                  Coming soon: Set your preferred study session duration
-                </p>
-              </div>
             </div>
           </CardContent>
         </Card>

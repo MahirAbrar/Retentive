@@ -1,10 +1,16 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, CardHeader, CardContent, Badge, Skeleton } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
-import { GamificationDashboard } from '../components/gamification/GamificationDashboard'
 import type { Priority } from '../types/database'
+
+// Lazy load heavy component for better initial load performance
+const GamificationDashboard = lazy(() => 
+  import('../components/gamification/GamificationDashboard').then(m => ({ 
+    default: m.GamificationDashboard 
+  }))
+)
 
 interface PriorityStats {
   priority: Priority
@@ -198,7 +204,19 @@ export function HomePage() {
         )}
 
         {/* Gamification Dashboard */}
-        {user && <GamificationDashboard />}
+        {user && (
+          <Suspense fallback={
+            <Card>
+              <CardContent>
+                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                  <p className="body text-secondary">Loading achievements...</p>
+                </div>
+              </CardContent>
+            </Card>
+          }>
+            <GamificationDashboard />
+          </Suspense>
+        )}
 
         {/* Study Progress */}
         {user && (
@@ -404,13 +422,13 @@ export function HomePage() {
                         <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Choose Your Learning Mode</h4>
                         <p className="body-small text-secondary">
                           Select between different modes based on your timeline:
-                          <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-                            <li><strong>Ultra-Cram:</strong> Quick review (30 min intervals)</li>
-                            <li><strong>Standard Cram:</strong> Exam prep (4 hour intervals)</li>
-                            <li><strong>Extended Cram:</strong> Intensive study (1 day intervals)</li>
-                            <li><strong>Steady:</strong> Long-term retention (gradually increasing intervals)</li>
-                          </ul>
                         </p>
+                        <ul className="body-small text-secondary" style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                          <li><strong>Ultra-Cram:</strong> Quick review (30 min intervals)</li>
+                          <li><strong>Standard Cram:</strong> Exam prep (4 hour intervals)</li>
+                          <li><strong>Extended Cram:</strong> Intensive study (1 day intervals)</li>
+                          <li><strong>Steady:</strong> Long-term retention (gradually increasing intervals)</li>
+                        </ul>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
@@ -535,31 +553,6 @@ export function HomePage() {
           </CardContent>
         </Card>
 
-        {/* Development Tools */}
-        <Card>
-          <CardHeader>
-            <h3 className="h4">Development Tools</h3>
-          </CardHeader>
-          <CardContent>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <Link to="/components">
-                <Button variant="ghost">View Component Library</Button>
-              </Link>
-              <Link to="/test-gamification">
-                <Button variant="ghost">Test Gamification</Button>
-              </Link>
-              <Button 
-                variant="ghost"
-                onClick={() => {
-                  const newTheme = document.body.classList.contains('theme-dark') ? '' : 'theme-dark'
-                  document.body.className = newTheme
-                }}
-              >
-                Toggle Dark Mode (Coming Soon)
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <footer style={{ textAlign: 'center', marginTop: '4rem' }}>

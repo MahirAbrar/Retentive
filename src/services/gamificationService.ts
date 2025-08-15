@@ -2,6 +2,7 @@ import { GAMIFICATION_CONFIG } from '../config/gamification'
 import type { LearningItem } from '../types/database'
 import { supabase } from './supabase'
 import { cacheService } from './cacheService'
+import { logger } from '../utils/logger'
 
 export interface PointsBreakdown {
   basePoints: number
@@ -153,7 +154,7 @@ export class GamificationService {
         .single()
       
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        console.error('Error fetching gamification stats:', error)
+        logger.error('Error fetching gamification stats:', error)
         return null
       }
       
@@ -176,7 +177,7 @@ export class GamificationService {
           .single()
         
         if (insertError) {
-          console.error('Error creating gamification stats:', insertError)
+          logger.error('Error creating gamification stats:', insertError)
           return null
         }
         
@@ -186,7 +187,7 @@ export class GamificationService {
       // Always recalculate streak from history to ensure accuracy
       const actualStreak = await this.calculateStreakFromHistory(userId)
       if (actualStreak !== statsToUse.current_streak) {
-        console.log(`Streak mismatch detected. DB: ${statsToUse.current_streak}, Actual: ${actualStreak}. Updating...`)
+        logger.log(`Streak mismatch detected. DB: ${statsToUse.current_streak}, Actual: ${actualStreak}. Updating...`)
         await supabase
           .from('user_gamification_stats')
           .update({ 
@@ -198,16 +199,21 @@ export class GamificationService {
         statsToUse.longest_streak = Math.max(actualStreak, statsToUse.longest_streak || 0)
       }
       
-      // Get today's stats
+      // Get today's stats (handle error gracefully if no stats for today)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
+      const todayStr = today.toISOString().split('T')[0]
       
-      const { data: todayStats } = await supabase
+      const { data: todayStats, error: todayStatsError } = await supabase
         .from('daily_stats')
         .select('points_earned, reviews_completed')
         .eq('user_id', userId)
-        .eq('date', today.toISOString().split('T')[0])
-        .single()
+        .eq('date', todayStr)
+        .maybeSingle() // Use maybeSingle instead of single to avoid 406 error when no data
+      
+      if (todayStatsError) {
+        logger.warn('Error fetching today stats:', todayStatsError)
+      }
       
       // Get achievements
       const { data: achievements } = await supabase
@@ -231,7 +237,7 @@ export class GamificationService {
       cacheService.set(cacheKey, stats, 60 * 1000)
       return stats
     } catch (error) {
-      console.error('Error fetching gamification stats:', error)
+      logger.error('Error fetching gamification stats:', error)
       return null
     }
   }
@@ -264,7 +270,7 @@ export class GamificationService {
       
       return streakDays
     } catch (error) {
-      console.error('Error calculating streak from history:', error)
+      logger.error('Error calculating streak from history:', error)
       return 0
     }
   }
@@ -279,12 +285,12 @@ export class GamificationService {
     }
   ): Promise<{ newAchievements?: string[] } | void> {
     try {
-      console.log('Updating user points:', { userId, pointsToAdd })
+      logger.log('Updating user points:', { userId, pointsToAdd })
       
       // Get current stats
       const stats = await this.getUserStats(userId)
       if (!stats) {
-        console.error('No stats found for user:', userId)
+        logger.error('No stats found for user:', userId)
         return
       }
       
@@ -293,7 +299,7 @@ export class GamificationService {
       stats.todayPoints += pointsToAdd
       stats.todayReviews += 1
       
-      console.log('Updated stats:', { 
+      logger.log('Updated stats:', { 
         totalPoints: stats.totalPoints, 
         todayPoints: stats.todayPoints,
         level: stats.currentLevel 
@@ -346,7 +352,7 @@ export class GamificationService {
         .eq('user_id', userId)
       
       if (updateError) {
-        console.error('Error updating gamification stats:', updateError)
+        logger.error('Error updating gamification stats:', updateError)
       }
       
       // Update daily stats
@@ -355,12 +361,16 @@ export class GamificationService {
       const todayStrForDaily = todayForDaily.toISOString().split('T')[0]
       
       // First check if daily stats exist
-      const { data: existingDaily } = await supabase
+      const { data: existingDaily, error: checkError } = await supabase
         .from('daily_stats')
         .select('*')
         .eq('user_id', userId)
         .eq('date', todayStrForDaily)
-        .single()
+        .maybeSingle() // Use maybeSingle to avoid error when no row exists
+      
+      if (checkError) {
+        logger.warn('Error checking daily stats:', checkError)
+      }
       
       if (existingDaily) {
         // Update existing
@@ -376,7 +386,7 @@ export class GamificationService {
           .eq('date', todayStrForDaily)
         
         if (dailyError) {
-          console.error('Error updating daily stats:', dailyError)
+          logger.error('Error updating daily stats:', dailyError)
         }
       } else {
         // Create new
@@ -392,7 +402,7 @@ export class GamificationService {
           })
         
         if (dailyError) {
-          console.error('Error creating daily stats:', dailyError)
+          logger.error('Error creating daily stats:', dailyError)
         }
       }
       
@@ -411,7 +421,7 @@ export class GamificationService {
         }
       }
     } catch (error) {
-      console.error('Error updating user points:', error)
+      logger.error('Error updating user points:', error)
     }
   }
 
@@ -487,7 +497,7 @@ export class GamificationService {
       
       // Check streak achievements
       if (stats.currentStreak >= 7 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7.id)) {
-        console.log('Unlocking Week Warrior achievement!')
+        logger.log('Unlocking Week Warrior achievement!')
         await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7)
         newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7.id)
       }
@@ -531,7 +541,7 @@ export class GamificationService {
       }
       
     } catch (error) {
-      console.error('Error checking achievements:', error)
+      logger.error('Error checking achievements:', error)
     }
     
     return newAchievements
@@ -549,9 +559,9 @@ export class GamificationService {
         })
       
       if (error) {
-        console.error('Error unlocking achievement:', error)
+        logger.error('Error unlocking achievement:', error)
       } else {
-        console.log(`Achievement unlocked: ${achievement.name}`)
+        logger.log(`Achievement unlocked: ${achievement.name}`)
         
         // Award points for the achievement
         if (achievement.points > 0) {
@@ -578,7 +588,7 @@ export class GamificationService {
         }
       }
     } catch (error) {
-      console.error('Error in unlockAchievement:', error)
+      logger.error('Error in unlockAchievement:', error)
     }
   }
 
@@ -641,7 +651,7 @@ export class GamificationService {
       
       // Check streak achievements
       if (stats.currentStreak >= 7 && !existingIds.has(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7.id)) {
-        console.log('Unlocking Week Warrior achievement!')
+        logger.log('Unlocking Week Warrior achievement!')
         await this.unlockAchievement(userId, GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7)
         newAchievements.push(GAMIFICATION_CONFIG.ACHIEVEMENTS.STREAK_7.id)
       }
@@ -686,7 +696,7 @@ export class GamificationService {
       
       return newAchievements
     } catch (error) {
-      console.error('Error checking missed achievements:', error)
+      logger.error('Error checking missed achievements:', error)
       return []
     }
   }

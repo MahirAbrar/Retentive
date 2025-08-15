@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import { supabaseService } from './supabaseService'
@@ -76,7 +77,7 @@ export class RealtimeService {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to topics for user ${userId}`)
+          logger.log(`Subscribed to topics for user ${userId}`)
         } else if (status === 'CHANNEL_ERROR') {
           handlers.onError?.(new Error('Failed to subscribe to topics'))
           this.scheduleReconnect(channelName, () => {
@@ -115,7 +116,7 @@ export class RealtimeService {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to topic ${topicId}`)
+          logger.log(`Subscribed to topic ${topicId}`)
         } else if (status === 'CHANNEL_ERROR') {
           handlers.onError?.(new Error('Failed to subscribe to topic'))
           this.scheduleReconnect(channelName, () => {
@@ -156,7 +157,7 @@ export class RealtimeService {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to items for topic ${topicId}`)
+          logger.log(`Subscribed to items for topic ${topicId}`)
         } else if (status === 'CHANNEL_ERROR') {
           handlers.onError?.(new Error('Failed to subscribe to topic items'))
           this.scheduleReconnect(channelName, () => {
@@ -195,7 +196,7 @@ export class RealtimeService {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to items for user ${userId}`)
+          logger.log(`Subscribed to items for user ${userId}`)
         } else if (status === 'CHANNEL_ERROR') {
           handlers.onError?.(new Error('Failed to subscribe to user items'))
           this.scheduleReconnect(channelName, () => {
@@ -234,13 +235,13 @@ export class RealtimeService {
     this.presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = this.presenceChannel?.presenceState()
-        console.log('Presence sync:', state)
+        logger.log('Presence sync:', state)
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined:', key, newPresences)
+        logger.log('User joined:', key, newPresences)
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left:', key, leftPresences)
+        logger.log('User left:', key, leftPresences)
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -365,11 +366,11 @@ export class RealtimeService {
 
   private pauseAllChannels() {
     // Channels automatically pause when offline
-    console.log('Pausing all realtime channels due to offline status')
+    logger.log('Pausing all realtime channels due to offline status')
   }
 
   private reconnectAllChannels() {
-    console.log('Reconnecting all realtime channels')
+    logger.log('Reconnecting all realtime channels')
     // Channels automatically reconnect when online
   }
 

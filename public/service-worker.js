@@ -1,4 +1,4 @@
-const CACHE_NAME = 'retentive-v1';
+const CACHE_NAME = 'retentive-v2'; // Updated to bust old cache
 const urlsToCache = [
   '/',
   '/index.html',

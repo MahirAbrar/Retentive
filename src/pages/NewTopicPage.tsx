@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Card, CardContent, useToast } from '../components/ui'
@@ -44,7 +45,7 @@ export function NewTopicPage() {
         setSubtopics(parsed.subtopics || '')
         setUpcomingDate(parsed.upcomingDate || '')
       } catch (error) {
-        console.error('Failed to load draft:', error)
+        logger.error('Failed to load draft:', error)
       }
     }
   }, [])
@@ -81,7 +82,7 @@ export function NewTopicPage() {
       })
       
       if (topicError || !topic) {
-        console.error('Database error:', topicError)
+        logger.error('Database error:', topicError)
         throw new Error(topicError?.message || 'Failed to create topic')
       }
       
@@ -134,7 +135,7 @@ export function NewTopicPage() {
       navigate('/topics')
     } catch (error) {
       addToast('error', 'Failed to create topic')
-      console.error('Error creating topic:', error)
+      logger.error('Error creating topic:', error)
     } finally {
       setLoading(false)
     }
