@@ -21,7 +21,7 @@ export function AllItemsPage() {
   const [loading, setLoading] = useState(true)
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set())
   const [visibleCount, setVisibleCount] = useState(50) // Start with 50 items
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchTerm] = useState('')
 
   useEffect(() => {
     if (user) {
@@ -147,9 +147,9 @@ export function AllItemsPage() {
     )
   }, [items, searchTerm])
   
-  const visibleItems = useMemo(() => {
-    return filteredItems.slice(0, visibleCount)
-  }, [filteredItems, visibleCount])
+  // const _visibleItems = useMemo(() => {
+  //   return filteredItems.slice(0, visibleCount)
+  // }, [filteredItems, visibleCount])
   
   const handleLoadMore = useCallback(() => {
     setVisibleCount(prev => Math.min(prev + 50, filteredItems.length))

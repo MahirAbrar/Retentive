@@ -1,5 +1,5 @@
 import { logger } from '../../utils/logger'
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react'
+import React, { useState, useEffect, useCallback, memo } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardContent, Button, Badge, useToast, ConfirmDialog, Input, Modal } from '../ui'
 import { MasteryDialog } from '../MasteryDialog'
@@ -52,10 +52,10 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
   const { user } = useAuth()
   const { showAchievements } = useAchievements()
   
-  // Memoize sorted topics to prevent unnecessary re-sorts
-  const sortedTopics = useMemo(() => {
-    return [...topics].sort((a, b) => b.priority - a.priority)
-  }, [topics])
+  // Sorted topics are handled by the parent component
+  // const sortedTopics = useMemo(() => {
+  //   return [...topics].sort((a, b) => b.priority - a.priority)
+  // }, [topics])
 
   // Define isDue first since it's used by other functions
   const isDue = useCallback((item: LearningItem) => {

@@ -19,6 +19,13 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist-electron',
+            minify: 'terser',
+            terserOptions: {
+              compress: {
+                drop_console: true,
+                drop_debugger: true
+              }
+            },
             rollupOptions: {
               external: ['electron', 'better-sqlite3'],
               input: {
@@ -33,6 +40,7 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist-electron',
+            minify: 'terser',
             rollupOptions: {
               output: {
                 format: 'cjs',
@@ -49,7 +57,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
     minify: 'terser',
     chunkSizeWarningLimit: 500,
     rollupOptions: {
@@ -57,24 +65,32 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html')
       },
       output: {
-        manualChunks: (id) => {
-          // Vendor chunk for core React libraries
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'vendor-react'
-            }
-            if (id.includes('@supabase')) {
-              return 'vendor-supabase'
-            }
-            if (id.includes('recharts')) {
-              return 'vendor-charts'
-            }
-            // Other vendor libraries
-            return 'vendor'
-          }
+        // Optimize chunk naming for caching
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+        // Fix React bundling issue
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-charts': ['recharts']
         }
+      },
+      // Optimize tree-shaking
+      treeshake: {
+        preset: 'recommended',
+        moduleSideEffects: false
       }
-    }
+    },
+    // Optimize CSS
+    cssCodeSplit: true,
+    cssMinify: true,
+    // Preload optimization
+    modulePreload: {
+      polyfill: true
+    },
+    // Performance optimizations
+    reportCompressedSize: false
   },
   resolve: {
     alias: {
@@ -90,5 +106,21 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true
+  },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js'],
+    exclude: ['electron'],
+    esbuildOptions: {
+      target: 'esnext'
+    }
+  },
+  // Performance optimizations
+  esbuild: {
+    legalComments: 'none',
+    target: 'esnext',
+    minifyIdentifiers: true,
+    minifySyntax: true,
+    minifyWhitespace: true
   }
 })

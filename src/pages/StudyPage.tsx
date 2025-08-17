@@ -18,12 +18,6 @@ export function StudyPage() {
   const [showAnswer, setShowAnswer] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (itemId && user) {
-      loadItem()
-    }
-  }, [itemId, user, loadItem])
-
   const loadItem = useCallback(async () => {
     if (!itemId) return
     
@@ -49,6 +43,12 @@ export function StudyPage() {
       setLoading(false)
     }
   }, [itemId, addToast, navigate])
+
+  useEffect(() => {
+    if (itemId && user) {
+      loadItem()
+    }
+  }, [itemId, user, loadItem])
 
   const handleReview = async (difficulty: ReviewDifficulty) => {
     if (!item || !user) return

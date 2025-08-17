@@ -1,6 +1,6 @@
 import './App.css'
 import { useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { ToastProvider } from './components/ui'
 import { AuthProvider } from './hooks/useAuthFixed'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -59,7 +59,7 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <BrowserRouter>
+        <HashRouter>
           <ToastProvider>
             <AuthProvider>
               <AchievementProvider>
@@ -152,7 +152,7 @@ function App() {
           </AchievementProvider>
         </AuthProvider>
       </ToastProvider>
-    </BrowserRouter>
+    </HashRouter>
     </ThemeProvider>
     </ErrorBoundary>
   )

@@ -123,9 +123,17 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: true,  // Always keep web security enabled
-      allowRunningInsecureContent: false,  // Block insecure content
-      backgroundThrottling: false  // Prevent timer throttling for notifications
+      webSecurity: !isDev ? false : true,  // Disable in production for file protocol
+      allowRunningInsecureContent: false,
+      backgroundThrottling: false,
+      // Performance optimizations
+      experimentalFeatures: true,
+      enablePreferredSizeMode: true,
+      v8CacheOptions: 'code',
+      spellcheck: false,
+      enableWebSQL: false,
+      disableDialogs: false,
+      disableHtmlFullscreenWindowResize: true
     },
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#fffef9', // Cream background from our theme
@@ -135,6 +143,8 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });
+
+
 
   // Configure session for proper CORS handling with Supabase
   mainWindow.webContents.session.webRequest.onBeforeSendHeaders(
@@ -150,24 +160,26 @@ function createWindow() {
     }
   );
 
-  // Set Content Security Policy headers
-  mainWindow.webContents.session.webRequest.onHeadersReceived(
-    (details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "connect-src 'self' http://localhost:* https://*.supabase.co wss://*.supabase.co https://*.supabase.in",
-            "img-src 'self' data: https:",
-            "font-src 'self' data: https://fonts.gstatic.com"
-          ].join('; ')
-        }
-      });
-    }
-  );
+  // Set Content Security Policy headers - more permissive in production for file protocol
+  if (isDev) {
+    mainWindow.webContents.session.webRequest.onHeadersReceived(
+      (details, callback) => {
+        callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            'Content-Security-Policy': [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "connect-src 'self' http://localhost:* https://*.supabase.co wss://*.supabase.co https://*.supabase.in",
+              "img-src 'self' data: https:",
+              "font-src 'self' data: https://fonts.gstatic.com"
+            ].join('; ')
+          }
+        });
+      }
+    );
+  }
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
@@ -183,6 +195,7 @@ function createWindow() {
     //   console.log('Request completed:', details.statusCode, 'URL:', details.url);
     // });
   } else {
+    // Production: Load the built app
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
@@ -409,6 +422,20 @@ ipcMain.handle('notifications:testDaily', async (_, userId: string) => {
 ipcMain.on('navigate-reply', (_, path: string) => {
   mainWindow?.webContents.send('navigate', path)
 })
+
+// Enable hardware acceleration
+app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+
+// Optimize renderer process
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+
+// Disable unnecessary features
+app.commandLine.appendSwitch('disable-features', 'TranslateUI');
+app.commandLine.appendSwitch('disable-features', 'BlinkGenPropertyTrees');
 
 app.whenReady().then(() => {
   // Set the dock icon on macOS

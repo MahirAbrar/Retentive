@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { cacheService } from './cacheService'
 import { logger } from '../utils/logger'
-import { GAMIFICATION_CONFIG } from '../config/gamification'
+// import { GAMIFICATION_CONFIG } from '../config/gamification'
 
 interface TimingSummary {
   totalReviews: number

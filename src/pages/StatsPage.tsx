@@ -109,7 +109,7 @@ export function StatsPage() {
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([])
   const [dateRange, setDateRange] = useState('week')
   const [pendingDateRange, setPendingDateRange] = useState('week')
-  const [loading, setLoading] = useState(true)
+  const [_loading, setLoading] = useState(true)
   const [statsLoading, setStatsLoading] = useState(true)
   const [sessionsLoading, setSessionsLoading] = useState(true)
   const [topicsLoading, setTopicsLoading] = useState(true)
@@ -252,13 +252,6 @@ export function StatsPage() {
       
       setDailyActivity(activityData)
       
-      // Cache the processed data for 2 minutes
-      cacheService.set(cacheKey, {
-        sessions: formattedSessionsData,
-        topicStats: topicStatsData,
-        dailyActivity: activityData
-      }, 2 * 60 * 1000)
-      
       // Check if streak is about to end
       if (extendedStats.streakDays > 0) {
         // Get today's sessions to check if user has reviewed today
@@ -315,6 +308,13 @@ export function StatsPage() {
       
       setTopicStats(topicStatsData)
       setTopicsLoading(false) // Topic stats can show now
+      
+      // Cache the processed data for 2 minutes
+      cacheService.set(cacheKey, {
+        sessions: formattedSessionsData,
+        topicStats: topicStatsData,
+        dailyActivity: activityData
+      }, 2 * 60 * 1000)
     } catch (error) {
       logger.error('Error loading stats:', error)
     } finally {
