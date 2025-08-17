@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader, CardContent, Button, Badge, useToast, ConfirmDialog, Input, Modal } from '../ui'
 import { MasteryDialog } from '../MasteryDialog'
+import { ArchiveInsights } from './ArchiveInsights'
+import { AutoArchiveSuggestion } from './AutoArchiveSuggestion'
 import type { Topic, LearningItem, LearningMode, MasteryStatus } from '../../types/database'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
 import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
@@ -44,6 +46,8 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
   const [addingItemToTopic, setAddingItemToTopic] = useState<string | null>(null)
   const [newItemContent, setNewItemContent] = useState('')
   const [masteryDialogItem, setMasteryDialogItem] = useState<LearningItem | null>(null)
+  const [showArchiveSuggestions, setShowArchiveSuggestions] = useState<Set<string>>(new Set())
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
   const { addToast } = useToast()
   const { user } = useAuth()
   const { showAchievements } = useAchievements()
@@ -174,6 +178,36 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       loadAllStats()
     }
   }, [topics, loadTopicStats])
+
+  // Check for fully mastered topics that could be archived
+  useEffect(() => {
+    const checkForMasteredTopics = () => {
+      const suggestions = new Set<string>()
+      
+      for (const topic of topics) {
+        // Skip if already archived or suggestion dismissed
+        if (isArchived || dismissedSuggestions.has(topic.id)) continue
+        
+        const items = topicItems[topic.id]
+        if (!items || items.length === 0) continue
+        
+        // Check if all items are truly mastered (not just archived)
+        const allMastered = items.every(item => 
+          item.mastery_status === 'mastered' || 
+          item.mastery_status === 'maintenance' ||
+          (item.mastery_status === 'archived' && item.review_count >= 5) // Only count as mastered if it was reviewed 5+ times
+        )
+        
+        if (allMastered && items.length > 0) {
+          suggestions.add(topic.id)
+        }
+      }
+      
+      setShowArchiveSuggestions(suggestions)
+    }
+    
+    checkForMasteredTopics()
+  }, [topics, topicItems, isArchived, dismissedSuggestions])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -653,15 +687,45 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
         const stats = topicStats[topic.id] || { total: 0, due: 0, new: 0, archived: 0 }
         
         return (
-          <Card 
-            key={topic.id} 
-            variant="bordered"
-            style={{ 
-              animationDelay: `${index * 0.05}s`,
-            }}
-            className="animate-fade-in"
-          >
-            <CardHeader>
+          <div key={topic.id}>
+            {/* Show auto-archive suggestion if all items are mastered */}
+            {showArchiveSuggestions.has(topic.id) && !isArchived && (
+              <AutoArchiveSuggestion
+                topicId={topic.id}
+                topicName={topic.name}
+                onArchive={() => {
+                  if (onArchive) {
+                    onArchive(topic.id)
+                    setShowArchiveSuggestions(prev => {
+                      const newSet = new Set(prev)
+                      newSet.delete(topic.id)
+                      return newSet
+                    })
+                  }
+                }}
+                onDismiss={() => {
+                  setDismissedSuggestions(prev => {
+                    const newSet = new Set(prev)
+                    newSet.add(topic.id)
+                    return newSet
+                  })
+                  setShowArchiveSuggestions(prev => {
+                    const newSet = new Set(prev)
+                    newSet.delete(topic.id)
+                    return newSet
+                  })
+                }}
+              />
+            )}
+            
+            <Card 
+              variant="bordered"
+              style={{ 
+                animationDelay: `${index * 0.05}s`,
+              }}
+              className="animate-fade-in"
+            >
+              <CardHeader>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 className="h4">{topic.name}</h3>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -755,6 +819,21 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
+                              
+                              // Check if topic has active (non-archived) items
+                              const activeItemCount = stats.total
+                              if (activeItemCount > 0) {
+                                const confirmArchive = window.confirm(
+                                  `This topic has ${activeItemCount} active item${activeItemCount > 1 ? 's' : ''}. ` +
+                                  `Archiving the topic will hide it from your main list, but the items will remain active. ` +
+                                  `Continue?`
+                                )
+                                if (!confirmArchive) {
+                                  setOpenMenuId(null)
+                                  return
+                                }
+                              }
+                              
                               onArchive(topic.id)
                               setOpenMenuId(null)
                             }}
@@ -1090,8 +1169,18 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                   )}
                 </div>
               )}
+              {/* Show archive insights for archived topics */}
+              {isArchived && isExpanded && (
+                <ArchiveInsights
+                  topicId={topic.id}
+                  topicName={topic.name}
+                  createdAt={topic.created_at}
+                  archiveDate={topic.archive_date}
+                />
+              )}
             </CardContent>
           </Card>
+        </div>
         )
         })}
       </div>
