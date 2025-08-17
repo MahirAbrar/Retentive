@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { cacheService } from './cacheService'
 import { localStorageCache } from './localStorageCache'
 import { offlineQueue } from './offlineQueue'
+import { logger } from '../utils/logger'
 import type { Topic, LearningItem, MasteryStatus, LearningMode } from '../types/database'
 import { 
   validateTopicName, 
@@ -68,7 +69,9 @@ export class DataService {
     userItems: (userId: string) => `user_items:${userId}`,
   }
   
-  private constructor() {}
+  private constructor() {
+    // Private constructor for singleton pattern
+  }
   
   public static getInstance(): DataService {
     if (!DataService.instance) {
@@ -667,6 +670,7 @@ export class DataService {
 
   async unarchiveTopic(topicId: string): Promise<SupabaseResult<Topic>> {
     try {
+      // First, unarchive the topic
       const result = await withRetry(async () => {
         const response = await supabase
           .from('topics')
@@ -683,12 +687,42 @@ export class DataService {
       })
 
       if (result.data) {
+        // Try to unarchive items that were archived but not mastered
+        // This is optional - if no items need unarchiving, that's fine
+        try {
+          const itemsResult = await withRetry(async () => {
+            const response = await supabase
+              .from('learning_items')
+              .update({
+                mastery_status: 'active',
+                archive_date: null,
+                updated_at: new Date().toISOString()
+              })
+              .eq('topic_id', topicId)
+              .eq('mastery_status', 'archived')
+              .lt('review_count', 5) // Only unarchive items that weren't mastered
+              .select()
+
+            return await handleSupabaseResponse<LearningItem[]>(response)
+          })
+
+          // Log the result for debugging
+          if (itemsResult.data && itemsResult.data.length > 0) {
+            logger.log(`Unarchived ${itemsResult.data.length} non-mastered items for topic ${topicId}`)
+          }
+        } catch (_itemError) {
+          // If updating items fails, log it but don't fail the whole operation
+          logger.log(`Note: No archived items to restore for topic ${topicId}`)
+        }
+
         // Invalidate caches - both regular and archived
         cacheService.delete(this.CACHE_KEYS.topic(topicId))
         cacheService.delete(this.CACHE_KEYS.topics(result.data.user_id))
+        cacheService.delete(this.CACHE_KEYS.topicItems(topicId))
         cacheService.delete(`archived_topics:${result.data.user_id}`)
         localStorageCache.remove(this.CACHE_KEYS.topic(topicId))
         localStorageCache.remove(this.CACHE_KEYS.topics(result.data.user_id))
+        localStorageCache.remove(this.CACHE_KEYS.topicItems(topicId))
         localStorageCache.remove(`archived_topics:${result.data.user_id}`)
       }
 

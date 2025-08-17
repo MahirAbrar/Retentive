@@ -225,10 +225,7 @@ export class SpacedRepetitionGamifiedService {
     // Use current interval or default based on mode
     const currentInterval = item.maintenance_interval_days || item.interval_days || 1
     
-    // For test mode, use a fixed 1-day maintenance interval
-    if (item.learning_mode === 'test') {
-      return 1 // Always 1 day for test mode
-    }
+    // Test mode removed - handled in default case
     
     const nextInterval = currentInterval * 2
     
@@ -242,8 +239,6 @@ export class SpacedRepetitionGamifiedService {
         return Math.min(nextInterval, 180) // 6 months max
       case 'steady':
         return Math.min(nextInterval, 365) // 1 year max
-      case 'test':
-        return 1 // 1 day for test mode
       default:
         // Ensure we return at least 1 day to avoid database integer issues
         return Math.max(1, Math.round(nextInterval))

@@ -17,7 +17,7 @@ interface InsightData {
   totalItems: number
 }
 
-export function ArchiveInsights({ topicId, topicName, createdAt, archiveDate }: ArchiveInsightsProps) {
+export function ArchiveInsights({ topicId, createdAt, archiveDate }: ArchiveInsightsProps) {
   const [insights, setInsights] = useState<InsightData | null>(null)
   const [loading, setLoading] = useState(true)
 

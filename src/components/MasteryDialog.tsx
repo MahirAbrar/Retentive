@@ -34,8 +34,6 @@ export function MasteryDialog({
         return Math.min(baseInterval, 180) // Cap at 180 days
       case 'steady':
         return Math.min(baseInterval, 365) // Cap at 1 year
-      case 'test':
-        return 1 // Always 1 day for test mode maintenance
       default:
         return baseInterval
     }

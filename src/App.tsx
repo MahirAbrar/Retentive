@@ -9,6 +9,7 @@ import { syncService } from './services/syncService'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineIndicator } from './components/OfflineIndicator'
+import { OfflineDisclaimer } from './components/OfflineDisclaimer'
 import { HeaderFixed } from './components/layout/HeaderFixed'
 import { WebDisclaimer } from './components/WebDisclaimer'
 
@@ -51,9 +52,9 @@ function App() {
   // In development, Electron loads from localhost but has electronAPI
   // In production, it uses file:// protocol
   // Check for Electron user agent or electronAPI availability
-  const isElectron = !!window.electronAPI || 
-                     window.navigator.userAgent.includes('Electron') ||
-                     window.location.protocol === 'file:'
+  // const isElectron = !!window.electronAPI || 
+  //                    window.navigator.userAgent.includes('Electron') ||
+  //                    window.location.protocol === 'file:'
 
   return (
     <ErrorBoundary>
@@ -64,6 +65,7 @@ function App() {
               <AchievementProvider>
                 <div style={{ minHeight: '100vh' }}>
                   <WebDisclaimer />
+                  <OfflineDisclaimer />
                   <HeaderFixed />
 
                   <main style={{ padding: 'var(--space-8) var(--space-4)' }}>
