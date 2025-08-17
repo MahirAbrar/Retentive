@@ -3,6 +3,8 @@ export type ReviewDifficulty = 'again' | 'hard' | 'good' | 'easy'
 export type Priority = 1 | 2 | 3 | 4 | 5
 export type MasteryStatus = 'active' | 'mastered' | 'archived' | 'maintenance' | 'repeat'
 export type ArchiveStatus = 'active' | 'archived'
+export type SubscriptionType = 'monthly' | 'yearly' | null
+export type SubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'trial' | 'inactive'
 
 export interface User {
   id: string
@@ -13,6 +15,19 @@ export interface User {
     display_name?: string
     [key: string]: any
   }
+  // Subscription fields
+  is_paid?: boolean
+  is_trial?: boolean
+  trial_started_at?: string | null
+  trial_ended_at?: string | null
+  subscription_type?: SubscriptionType
+  subscription_started_at?: string | null
+  subscription_expires_at?: string | null
+  subscription_status?: SubscriptionStatus
+  stripe_customer_id?: string | null
+  stripe_subscription_id?: string | null
+  has_used_trial?: boolean
+  trial_days_remaining?: number
 }
 
 export interface Topic {

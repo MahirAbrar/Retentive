@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, CardHeader, CardContent, Input, useToast } from '../components/ui'
+import { Button, Card, CardHeader, CardContent, Input, useToast, Modal } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import { DataManagement } from '../components/settings/DataManagement'
@@ -104,21 +104,47 @@ export function SettingsPage() {
     }
   }
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+
   const handleDeleteAccount = async () => {
-    if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+    // First confirmation
+    if (!confirm('Are you sure you want to delete your account? This action cannot be undone. All your data will be permanently deleted.')) {
       return
     }
 
+    // Show the delete confirmation modal
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') {
+      addToast('error', 'Please type DELETE to confirm')
+      return
+    }
+
+    setShowDeleteConfirm(false)
+    setDeleteConfirmText('')
     setLoading(true)
 
     try {
-      // In a real app, we'd call a server function to delete user data
-      // For now, we'll just sign out
+      // Call the database function to delete the user account
+      // This function handles all the deletion logic server-side
+      const { error: deleteError } = await supabase.rpc('delete_user_account')
+      
+      if (deleteError) {
+        logger.error('Delete account error:', deleteError)
+        throw deleteError
+      }
+      
+      addToast('success', 'Account deleted successfully')
+      
+      // Sign out and redirect
       await signOut()
-      addToast('info', 'Account deletion requested')
-      navigate('/')
+      navigate('/login')
     } catch (error) {
-      addToast('error', 'Failed to delete account')
+      logger.error('Failed to delete account:', error)
+      addToast('error', 'Failed to delete account. Some data may remain.')
     } finally {
       setLoading(false)
     }
@@ -428,6 +454,54 @@ export function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false)
+          setDeleteConfirmText('')
+        }}
+        title="Confirm Account Deletion"
+      >
+        <div style={{ padding: '1.5rem' }}>
+          <p style={{ marginBottom: '1rem', color: 'var(--color-error)' }}>
+            <strong>Warning:</strong> This action cannot be undone. All your data will be permanently deleted.
+          </p>
+          <p style={{ marginBottom: '1rem' }}>
+            Please type <strong>DELETE</strong> to confirm:
+          </p>
+          <Input
+            type="text"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder="Type DELETE here"
+            style={{ marginBottom: '1.5rem' }}
+          />
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowDeleteConfirm(false)
+                setDeleteConfirmText('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={confirmDeleteAccount}
+              disabled={deleteConfirmText !== 'DELETE'}
+              style={{ 
+                backgroundColor: deleteConfirmText === 'DELETE' ? 'var(--color-error)' : undefined,
+                borderColor: deleteConfirmText === 'DELETE' ? 'var(--color-error)' : undefined
+              }}
+            >
+              Delete My Account
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
