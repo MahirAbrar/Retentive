@@ -56,7 +56,20 @@ export function LoginPage() {
         setErrors({ general: error.message })
         addToast('error', error.message)
       } else {
-        addToast('success', isSignUp ? 'Account created! Please check your email.' : 'Welcome back!')
+        if (isSignUp) {
+          // Calculate trial end date (14 days from now)
+          const trialEndDate = new Date()
+          trialEndDate.setDate(trialEndDate.getDate() + 14)
+          const formattedDate = trialEndDate.toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })
+          
+          addToast('success', `Welcome! Your 14-day free trial has started and will end on ${formattedDate}. Enjoy full access to all features!`)
+        } else {
+          addToast('success', 'Welcome back!')
+        }
       }
     } finally {
       setLoading(false)

@@ -74,3 +74,5 @@ supabase-migrations/
 human-todo.md
 .env.example
 todolist.md
+
+FEATURES.md

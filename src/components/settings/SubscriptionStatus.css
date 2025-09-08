@@ -1,0 +1,194 @@
+.subscription-status {
+  padding: 0.5rem 0;
+}
+
+.status-header {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1.5rem;
+}
+
+.plan-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.plan-name {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.125rem;
+}
+
+.plan-name .label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.plan-name .value {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.plan-details {
+  font-size: 1rem;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* Badges */
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badge-warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.badge-info {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.badge-secondary {
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.badge-default {
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
+}
+
+/* Status Details */
+.status-details {
+  margin-bottom: 2rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row .label {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.detail-row .value {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Highlight trial expiry date */
+.trial-expiry-row {
+  background: linear-gradient(90deg, var(--color-primary-light), transparent);
+  margin: 0.5rem 0;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  border-radius: var(--radius-sm);
+}
+
+.trial-expiry-row .value {
+  font-size: 1rem;
+}
+
+.trial-warning {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.free-plan-info {
+  padding: 1rem;
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+  margin: 1rem 0;
+}
+
+.free-plan-info p {
+  margin: 0.5rem 0;
+}
+
+/* Actions */
+.subscription-actions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.subscription-actions .btn {
+  flex: 1;
+  min-width: 150px;
+}
+
+@media (max-width: 768px) {
+  .subscription-actions {
+    flex-direction: column;
+  }
+  
+  .subscription-actions .btn {
+    width: 100%;
+  }
+}
+
+/* Footer */
+.subscription-footer {
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.subscription-footer .link {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.subscription-footer .link:hover {
+  text-decoration: underline;
+}
+
+.loading-text {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: 2rem;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .badge-secondary {
+  background: var(--color-surface);
+}
+
+[data-theme="dark"] .free-plan-info {
+  background: var(--color-surface);
+}
+
+[data-theme="dark"] .trial-warning {
+  background: rgba(255, 193, 7, 0.1);
+}

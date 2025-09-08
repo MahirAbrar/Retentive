@@ -23,17 +23,17 @@ export default defineConfig({
             terserOptions: {
               compress: {
                 drop_console: true,
-                drop_debugger: true
-              }
+                drop_debugger: true,
+              },
             },
             rollupOptions: {
               external: ['electron', 'better-sqlite3'],
               input: {
-                main: 'electron/main.ts'
-              }
-            }
-          }
-        }
+                main: 'electron/main.ts',
+              },
+            },
+          },
+        },
       },
       preload: {
         input: 'electron/preload.ts',
@@ -44,14 +44,14 @@ export default defineConfig({
             rollupOptions: {
               output: {
                 format: 'cjs',
-                entryFileNames: '[name].js'
-              }
-            }
-          }
-        }
+                entryFileNames: '[name].js',
+              },
+            },
+          },
+        },
       },
-      renderer: process.env.NODE_ENV === 'test' ? undefined : {}
-    })
+      renderer: process.env.NODE_ENV === 'test' ? undefined : {},
+    }),
   ],
   base: process.env.IS_DEV !== 'true' ? './' : '/',
   build: {
@@ -62,7 +62,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'index.html')
+        main: path.resolve(__dirname, 'index.html'),
       },
       output: {
         // Optimize chunk naming for caching
@@ -73,24 +73,24 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-charts': ['recharts']
-        }
+          'vendor-charts': ['recharts'],
+        },
       },
       // Optimize tree-shaking
       treeshake: {
         preset: 'recommended',
-        moduleSideEffects: false
-      }
+        moduleSideEffects: false,
+      },
     },
     // Optimize CSS
     cssCodeSplit: true,
     cssMinify: true,
     // Preload optimization
     modulePreload: {
-      polyfill: true
+      polyfill: true,
     },
     // Performance optimizations
-    reportCompressedSize: false
+    reportCompressedSize: false,
   },
   resolve: {
     alias: {
@@ -100,20 +100,17 @@ export default defineConfig({
       '@hooks': path.resolve(__dirname, './src/hooks'),
       '@utils': path.resolve(__dirname, './src/utils'),
       '@styles': path.resolve(__dirname, './src/styles'),
-      '@assets': path.resolve(__dirname, './src/assets')
-    }
+      '@assets': path.resolve(__dirname, './src/assets'),
+    },
   },
-  server: {
-    port: 5173,
-    strictPort: true
-  },
+
   // Optimize dependencies
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js'],
     exclude: ['electron'],
     esbuildOptions: {
-      target: 'esnext'
-    }
+      target: 'esnext',
+    },
   },
   // Performance optimizations
   esbuild: {
@@ -121,6 +118,6 @@ export default defineConfig({
     target: 'esnext',
     minifyIdentifiers: true,
     minifySyntax: true,
-    minifyWhitespace: true
-  }
+    minifyWhitespace: true,
+  },
 })

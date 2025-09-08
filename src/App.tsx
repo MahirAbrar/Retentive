@@ -12,6 +12,9 @@ import { OfflineIndicator } from './components/OfflineIndicator'
 import { OfflineDisclaimer } from './components/OfflineDisclaimer'
 import { HeaderFixed } from './components/layout/HeaderFixed'
 import { WebDisclaimer } from './components/WebDisclaimer'
+import { TrialBanner } from './components/TrialBanner'
+import { AccessGuard } from './components/AccessGuard'
+import { clearAuthCache } from './utils/clearAuthCache'
 
 // Lazy load all pages for code splitting
 const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -26,6 +29,8 @@ const TestGamificationPage = lazy(() => import('./pages/TestGamificationPage').t
 const DarkModeTest = lazy(() => import('./pages/DarkModeTest').then(m => ({ default: m.DarkModeTest })))
 const TestGamificationPersistence = lazy(() => import('./pages/TestGamificationPersistence').then(m => ({ default: m.TestGamificationPersistence })))
 const TestAchievements = lazy(() => import('./pages/TestAchievements').then(m => ({ default: m.TestAchievements })))
+const PaywallPage = lazy(() => import('./pages/PaywallPage').then(m => ({ default: m.PaywallPage })))
+const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess').then(m => ({ default: m.PaymentSuccess })))
 
 // Loading fallback component
 const PageLoader = () => (
@@ -45,6 +50,11 @@ function App() {
     // Sync pending operations if online
     if (navigator.onLine) {
       syncService.syncPendingOperations()
+    }
+    
+    // Make clearAuthCache available globally for debugging
+    if (typeof window !== 'undefined') {
+      (window as any).clearAuthCache = clearAuthCache
     }
   }, [])
   
@@ -67,11 +77,18 @@ function App() {
                   <WebDisclaimer />
                   <OfflineDisclaimer />
                   <HeaderFixed />
+                  <TrialBanner />
 
                   <main style={{ padding: 'var(--space-8) var(--space-4)' }}>
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
-                  <Route path="/" element={<HomePage />} />
+                  <Route path="/" element={
+                    <ProtectedRoute>
+                      <AccessGuard>
+                        <HomePage />
+                      </AccessGuard>
+                    </ProtectedRoute>
+                  } />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/auth/callback" element={<ResetPasswordPage />} />
@@ -80,7 +97,9 @@ function App() {
                     path="/topics"
                     element={
                       <ProtectedRoute>
-                        <TopicsPage />
+                        <AccessGuard>
+                          <TopicsPage />
+                        </AccessGuard>
                       </ProtectedRoute>
                     }
                   />
@@ -88,7 +107,9 @@ function App() {
                     path="/topics/new"
                     element={
                       <ProtectedRoute>
-                        <NewTopicPage />
+                        <AccessGuard>
+                          <NewTopicPage />
+                        </AccessGuard>
                       </ProtectedRoute>
                     }
                   />
@@ -96,7 +117,9 @@ function App() {
                     path="/topics/:topicId"
                     element={
                       <ProtectedRoute>
-                        <TopicDetailView />
+                        <AccessGuard>
+                          <TopicDetailView />
+                        </AccessGuard>
                       </ProtectedRoute>
                     }
                   />
@@ -112,7 +135,9 @@ function App() {
                     path="/stats"
                     element={
                       <ProtectedRoute>
-                        <StatsPage />
+                        <AccessGuard>
+                          <StatsPage />
+                        </AccessGuard>
                       </ProtectedRoute>
                     }
                   />
@@ -120,7 +145,9 @@ function App() {
                     path="/test-gamification"
                     element={
                       <ProtectedRoute>
-                        <TestGamificationPage />
+                        <AccessGuard>
+                          <TestGamificationPage />
+                        </AccessGuard>
                       </ProtectedRoute>
                     }
                   />
@@ -132,7 +159,9 @@ function App() {
                     path="/test-persistence"
                     element={
                       <ProtectedRoute>
-                        <TestGamificationPersistence />
+                        <AccessGuard>
+                          <TestGamificationPersistence />
+                        </AccessGuard>
                       </ProtectedRoute>
                     }
                   />
@@ -140,10 +169,14 @@ function App() {
                     path="/test-achievements"
                     element={
                       <ProtectedRoute>
-                        <TestAchievements />
+                        <AccessGuard>
+                          <TestAchievements />
+                        </AccessGuard>
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/paywall" element={<PaywallPage />} />
+                  <Route path="/payment-success" element={<PaymentSuccess />} />
                       </Routes>
                     </Suspense>
                   </main>

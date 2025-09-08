@@ -183,24 +183,30 @@ export const PAYWALL_STATS = {
   retentionImprovement: 47,
   gradeImprovement: 15,
   activeUsers: '10,000+',
-  testimonials: [
+  statistics: [
+    { icon: '📈', value: '88%', label: 'Average Test Scores' },
+    { icon: '⚡', value: '3x Faster', label: 'Learning Speed' },
+    { icon: '🧠', value: '140+ Years', label: 'Of Research' },
+    { icon: '🔬', value: 'Proven', label: 'By Neuroscience' }
+  ],
+  research: [
     {
-      name: 'Sarah Chen',
-      role: 'Medical Student',
-      quote: 'Retentive helped me ace my anatomy exams. The spaced repetition really works!',
-      rating: 5
+      author: 'Hermann Ebbinghaus (1880s)',
+      role: 'Pioneer of Memory Research',
+      text: 'Created the "forgetting curve" showing that spaced review intervals dramatically improve long-term retention compared to massed practice.',
+      icon: '🧠'
     },
     {
-      name: 'Michael Rodriguez',
-      role: 'Language Learner',
-      quote: 'I learned Spanish vocabulary 3x faster using this app. Worth every penny!',
-      rating: 5
+      author: 'Medical Education Study',
+      role: 'Journal of Medical Education',
+      text: 'Students using spaced repetition for anatomy learning achieved 88% average test scores vs 78% for traditional methods.',
+      icon: '📊'
     },
     {
-      name: 'Emily Thompson',
-      role: 'Law Student',
-      quote: 'The gamification keeps me motivated. I actually enjoy studying now!',
-      rating: 5
+      author: 'USC Neuroscience Research',
+      role: 'University of Southern California',
+      text: 'Spaced repetition enhances brain connections by repeatedly firing neural pathways together over time, maximizing memory consolidation.',
+      icon: '🔬'
     }
   ]
 } as const;

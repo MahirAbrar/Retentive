@@ -1,0 +1,68 @@
+.trial-banner {
+  position: fixed;
+  top: 60px; /* Below header */
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--color-warning-light);
+  border-bottom: 2px solid var(--color-warning);
+  animation: slideDown 0.3s ease-out;
+}
+
+.trial-banner-urgent {
+  background: var(--color-error-light);
+  border-bottom-color: var(--color-error);
+}
+
+.trial-banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.trial-banner-icon {
+  font-size: 1.5rem;
+}
+
+.trial-banner-message {
+  flex: 1;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.trial-banner-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-small {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .trial-banner-content {
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .trial-banner-message {
+    width: 100%;
+  }
+}

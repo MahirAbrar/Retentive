@@ -1,5 +1,5 @@
 import { logger } from '../../utils/logger'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardHeader, CardContent, Button } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { notificationService } from '../../services/notificationService'
@@ -27,6 +27,41 @@ export function NotificationSettings() {
     milestones: true
   })
   const [saving, setSaving] = useState(false)
+
+  const loadSettings = useCallback(async () => {
+    if (!isElectron || !window.electronAPI) return
+
+    try {
+      const saved = await window.electronAPI.secureStorage.get('notificationSettings')
+      if (saved) {
+        setSettings(JSON.parse(saved))
+      }
+    } catch (error) {
+      logger.error('Error loading notification settings:', error)
+    }
+  }, [isElectron])
+
+  // Move hooks before conditional return
+  useEffect(() => {
+    // Load settings from secure storage if in Electron
+    if (isElectron) {
+      loadSettings()
+    }
+  }, [isElectron, loadSettings])
+
+  useEffect(() => {
+    // Set up navigation listener for notification clicks
+    if (user && isElectron) {
+      notificationService.setupNavigationListener((path) => {
+        // Use React Router to navigate
+        window.location.href = path
+      })
+    }
+
+    return () => {
+      notificationService.removeNavigationListener()
+    }
+  }, [user, isElectron])
 
   // If not in Electron, show a message
   if (!isElectron) {
@@ -82,38 +117,6 @@ export function NotificationSettings() {
         </CardContent>
       </Card>
     )
-  }
-
-  useEffect(() => {
-    // Load settings from secure storage
-    loadSettings()
-  }, [])
-
-  useEffect(() => {
-    // Set up navigation listener for notification clicks
-    if (user) {
-      notificationService.setupNavigationListener((path) => {
-        // Use React Router to navigate
-        window.location.href = path
-      })
-    }
-
-    return () => {
-      notificationService.removeNavigationListener()
-    }
-  }, [user])
-
-  const loadSettings = async () => {
-    if (!isElectron || !window.electronAPI) return
-
-    try {
-      const saved = await window.electronAPI.secureStorage.get('notificationSettings')
-      if (saved) {
-        setSettings(JSON.parse(saved))
-      }
-    } catch (error) {
-      logger.error('Error loading notification settings:', error)
-    }
   }
 
   const handleSave = async () => {

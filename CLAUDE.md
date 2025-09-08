@@ -46,6 +46,10 @@ This file contains important information for Claude to remember across sessions.
 - `npm run format` - Format code with Prettier
 - `npm run format:check` - Check code formatting
 
+## Important User Preferences
+- **DO NOT run `npm run dev` or `npm run dev:electron`** - User manages the dev server themselves
+- User will tell you which port the app is running on if needed
+
 ## Architecture Decisions
 - Using Supabase for:
   - Authentication (email/password)

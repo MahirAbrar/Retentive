@@ -6,7 +6,10 @@ import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import { DataManagement } from '../components/settings/DataManagement'
 import { NotificationSettings } from '../components/settings/NotificationSettings'
+import { SubscriptionStatus } from '../components/settings/SubscriptionStatus'
 import { useTheme } from '../contexts/ThemeContext'
+import { gamificationService } from '../services/gamificationService'
+import { cacheService } from '../services/cacheService'
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -153,51 +156,18 @@ export function SettingsPage() {
   const handleResetData = async () => {
     if (!user) return
     
-    if (!confirm('Are you sure you want to delete all your topics and learning items? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete ALL your data? This includes topics, learning items, achievements, stats, and everything else. This action cannot be undone.')) {
       return
     }
 
-    if (!confirm('This will permanently delete ALL your topics and subtopics. Are you absolutely sure?')) {
+    if (!confirm('This will permanently delete EVERYTHING including archived items, achievements, levels, and streaks. Are you absolutely sure?')) {
       return
     }
 
     setLoading(true)
 
     try {
-      // Delete all learning items first (due to foreign key constraints)
-      const { error: itemsError } = await supabase
-        .from('learning_items')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (itemsError) throw itemsError
-
-      // Then delete all topics
-      const { error: topicsError } = await supabase
-        .from('topics')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (topicsError) throw topicsError
-
-      // Reset gamification stats
-      const { error: statsError } = await supabase
-        .from('user_gamification_stats')
-        .update({
-          total_points: 0,
-          current_streak: 0,
-          longest_streak: 0,
-          total_reviews: 0,
-          total_items_mastered: 0,
-          perfect_days: 0
-        })
-        .eq('user_id', user.id)
-
-      if (statsError) {
-        logger.warn('Failed to reset gamification stats:', statsError)
-      }
-
-      // Delete all review sessions
+      // Delete all review sessions first
       const { error: sessionsError } = await supabase
         .from('review_sessions')
         .delete()
@@ -207,9 +177,35 @@ export function SettingsPage() {
         logger.warn('Failed to delete review sessions:', sessionsError)
       }
 
-      // Delete all achievements
+      // Delete all learning items (including archived)
+      const { error: itemsError } = await supabase
+        .from('learning_items')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (itemsError) throw itemsError
+
+      // Delete all topics (including archived)
+      const { error: topicsError } = await supabase
+        .from('topics')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (topicsError) throw topicsError
+
+      // Delete all daily stats
+      const { error: dailyStatsError } = await supabase
+        .from('daily_stats')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (dailyStatsError) {
+        logger.warn('Failed to delete daily stats:', dailyStatsError)
+      }
+
+      // Delete all achievements - the table is named 'achievements'
       const { error: achievementsError } = await supabase
-        .from('user_achievements')
+        .from('achievements')
         .delete()
         .eq('user_id', user.id)
 
@@ -217,13 +213,87 @@ export function SettingsPage() {
         logger.warn('Failed to delete achievements:', achievementsError)
       }
 
-      addToast('success', 'All data has been reset successfully')
+      // Delete and recreate gamification stats for complete reset
+      const { error: deleteStatsError } = await supabase
+        .from('user_gamification_stats')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (deleteStatsError) {
+        logger.warn('Failed to delete gamification stats:', deleteStatsError)
+      }
+
+      // Recreate gamification stats with default values
+      const { error: createStatsError } = await supabase
+        .from('user_gamification_stats')
+        .insert({
+          user_id: user.id,
+          total_points: 0,
+          current_level: 1,
+          current_streak: 0,
+          longest_streak: 0,
+          total_reviews: 0,
+          total_items_mastered: 0,
+          perfect_days: 0,
+          last_activity_date: null,
+          achievements_unlocked: []
+        })
+
+      if (createStatsError) {
+        logger.warn('Failed to recreate gamification stats:', createStatsError)
+      }
+
+      // Reset user settings to defaults (keep subscription info)
+      const { error: settingsError } = await supabase
+        .from('user_settings')
+        .update({
+          daily_reminder_enabled: false,
+          daily_reminder_time: '09:00',
+          notification_sound_enabled: true,
+          auto_play_audio: false,
+          show_keyboard_shortcuts: true,
+          theme: 'light',
+          language: 'en',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+
+      if (settingsError) {
+        logger.warn('Failed to reset user settings:', settingsError)
+      }
+
+      // Clear all caches - this is critical for gamification stats
+      cacheService.clear()
       
-      // Navigate to home page after reset
-      navigate('/')
+      // Clear gamification cache specifically
+      gamificationService.clearUserStats(user.id)
+      
+      // Force refresh the gamification stats from database
+      await gamificationService.refreshUserStats(user.id)
+      
+      // Clear any local storage caches
+      if (window.localStorage) {
+        // Clear specific cache keys related to user data
+        const keysToRemove = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && (key.includes('cache_') || key.includes('topics_') || key.includes('items_') || key.includes('gamification'))) {
+            keysToRemove.push(key)
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key))
+      }
+
+      addToast('success', 'All data has been completely reset. You have a fresh start!')
+      
+      // Force a complete reload to ensure all components get fresh data
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 100)
     } catch (error) {
       logger.error('Error resetting data:', error)
-      addToast('error', 'Failed to reset data. Please try again.')
+      addToast('error', 'Failed to reset all data. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -401,6 +471,9 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Subscription */}
+        <SubscriptionStatus />
+
         {/* Notifications */}
         <NotificationSettings />
 
@@ -416,7 +489,7 @@ export function SettingsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div>
                 <p className="body" style={{ marginBottom: '1rem' }}>
-                  <strong>Reset All Data:</strong> Delete all your topics and learning items.
+                  <strong>Reset All Data:</strong> Delete ALL your data including topics, learning items, achievements, levels, streaks, and archived content.
                 </p>
                 <Button
                   variant="ghost"
