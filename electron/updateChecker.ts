@@ -32,8 +32,8 @@ class UpdateChecker {
     }
 
     try {
-      // Replace with your GitHub username/repo
-      const GITHUB_REPO = 'yourusername/retentive-app'
+      // Public releases repository (no source code)
+      const GITHUB_REPO = 'MahirAbrar/Retentive-Releases'
       const response = await fetch(
         `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
         {
@@ -72,8 +72,8 @@ class UpdateChecker {
     }
 
     // Set the feed URL for your update server
-    // For GitHub Releases:
-    const feedURL = `https://github.com/yourusername/retentive-app/releases/download/latest`
+    // For GitHub Releases (public releases repo):
+    const feedURL = `https://github.com/MahirAbrar/Retentive-Releases/releases/download/latest`
 
     try {
       autoUpdater.setFeedURL({
