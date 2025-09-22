@@ -3,6 +3,7 @@ import { Card, CardHeader, CardContent, Badge } from '../ui'
 import { timingStatsService } from '../../services/timingStatsService'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { logger } from '../../utils/logger'
+import { Trophy, CheckCircle, BarChart3, AlertTriangle, BookOpen } from 'lucide-react'
 
 interface TopicTimingStats {
   topicId: string
@@ -35,11 +36,11 @@ const TopicTimingCard = memo(function TopicTimingCard({
     return 'var(--color-error)'
   }
 
-  const getPerformanceEmoji = (percentage: number) => {
-    if (percentage >= 90) return '🏆'
-    if (percentage >= 75) return '✅'
-    if (percentage >= 60) return '📊'
-    return '⚠️'
+  const getPerformanceIcon = (percentage: number) => {
+    if (percentage >= 90) return Trophy
+    if (percentage >= 75) return CheckCircle
+    if (percentage >= 60) return BarChart3
+    return AlertTriangle
   }
 
   return (
@@ -56,17 +57,24 @@ const TopicTimingCard = memo(function TopicTimingCard({
         >
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <BookOpen size={20} />
               <h4 className="h4" style={{ marginBottom: '0.25rem' }}>
-                📚 {topic.topicName}
+                {topic.topicName}
               </h4>
-              <p className="body-small text-secondary">
+              <p className="body-small text-secondary" style={{ marginLeft: '28px' }}>
                 {topic.totalItems} items • {topic.totalReviews} reviews
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: getPerformanceColor(topic.onTimePercentage) }}>
-                {topic.onTimePercentage}% {getPerformanceEmoji(topic.onTimePercentage)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: getPerformanceColor(topic.onTimePercentage) }}>
+                  {topic.onTimePercentage}%
+                </span>
+                {(() => {
+                  const Icon = getPerformanceIcon(topic.onTimePercentage)
+                  return <Icon size={24} color={getPerformanceColor(topic.onTimePercentage)} />
+                })()}
               </div>
               <p className="body-small text-secondary">on-time rate</p>
             </div>
@@ -218,7 +226,10 @@ export function TimingPerformance() {
       {/* Section Header */}
       <Card variant="bordered">
         <CardHeader>
-          <h3 className="h4">📊 Timing Performance</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <BarChart3 size={20} />
+            <h3 className="h4">Timing Performance</h3>
+          </div>
         </CardHeader>
         <CardContent>
           {/* Overall Summary */}

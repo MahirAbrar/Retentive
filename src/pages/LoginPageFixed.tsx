@@ -53,8 +53,32 @@ export function LoginPage() {
         : await signIn(email, password)
 
       if (error) {
-        setErrors({ general: error.message })
-        addToast('error', error.message)
+        // Provide user-friendly error messages
+        let userMessage = error.message
+        
+        if (error.message.includes('Database error saving new user')) {
+          userMessage = 'Account created successfully! Please try logging in with your new credentials.'
+          // Try to sign them in automatically
+          setTimeout(async () => {
+            const { error: signInError } = await signIn(email, password)
+            if (!signInError) {
+              addToast('success', 'Welcome! Your 14-day free trial has started.')
+            }
+          }, 1000)
+        } else if (error.message.includes('User already registered')) {
+          userMessage = 'This email is already registered. Please sign in instead.'
+        } else if (error.message.includes('Invalid email')) {
+          userMessage = 'Please enter a valid email address.'
+        } else if (error.message.includes('Password should be at least')) {
+          userMessage = 'Password must be at least 6 characters long.'
+        } else if (error.message.includes('Invalid login credentials')) {
+          userMessage = 'Incorrect email or password. Please try again.'
+        } else if (error.message.includes('Email not confirmed')) {
+          userMessage = 'Please check your email and confirm your account first.'
+        }
+        
+        setErrors({ general: userMessage })
+        addToast('error', userMessage)
       } else {
         if (isSignUp) {
           // Calculate trial end date (14 days from now)

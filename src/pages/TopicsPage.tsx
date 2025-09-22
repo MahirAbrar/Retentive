@@ -8,6 +8,7 @@ import { dataService } from '../services/dataService'
 import { usePagination } from '../hooks/usePagination'
 import { cacheService } from '../services/cacheService'
 import type { Topic, LearningItem } from '../types/database'
+import { RefreshCw } from 'lucide-react'
 
 interface TopicWithStats extends Topic {
   itemCount: number
@@ -425,7 +426,8 @@ export function TopicsPage() {
             style={{ padding: '0.5rem 1rem' }}
             title="Refresh topics"
           >
-            🔄 Refresh
+            <RefreshCw size={16} style={{ marginRight: '0.25rem', display: 'inline-block', verticalAlign: 'middle' }} />
+            Refresh
           </Button>
 
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

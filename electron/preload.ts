@@ -181,12 +181,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       stats: async (userId: string) => {
         return await ipcRenderer.invoke('db:offline:stats', userId)
       }
+    },
+    openExternal: (url: string) => {
+      ipcRenderer.send('open-external', url)
     }
   }
 })
 
 // Type definitions for TypeScript
-export interface IElectronAPI {
+export // Using type from src/types/electron.d.ts
+type IElectronAPI = {
   send: (channel: string, data?: any) => void
   receive: (channel: string, func: (...args: any[]) => void) => void
   invoke: (channel: string, data?: any) => Promise<any>
@@ -244,11 +248,8 @@ export interface IElectronAPI {
     offline: {
       stats: (userId: string) => Promise<any>
     }
+    openExternal: (url: string) => void
   }
 }
 
-declare global {
-  interface Window {
-    electronAPI: IElectronAPI
-  }
-}
+// Type definitions are in src/types/electron.d.ts

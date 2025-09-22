@@ -6,6 +6,7 @@ import { supabase } from '../services/supabase'
 import { getExtendedStats } from '../services/statsService'
 import { cacheService } from '../services/cacheService'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart3 } from 'lucide-react'
 
 // Lazy load TimingPerformance for better initial load
 const TimingPerformance = lazy(() => import('../components/stats/TimingPerformance').then(module => ({ default: module.TimingPerformance })))
@@ -756,7 +757,10 @@ export function StatsPage() {
         <Suspense fallback={
           <Card variant="bordered">
             <CardHeader>
-              <h3 className="h4">📊 Timing Performance</h3>
+              <h3 className="h4" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BarChart3 size={20} />
+                Timing Performance
+              </h3>
             </CardHeader>
             <CardContent>
               <div style={{ padding: '2rem', textAlign: 'center' }}>

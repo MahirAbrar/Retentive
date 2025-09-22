@@ -8,6 +8,8 @@ import { Card, Button, useToast } from '../ui'
 import styles from './GamificationDashboard.module.css'
 import { GAMIFICATION_CONFIG } from '../../config/gamification'
 import { supabase } from '../../services/supabase'
+import { Flame } from 'lucide-react'
+import { AchievementIcon } from '../../config/icons'
 
 interface AchievementDisplay {
   id: string
@@ -206,7 +208,7 @@ export function GamificationDashboard() {
             <h3 className={styles.statTitle}>Streaks</h3>
             <div className={styles.streakStats}>
               <div className={styles.currentStreak}>
-                <span className={styles.streakEmoji}>🔥</span>
+                <Flame className={styles.streakEmoji} size={24} />
                 <div>
                   <div className={styles.streakValue}>{stats.currentStreak} days</div>
                   <div className={styles.streakLabel}>Current Streak</div>
@@ -296,7 +298,9 @@ export function GamificationDashboard() {
                 className={`${styles.achievement} ${achievement.unlocked ? styles.unlocked : styles.locked}`}
                 title={achievement.unlocked ? 'Unlocked!' : progressText}
               >
-                <div className={styles.achievementIcon}>{achievement.icon}</div>
+                <div className={styles.achievementIcon}>
+                  <AchievementIcon achievementId={achievement.id} size={32} />
+                </div>
                 <h4 className={styles.achievementName}>{achievement.name}</h4>
                 <p className={styles.achievementDescription}>{achievement.description}</p>
                 

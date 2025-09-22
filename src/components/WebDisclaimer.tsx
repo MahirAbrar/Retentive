@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 
 export function WebDisclaimer() {
   const [dismissed, setDismissed] = useState(false)
@@ -222,7 +223,7 @@ export function WebDisclaimer() {
               onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
               title="Dismiss options"
             >
-              ×
+              <X size={20} />
             </button>
           ) : (
             <div style={{

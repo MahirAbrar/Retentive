@@ -6,9 +6,19 @@ import { MasteryDialog } from '../MasteryDialog'
 import { ArchiveInsights } from './ArchiveInsights'
 import { AutoArchiveSuggestion } from './AutoArchiveSuggestion'
 import type { Topic, LearningItem, LearningMode, MasteryStatus } from '../../types/database'
+import { 
+  MoreVertical, 
+  X, 
+  Info, 
+  Check,
+  RefreshCw,
+  Package,
+  Settings
+} from 'lucide-react'
 import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
 import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
 import { formatNextReview } from '../../utils/formatters'
+import { getModeRecommendation } from '../../utils/learningScience'
 // import { TopicCard } from './TopicCard' // Will integrate later
 // import { LearningItemRow } from './LearningItemRow' // Will integrate later
 import { topicsService } from '../../services/topicsFixed'
@@ -335,7 +345,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
     try {
       // Cancel any scheduled notification for this item
       if (window.electronAPI?.notifications) {
-        await window.electronAPI.notifications.cancel('item', { itemId: item.id })
+        window.electronAPI.notifications.cancel()
       }
       
       const { error } = await supabase
@@ -412,21 +422,21 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       
       // Cancel any existing notification for this item (in case it was reviewed early)
       if (window.electronAPI?.notifications) {
-        await window.electronAPI.notifications.cancel('item', { itemId: item.id })
+        window.electronAPI.notifications.cancel()
       }
       
       // Schedule notification for next review if not mastered
       if (updatedItem.next_review_at && updatedItem.review_count < GAMIFICATION_CONFIG.MASTERY.reviewsRequired) {
         const topic = topics.find(t => t.id === item.topic_id)
         if (topic && window.electronAPI?.notifications) {
-          await window.electronAPI.notifications.schedule('item-due', {
-            userId: user.id,
-            itemId: item.id,
-            itemContent: item.content,
-            topicName: topic.name,
-            topicId: topic.id,
-            dueAt: updatedItem.next_review_at
-          })
+          const delayMs = new Date(updatedItem.next_review_at).getTime() - Date.now()
+          if (delayMs > 0) {
+            window.electronAPI.notifications.schedule(
+              'Review Due',
+              `Review item from ${topic.name}: ${item.content.substring(0, 50)}...`,
+              delayMs
+            )
+          }
           logger.log(`Scheduled notification for item ${item.id} at ${updatedItem.next_review_at}`)
         }
       }
@@ -535,7 +545,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       } else if (item.mastery_status === 'maintenance') {
         // Special message for maintenance reviews
         const nextMaintenance = Math.round(reviewResult.intervalDays)
-        addToast('success', `🔄 Maintenance review complete! Next review in ${nextMaintenance} days.`)
+        addToast('success', `Maintenance review complete! Next review in ${nextMaintenance} days.`)
       } else {
         const hoursUntilNext = Math.round(reviewResult.intervalDays * 24)
         const minutesUntilNext = Math.round(reviewResult.intervalDays * 24 * 60)
@@ -629,16 +639,16 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       let message = ''
       switch (status) {
         case 'archived':
-          message = '📦 Item archived! You won\'t see it in reviews anymore.'
+          message = 'Item archived! You won\'t see it in reviews anymore.'
           break
         case 'maintenance':
-          message = `🔄 Item in maintenance mode! Next review in ${maintenanceInterval} days.`
+          message = `Item in maintenance mode! Next review in ${maintenanceInterval} days.`
           break
         case 'repeat':
-          message = '🔁 Item reset! Starting from the beginning.'
+          message = 'Item reset! Starting from the beginning.'
           break
         case 'mastered':
-          message = '✅ Item marked as mastered! You can change this anytime.'
+          message = 'Item marked as mastered! You can change this anytime.'
           break
       }
       
@@ -777,9 +787,9 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                         e.stopPropagation()
                         setOpenMenuId(openMenuId === topic.id ? null : topic.id)
                       }}
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '1.2rem' }}
+                      style={{ padding: '0.25rem 0.5rem' }}
                     >
-                      ⋮
+                      <MoreVertical size={20} />
                     </Button>
                     {openMenuId === topic.id && (
                       <div style={{
@@ -1006,11 +1016,10 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                                                     padding: '2px',
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    color: 'var(--color-text-secondary)',
-                                                    fontSize: '14px'
+                                                    color: 'var(--color-text-secondary)'
                                                   }}
                                                 >
-                                                  ⓘ
+                                                  <Info size={14} />
                                                   <div className="tooltip" style={{
                                                     display: 'none',
                                                     position: 'absolute',
@@ -1021,23 +1030,85 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                                                     background: 'var(--color-surface)',
                                                     border: '1px solid var(--color-gray-200)',
                                                     borderRadius: 'var(--radius-sm)',
-                                                    padding: '0.5rem',
+                                                    padding: '0.75rem',
                                                     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
                                                     zIndex: 100,
-                                                    minWidth: '250px',
+                                                    minWidth: '300px',
                                                     fontSize: '12px',
-                                                    whiteSpace: 'nowrap'
+                                                    whiteSpace: 'normal'
                                                   }}>
-                                                    <div style={{ marginBottom: '0.25rem', fontWeight: 'bold' }}>
-                                                      Optimal Review Window ({item.learning_mode})
-                                                    </div>
                                                     {(() => {
                                                       const window = getOptimalReviewWindow(item.learning_mode)
+                                                      const recommendation = getModeRecommendation(item.learning_mode)
                                                       return (
                                                         <>
-                                                          <div>🟢 Perfect: {window.perfect}</div>
-                                                          <div>🟡 Early: {window.early}</div>
-                                                          <div>🔴 Late: {window.late}</div>
+                                                          <div style={{ marginBottom: '0.75rem' }}>
+                                                            <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '13px' }}>
+                                                              📊 Optimal Review Window ({item.learning_mode})
+                                                            </div>
+                                                            <div style={{ paddingLeft: '0.5rem' }}>
+                                                              <div><span style={{ color: '#22c55e', marginRight: '4px' }}>●</span> Perfect: {window.perfect}</div>
+                                                              <div><span style={{ color: '#eab308', marginRight: '4px' }}>●</span> Early: {window.early}</div>
+                                                              <div><span style={{ color: '#ef4444', marginRight: '4px' }}>●</span> Late: {window.late}</div>
+                                                            </div>
+                                                          </div>
+
+                                                          <div style={{ marginBottom: '0.75rem' }}>
+                                                            <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '13px' }}>
+                                                              📝 Ideal Chunk Size
+                                                            </div>
+                                                            <div style={{ paddingLeft: '0.5rem' }}>
+                                                              <div>{recommendation.chunkSize.min}-{recommendation.chunkSize.max} sentences per item</div>
+                                                              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                                                                {recommendation.chunkSize.description}
+                                                              </div>
+                                                            </div>
+                                                          </div>
+
+                                                          <div style={{ marginBottom: '0.75rem' }}>
+                                                            <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '13px' }}>
+                                                              ⏱️ Session Length
+                                                            </div>
+                                                            <div style={{ paddingLeft: '0.5rem' }}>
+                                                              <div>{recommendation.sessionLength.chunks} ({recommendation.sessionLength.minutes} min)</div>
+                                                              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                                                                {recommendation.sessionLength.description}
+                                                              </div>
+                                                            </div>
+                                                          </div>
+
+                                                          <div style={{ marginBottom: '0.5rem' }}>
+                                                            <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '13px' }}>
+                                                              ☕ Break Time
+                                                            </div>
+                                                            <div style={{ paddingLeft: '0.5rem' }}>
+                                                              <div>{recommendation.breakTime.duration} after {recommendation.breakTime.after} min</div>
+                                                              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                                                                {recommendation.breakTime.description}
+                                                              </div>
+                                                            </div>
+                                                          </div>
+
+                                                          <div style={{
+                                                            marginTop: '0.75rem',
+                                                            paddingTop: '0.75rem',
+                                                            borderTop: '1px solid var(--color-gray-200)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between'
+                                                          }}>
+                                                            <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Cognitive Load:</span>
+                                                            <span style={{
+                                                              fontSize: '11px',
+                                                              fontWeight: 'bold',
+                                                              color: recommendation.cognitiveLoad.color,
+                                                              padding: '0.125rem 0.5rem',
+                                                              backgroundColor: 'var(--color-gray-50)',
+                                                              borderRadius: 'var(--radius-sm)'
+                                                            }}>
+                                                              {recommendation.cognitiveLoad.level}
+                                                            </span>
+                                                          </div>
                                                         </>
                                                       )
                                                     })()}
@@ -1050,18 +1121,18 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                                       </div>
                                     )}
                                     {item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired && item.mastery_status === 'mastered' && (
-                                      <span className="body-small" style={{ color: 'var(--color-success)' }}>
-                                        ✓ Mastered
+                                      <span className="body-small" style={{ color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Check size={14} /> Mastered
                                       </span>
                                     )}
                                     {item.mastery_status === 'maintenance' && (
-                                      <span className="body-small" style={{ color: 'var(--color-info)' }}>
-                                        🔄 Maintenance
+                                      <span className="body-small" style={{ color: 'var(--color-info)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <RefreshCw size={14} /> Maintenance
                                       </span>
                                     )}
                                     {item.mastery_status === 'archived' && (
-                                      <span className="body-small" style={{ color: 'var(--color-gray-600)' }}>
-                                        📦 Archived
+                                      <span className="body-small" style={{ color: 'var(--color-gray-600)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Package size={14} /> Archived
                                       </span>
                                     )}
                                     <ReviewWindowIndicator item={item} />
@@ -1074,8 +1145,8 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                                 <>
                                   {item.mastery_status === 'archived' ? (
                                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                      <span className="body-small" style={{ color: 'var(--color-gray-600)' }}>
-                                        📦 Archived
+                                      <span className="body-small" style={{ color: 'var(--color-gray-600)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Package size={14} /> Archived
                                       </span>
                                       <Button
                                         variant="ghost"
@@ -1098,9 +1169,9 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                                     </Button>
                                   ) : (
                                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                      <span className="body-small" style={{ color: 'var(--color-success)' }}>
-                                        {item.mastery_status === 'mastered' ? '✓ Mastered' : 
-                                         item.mastery_status === 'maintenance' ? `🔄 ${formatNextReview(item.next_review_at || '')}` :
+                                      <span className="body-small" style={{ color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {item.mastery_status === 'mastered' ? (<><Check size={14} /> Mastered</>) : 
+                                         item.mastery_status === 'maintenance' ? (<><RefreshCw size={14} /> {formatNextReview(item.next_review_at || '')}</>) :
                                          formatNextReview(item.next_review_at || '')}
                                       </span>
                                       {item.mastery_status === 'mastered' && (
@@ -1108,9 +1179,9 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                                           variant="ghost"
                                           size="small"
                                           onClick={() => setMasteryDialogItem(item)}
-                                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                                          style={{ padding: '0.25rem 0.5rem' }}
                                         >
-                                          ⚙️
+                                          <Settings size={14} />
                                         </Button>
                                       )}
                                     </div>
@@ -1121,7 +1192,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                                     onClick={() => setDeleteItemConfirm({ open: true, item })}
                                     style={{ padding: '0.25rem 0.5rem' }}
                                   >
-                                    ×
+                                    <X size={16} />
                                   </Button>
                                 </>
                               )}

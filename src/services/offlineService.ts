@@ -79,7 +79,7 @@ export class OfflineService {
     if (!this.userId) throw new Error('User not authenticated')
     
     if (this.isElectron) {
-      return await window.electronAPI.database.topics.update(id, updates, this.userId)
+      return await window.electronAPI.database.topics.update(id, updates)
     } else {
       const { data, error } = await supabase
         .from('topics')
@@ -98,7 +98,7 @@ export class OfflineService {
     if (!this.userId) throw new Error('User not authenticated')
     
     if (this.isElectron) {
-      await window.electronAPI.database.topics.delete(id, this.userId)
+      await window.electronAPI.database.topics.delete(id)
     } else {
       const { error } = await supabase
         .from('topics')

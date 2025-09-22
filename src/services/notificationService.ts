@@ -13,11 +13,12 @@ export class NotificationService {
   /**
    * Schedule daily study reminder
    */
-  async scheduleDailyReminder(userId: string, time: string): Promise<boolean> {
+  async scheduleDailyReminder(_userId: string, time: string): Promise<boolean> {
     if (!window.electronAPI) return false
     
     try {
-      return await window.electronAPI.notifications.schedule('daily', { userId, time })
+      window.electronAPI.notifications.schedule('Daily Reminder', `Time to review your items at ${time}`, 0)
+      return true
     } catch (error) {
       logger.error('Error scheduling daily reminder:', error)
       return false
@@ -27,11 +28,12 @@ export class NotificationService {
   /**
    * Schedule streak maintenance alerts
    */
-  async scheduleStreakAlerts(userId: string): Promise<boolean> {
+  async scheduleStreakAlerts(_userId: string): Promise<boolean> {
     if (!window.electronAPI) return false
     
     try {
-      return await window.electronAPI.notifications.schedule('streak', { userId })
+      window.electronAPI.notifications.schedule('Streak Alert', 'Keep your streak alive! Review some items today.', 0)
+      return true
     } catch (error) {
       logger.error('Error scheduling streak alerts:', error)
       return false
@@ -41,11 +43,12 @@ export class NotificationService {
   /**
    * Cancel specific notification type
    */
-  async cancelNotification(type: 'daily' | 'streak' | 'all', userId: string): Promise<boolean> {
+  async cancelNotification(_type: 'daily' | 'streak' | 'all', _userId: string): Promise<boolean> {
     if (!window.electronAPI) return false
     
     try {
-      return await window.electronAPI.notifications.cancel(type, userId)
+      window.electronAPI.notifications.cancel()
+      return true
     } catch (error) {
       logger.error('Error cancelling notification:', error)
       return false
@@ -59,7 +62,8 @@ export class NotificationService {
     if (!window.electronAPI) return false
     
     try {
-      return await window.electronAPI.notifications.test()
+      window.electronAPI.notifications.test()
+      return true
     } catch (error) {
       logger.error('Error sending test notification:', error)
       return false

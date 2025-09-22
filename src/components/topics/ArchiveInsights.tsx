@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { dataService } from '../../services/dataService'
 import { logger } from '../../utils/logger'
+import { BarChart3, PartyPopper } from 'lucide-react'
 
 interface ArchiveInsightsProps {
   topicId: string
@@ -92,7 +93,7 @@ export function ArchiveInsights({ topicId, createdAt, archiveDate }: ArchiveInsi
       border: '1px solid var(--color-gray-200)'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-        <span style={{ fontSize: '1.25rem' }}>📊</span>
+        <BarChart3 size={20} />
         <h4 className="body" style={{ fontWeight: '600' }}>Archive Insights</h4>
       </div>
         
@@ -142,7 +143,7 @@ export function ArchiveInsights({ topicId, createdAt, archiveDate }: ArchiveInsi
             borderRadius: 'var(--radius-sm)'
           }}>
             <p className="body-small" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>🎉</span>
+              <PartyPopper size={16} />
               <strong>Perfect mastery!</strong> You've mastered all items in this topic.
             </p>
           </div>

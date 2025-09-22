@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { GAMIFICATION_CONFIG } from '../../config/gamification'
 import type { LearningItem } from '../../types/database'
 import styles from './ReviewWindowIndicator.module.css'
+import { Target } from 'lucide-react'
 
 interface ReviewWindowIndicatorProps {
   item: LearningItem
@@ -31,7 +32,11 @@ export function ReviewWindowIndicator({ item, currentTime = new Date() }: Review
     if (Math.abs(hoursDiff) <= GAMIFICATION_CONFIG.FEATURES.timePressure.perfectWindow) {
       return { 
         type: 'perfect', 
-        label: 'Perfect Time! 🎯', 
+        label: (
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Perfect Time! <Target size={16} />
+          </span>
+        ), 
         color: 'success',
         multiplier: mode.pointsMultiplier.onTime
       }

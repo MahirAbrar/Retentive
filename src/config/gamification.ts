@@ -142,11 +142,11 @@ export const GAMIFICATION_CONFIG = {
     
     // Visual indicators at different stages
     stages: {
-      1: { emoji: "🌱", label: "New" },
-      2: { emoji: "🌿", label: "Growing" },
-      3: { emoji: "🌳", label: "Strong" },
-      4: { emoji: "🌲", label: "Mature" },
-      5: { emoji: "⭐", label: "Mastered" }
+      1: { emoji: "•", label: "New" },
+      2: { emoji: "••", label: "Growing" },
+      3: { emoji: "•••", label: "Strong" },
+      4: { emoji: "••••", label: "Mature" },
+      5: { emoji: "•••••", label: "Mastered" }
     }
   },
   
@@ -301,16 +301,16 @@ export const GAMIFICATION_CONFIG = {
   // ========== MOTIVATIONAL MESSAGES ==========
   MESSAGES: {
     reviewComplete: [
-      "Great job! 🎉",
-      "Keep it up! 💪",
-      "Excellent! ⭐",
-      "You're on fire! 🔥"
+      "Great job!",
+      "Keep it up!",
+      "Excellent!",
+      "You're on fire!"
     ],
     
     perfectTiming: [
-      "Perfect timing! ⏰",
-      "Right on schedule! 🎯",
-      "Precision! 🎪"
+      "Perfect timing!",
+      "Right on schedule!",
+      "Precision!"
     ],
     
     streakContinue: [

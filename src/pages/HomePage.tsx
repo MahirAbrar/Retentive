@@ -4,6 +4,8 @@ import { Button, Card, CardHeader, CardContent, Badge, Skeleton } from '../compo
 import { useAuth } from '../hooks/useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
 import type { Priority } from '../types/database'
+import { BookOpen, Trophy, Target, Brain, HardDrive, Clock, Zap, GraduationCap, FlaskConical, Info, Timer, Activity, BrainCircuit } from 'lucide-react'
+import { LEARNING_MODE_EXAMPLES, getModeRecommendation } from '../utils/learningScience'
 
 // Lazy load heavy component for better initial load performance
 const GamificationDashboard = lazy(() => 
@@ -361,31 +363,46 @@ export function HomePage() {
               <div style={{ display: 'grid', gap: '2rem' }}>
                 {/* Why Use Retentive */}
                 <section>
-                  <h3 className="h4" style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>🎯 Why Use Retentive?</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <Target size={20} color="var(--color-primary)" />
+                    <h3 className="h4" style={{ color: 'var(--color-primary)' }}>Why Use Retentive?</h3>
+                  </div>
                   <div style={{ display: 'grid', gap: '1rem' }}>
                     <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
-                      <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>📚 Scientifically Proven Learning</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <BookOpen size={16} />
+                        <h4 className="body" style={{ fontWeight: '600' }}>Scientifically Proven Learning</h4>
+                      </div>
                       <p className="body-small text-secondary">
                         Retentive uses spaced repetition, a learning technique proven to increase retention by up to 200%. 
                         Instead of cramming, you review information at optimal intervals just before you're about to forget it.
                       </p>
                     </div>
                     <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
-                      <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>🧠 Multiple Learning Modes</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <Brain size={16} />
+                        <h4 className="body" style={{ fontWeight: '600' }}>Multiple Learning Modes</h4>
+                      </div>
                       <p className="body-small text-secondary">
                         Choose from Ultra-Cram (30 minutes), Standard Cram (4 hours), Extended Cram (1 day), or Steady mode (gradual learning). 
                         Each mode is optimized for different learning scenarios and time constraints.
                       </p>
                     </div>
                     <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
-                      <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>🏆 Gamification & Progress Tracking</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <Trophy size={16} />
+                        <h4 className="body" style={{ fontWeight: '600' }}>Gamification & Progress Tracking</h4>
+                      </div>
                       <p className="body-small text-secondary">
                         Earn achievements, maintain streaks, and track your mastery progress. 
                         Turn learning into an engaging experience with rewards and visual progress indicators.
                       </p>
                     </div>
                     <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
-                      <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>💾 Works Offline</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <HardDrive size={16} />
+                        <h4 className="body" style={{ fontWeight: '600' }}>Works Offline</h4>
+                      </div>
                       <p className="body-small text-secondary">
                         Study anywhere, anytime. Your data syncs automatically when you're back online. 
                         Perfect for commutes, flights, or anywhere without reliable internet.
@@ -475,6 +492,242 @@ export function HomePage() {
                       <p className="body-small">
                         <strong>Use Priorities:</strong> Set higher priorities (1-5) for important items to review them more frequently.
                       </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Learning Science Sections */}
+                <section style={{ marginTop: '3rem' }}>
+                  <h3 className="h3" style={{ marginBottom: '2rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <FlaskConical size={24} />
+                    The Science of Learning Modes
+                  </h3>
+                  <p className="body" style={{ marginBottom: '2rem', color: 'var(--color-text-secondary)' }}>
+                    Understanding the cognitive research behind our spaced repetition system
+                  </p>
+
+                  <div style={{ display: 'grid', gap: '1.5rem' }}>
+                    {/* Ultra-Cram Mode */}
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-200)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <Zap size={20} color="var(--color-error)" />
+                        <h4 className="h4" style={{ color: 'var(--color-error)' }}>Ultra-Cram Mode</h4>
+                      </div>
+                      <p className="body" style={{ marginBottom: '1rem' }}>
+                        {LEARNING_MODE_EXAMPLES.ultracram.description}
+                      </p>
+                      <p className="body-small" style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
+                        <strong>Example:</strong> {LEARNING_MODE_EXAMPLES.ultracram.example}
+                      </p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {LEARNING_MODE_EXAMPLES.ultracram.idealFor.map((use, i) => (
+                          <span key={i} className="caption" style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: 'var(--color-error-light)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--color-error)'
+                          }}>
+                            {use}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Cram Mode */}
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-200)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <Clock size={20} color="var(--color-warning)" />
+                        <h4 className="h4" style={{ color: 'var(--color-warning)' }}>Cram Mode</h4>
+                      </div>
+                      <p className="body" style={{ marginBottom: '1rem' }}>
+                        {LEARNING_MODE_EXAMPLES.cram.description}
+                      </p>
+                      <p className="body-small" style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
+                        <strong>Example:</strong> {LEARNING_MODE_EXAMPLES.cram.example}
+                      </p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {LEARNING_MODE_EXAMPLES.cram.idealFor.map((use, i) => (
+                          <span key={i} className="caption" style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: 'var(--color-warning-light)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--color-warning)'
+                          }}>
+                            {use}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Steady Mode */}
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-200)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <Target size={20} color="var(--color-success)" />
+                        <h4 className="h4" style={{ color: 'var(--color-success)' }}>Steady Mode</h4>
+                      </div>
+                      <p className="body" style={{ marginBottom: '1rem' }}>
+                        {LEARNING_MODE_EXAMPLES.steady.description}
+                      </p>
+                      <p className="body-small" style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
+                        <strong>Example:</strong> {LEARNING_MODE_EXAMPLES.steady.example}
+                      </p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {LEARNING_MODE_EXAMPLES.steady.idealFor.map((use, i) => (
+                          <span key={i} className="caption" style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: 'var(--color-success-light)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--color-success)'
+                          }}>
+                            {use}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Extended Mode */}
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-200)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <GraduationCap size={20} color="var(--color-info)" />
+                        <h4 className="h4" style={{ color: 'var(--color-info)' }}>Extended Mode</h4>
+                      </div>
+                      <p className="body" style={{ marginBottom: '1rem' }}>
+                        {LEARNING_MODE_EXAMPLES.extended.description}
+                      </p>
+                      <p className="body-small" style={{ color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>
+                        <strong>Example:</strong> {LEARNING_MODE_EXAMPLES.extended.example}
+                      </p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {LEARNING_MODE_EXAMPLES.extended.idealFor.map((use, i) => (
+                          <span key={i} className="caption" style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: 'var(--color-info-light)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--color-info)'
+                          }}>
+                            {use}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Science Behind Content Recommendations */}
+                <section style={{ marginTop: '3rem' }}>
+                  <h3 className="h3" style={{ marginBottom: '2rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <BrainCircuit size={24} />
+                    The Science Behind Our Content Recommendations
+                  </h3>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="h4" style={{ marginBottom: '0.75rem', color: 'var(--color-primary)' }}>Cognitive Processing Limits</h4>
+                      <p className="body-small" style={{ color: 'var(--color-text-secondary)' }}>
+                        Research shows we can only actively process 3-5 meaningful units at once. Each sentence contains 1-2 key ideas, so 4-8 sentences hits the sweet spot of our working memory's processing capacity.
+                      </p>
+                    </div>
+
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="h4" style={{ marginBottom: '0.75rem', color: 'var(--color-primary)' }}>The 20-Second Rule</h4>
+                      <p className="body-small" style={{ color: 'var(--color-text-secondary)' }}>
+                        Most people can read and process 4-8 sentences in about 20-30 seconds, which aligns with working memory's time limits before information starts degrading without rehearsal.
+                      </p>
+                    </div>
+
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="h4" style={{ marginBottom: '0.75rem', color: 'var(--color-primary)' }}>Rapid Review Optimization</h4>
+                      <p className="body-small" style={{ color: 'var(--color-text-secondary)' }}>
+                        Ultra-Cram and Cram modes use shorter chunks (4-6 sentences) to prevent cognitive overload during frequent reviews. When seeing material multiple times per day, each exposure must be digestible.
+                      </p>
+                    </div>
+
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="h4" style={{ marginBottom: '0.75rem', color: 'var(--color-primary)' }}>Long-Term Retention</h4>
+                      <p className="body-small" style={{ color: 'var(--color-text-secondary)' }}>
+                        Steady mode's 5-8 sentence range matches research on optimal chunk sizes for long-term retention. Extended mode allows 7-10 sentences with more context, as longer gaps between reviews allow deeper processing.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Why Study Session Limits Matter */}
+                <section style={{ marginTop: '3rem' }}>
+                  <h3 className="h3" style={{ marginBottom: '2rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Timer size={24} />
+                    Why Study Session Limits Matter
+                  </h3>
+
+                  <div style={{ display: 'grid', gap: '2rem' }}>
+                    {/* The 30-Minute Wall */}
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-warning-light)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="h4" style={{ marginBottom: '0.75rem' }}>The 30-Minute Wall</h4>
+                      <p className="body" style={{ marginBottom: '0.5rem' }}>
+                        Research consistently shows cognitive performance degrades sharply after 25-30 minutes of focused learning. Your encoding efficiency drops by about 40% after this point.
+                      </p>
+                    </div>
+
+                    {/* Working Memory Saturation */}
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-info-light)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="h4" style={{ marginBottom: '0.75rem' }}>Working Memory Saturation</h4>
+                      <p className="body" style={{ marginBottom: '0.5rem' }}>
+                        Your brain can actively process 4±1 chunks simultaneously. Once you hit 5-6 chunks, earlier material starts getting pushed out before it's properly encoded to long-term memory.
+                      </p>
+                    </div>
+
+                    {/* The Spacing Paradox */}
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-success-light)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 className="h4" style={{ marginBottom: '0.75rem' }}>The Spacing Paradox</h4>
+                      <p className="body" style={{ marginBottom: '0.5rem' }}>
+                        Three focused 20-minute sessions outperform one exhausting 60-minute marathon by about 74% for long-term retention. Less is literally more when spaced properly.
+                      </p>
+                    </div>
+
+                    {/* Mode-Specific Session Design */}
+                    <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-200)' }}>
+                      <h4 className="h4" style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Mode-Specific Session Design</h4>
+
+                      <div style={{ display: 'grid', gap: '1rem' }}>
+                        <div style={{ padding: '0.75rem', backgroundColor: 'white', borderRadius: 'var(--radius-sm)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-error)' }}></span>
+                            <strong className="body-small">Ultra-Cram/Cram:</strong>
+                          </div>
+                          <p className="body-small" style={{ color: 'var(--color-text-secondary)' }}>
+                            Shorter sessions (3-4 chunks) since you'll have multiple reviews per day. Prevents burnout while maintaining high frequency.
+                          </p>
+                        </div>
+
+                        <div style={{ padding: '0.75rem', backgroundColor: 'white', borderRadius: 'var(--radius-sm)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-success)' }}></span>
+                            <strong className="body-small">Steady:</strong>
+                          </div>
+                          <p className="body-small" style={{ color: 'var(--color-text-secondary)' }}>
+                            The optimal 4-6 chunks matches the research sweet spot for sustained daily practice without cognitive fatigue.
+                          </p>
+                        </div>
+
+                        <div style={{ padding: '0.75rem', backgroundColor: 'white', borderRadius: 'var(--radius-sm)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-info)' }}></span>
+                            <strong className="body-small">Extended:</strong>
+                          </div>
+                          <p className="body-small" style={{ color: 'var(--color-text-secondary)' }}>
+                            Can push to 5-7 chunks since you have days to consolidate between sessions, allowing for deeper processing.
+                          </p>
+                        </div>
+
+                        <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-gray-100)', borderRadius: 'var(--radius-sm)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <Activity size={16} />
+                            <strong className="body-small">Break Requirements:</strong>
+                          </div>
+                          <p className="body-small" style={{ color: 'var(--color-text-secondary)' }}>
+                            5-10 min breaks for sessions under 25 min, 10-15 min for 30+ min sessions. This resets working memory and prevents interference.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </section>

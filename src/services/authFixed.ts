@@ -193,7 +193,71 @@ export class AuthService {
           password,
         })
 
-        if (error) throw error
+        if (error) {
+          console.error('Supabase signup error:', error)
+          throw error
+        }
+        
+        // Log successful signup
+        if (data.user) {
+          console.log('User created successfully:', data.user.id)
+          
+          // Ensure user settings are created (fallback if trigger fails)
+          try {
+            // Call the ensure_user_settings function as a fallback
+            const { error: settingsError } = await supabase.rpc('ensure_user_settings', {
+              p_user_id: data.user.id
+            })
+            
+            if (settingsError) {
+              console.warn('Could not ensure user settings via RPC:', settingsError)
+              
+              // Try direct insert as last resort
+              const { error: insertError } = await supabase
+                .from('user_settings')
+                .insert({
+                  user_id: data.user.id,
+                  default_learning_mode: 'steady',
+                  daily_item_limit: 30,
+                  notification_enabled: true,
+                  is_paid: false,
+                  is_trial: true,
+                  has_used_trial: true,
+                  trial_started_at: new Date().toISOString(),
+                  subscription_status: 'trial'
+                })
+                .select()
+                .single()
+              
+              if (insertError && !insertError.message.includes('duplicate')) {
+                console.warn('Could not create user settings directly:', insertError)
+              }
+            }
+            
+            // Also try to create gamification stats
+            const { error: statsError } = await supabase
+              .from('user_gamification_stats')
+              .insert({
+                user_id: data.user.id,
+                total_points: 0,
+                current_level: 1,
+                current_streak: 0,
+                longest_streak: 0,
+                total_reviews: 0,
+                perfect_days: 0,
+                total_achievements: 0
+              })
+              .select()
+              .single()
+            
+            if (statsError && !statsError.message.includes('duplicate')) {
+              console.warn('Could not create gamification stats:', statsError)
+            }
+          } catch (fallbackError) {
+            // Log but don't fail the signup
+            console.warn('Fallback user settings creation failed:', fallbackError)
+          }
+        }
 
         return {
           user: data.user ? this.mapSupabaseUser(data.user) : null,

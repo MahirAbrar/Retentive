@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal, Button, Card, CardContent } from './ui'
 import type { LearningMode, MasteryStatus } from '../types/database'
+import { Archive, Clock, RotateCcw } from 'lucide-react'
 
 interface MasteryDialogProps {
   isOpen: boolean
@@ -49,7 +50,7 @@ export function MasteryDialog({
   const options = [
     {
       status: 'archived' as MasteryStatus,
-      icon: '📦',
+      icon: Archive,
       title: 'Archive',
       description: 'No more reviews. Perfect for completed exams or temporary knowledge.',
       action: 'Never review again',
@@ -57,7 +58,7 @@ export function MasteryDialog({
     },
     {
       status: 'maintenance' as MasteryStatus,
-      icon: '🔄',
+      icon: Clock,
       title: 'Maintain',
       description: 'Keep it fresh with occasional reviews at extended intervals.',
       action: `Review in ${maintenanceInterval} days`,
@@ -65,7 +66,7 @@ export function MasteryDialog({
     },
     {
       status: 'repeat' as MasteryStatus,
-      icon: '🔁',
+      icon: RotateCcw,
       title: 'Repeat',
       description: 'Start from the beginning. Great for refreshing important knowledge.',
       action: 'Reset and start over',
@@ -77,7 +78,7 @@ export function MasteryDialog({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="🎉 Mastered!"
+      title="✨ Mastered!"
       size="large"
     >
       <div style={{ display: 'grid', gap: '1.5rem' }}>
@@ -118,7 +119,10 @@ export function MasteryDialog({
               >
                 <CardContent>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '2rem' }}>{option.icon}</span>
+                    {(() => {
+                      const Icon = option.icon
+                      return <Icon size={32} color={option.color} />
+                    })()}
                     <div style={{ flex: 1 }}>
                       <h4 className="body" style={{ 
                         fontWeight: '600', 

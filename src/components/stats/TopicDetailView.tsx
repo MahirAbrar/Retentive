@@ -2,6 +2,7 @@ import { useState, useEffect, memo } from 'react'
 import { timingStatsService } from '../../services/timingStatsService'
 import { logger } from '../../utils/logger'
 import { Badge } from '../ui'
+import { TrendingUp, TrendingDown, ArrowRight } from 'lucide-react'
 
 interface ItemTimingStats {
   itemId: string
@@ -29,9 +30,9 @@ const ItemRow = memo(function ItemRow({ item }: { item: ItemTimingStats }) {
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case 'improving': return '📈'
-      case 'declining': return '📉'
-      default: return '➡️'
+      case 'improving': return TrendingUp
+      case 'declining': return TrendingDown
+      default: return ArrowRight
     }
   }
 
@@ -87,10 +88,15 @@ const ItemRow = memo(function ItemRow({ item }: { item: ItemTimingStats }) {
       </div>
 
       {/* Trend */}
-      <div style={{ fontSize: '1.25rem', minWidth: '30px', textAlign: 'center' }}>
-        <span title={`Trend: ${item.trend}`}>
-          {getTrendIcon(item.trend)}
-        </span>
+      <div style={{ minWidth: '30px', textAlign: 'center' }}>
+        {(() => {
+          const Icon = getTrendIcon(item.trend)
+          return (
+            <span title={`Trend: ${item.trend}`}>
+              <Icon size={20} color="var(--color-text-secondary)" />
+            </span>
+          )
+        })()}
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 {
   "name": "retentive-app",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A clean, Swiss design-inspired spaced repetition learning app",
   "author": "Your Name",
   "main": "dist-electron/main.js",
@@ -31,6 +31,7 @@
     "@supabase/supabase-js": "^2.52.1",
     "@types/node-schedule": "^2.1.8",
     "electron-store": "^10.1.0",
+    "lucide-react": "^0.543.0",
     "node-schedule": "^2.1.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

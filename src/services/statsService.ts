@@ -39,20 +39,31 @@ export async function getStudyStats(userId: string): Promise<Stats> {
     todayEnd.setHours(23, 59, 59, 999)
     
     try {
-    // Get overdue items (excluding new items with review_count = 0)
+    // Get active (non-archived) topic IDs first
+    const { data: activeTopics } = await supabase
+      .from('topics')
+      .select('id')
+      .eq('user_id', userId)
+      .neq('archive_status', 'archived')
+    
+    const activeTopicIds = activeTopics?.map(t => t.id) || []
+    
+    // Get overdue items (excluding new items with review_count = 0 and archived topics)
     const { count: overdue } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
+      .in('topic_id', activeTopicIds)
       .lt('next_review_at', now.toISOString())
       .not('next_review_at', 'is', null)
       .gt('review_count', 0)
 
-    // Get due today items (excluding new items with review_count = 0)
+    // Get due today items (excluding new items with review_count = 0 and archived topics)
     const { count: dueToday } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
+      .in('topic_id', activeTopicIds)
       .gte('next_review_at', now.toISOString())
       .lte('next_review_at', todayEnd.toISOString())
       .gt('review_count', 0)
@@ -65,14 +76,16 @@ export async function getStudyStats(userId: string): Promise<Stats> {
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
+      .in('topic_id', activeTopicIds)
       .gt('next_review_at', todayEnd.toISOString())
       .lte('next_review_at', weekFromNow.toISOString())
 
-    // Get mastered items based on gamification config
+    // Get mastered items based on gamification config (excluding archived topics)
     const { count: mastered } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
+      .in('topic_id', activeTopicIds)
       .gte('review_count', (await import('../config/gamification')).GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
 
       return {
@@ -108,22 +121,29 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
     const basicStats = await getStudyStats(userId)
     
     try {
-    // Get total items and topics
+    // Get total items (excluding archived topics)
+    // Get active (non-archived) topics for proper counts
+    const { data: activeTopicsForStats } = await supabase
+      .from('topics')
+      .select('id')
+      .eq('user_id', userId)
+      .neq('archive_status', 'archived')
+    
+    const activeTopicIdsForStats = activeTopicsForStats?.map(t => t.id) || []
+    const totalTopics = activeTopicsForStats?.length || 0
+    
     const { count: totalItems } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
+      .in('topic_id', activeTopicIdsForStats.length > 0 ? activeTopicIdsForStats : ['00000000-0000-0000-0000-000000000000'])
     
-    const { count: totalTopics } = await supabase
-      .from('topics')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-    
-    // Get priority breakdown with single query
+    // Get priority breakdown with single query (excluding archived topics)
     const { data: itemsWithTopics } = await supabase
       .from('learning_items')
-      .select('id, next_review_at, review_count, topics!inner(priority)')
+      .select('id, next_review_at, review_count, topics!inner(priority, archive_status)')
       .eq('user_id', userId)
+      .neq('topics.archive_status', 'archived')
     
     // Priority categories
     type PriorityCategory = 'critical' | 'high' | 'medium' | 'low'
@@ -218,11 +238,12 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       }
     }
     
-    // Get next due item with priority-based selection (excluding new items)
+    // Get next due item with priority-based selection (excluding new items and archived topics)
     const { data: dueItems } = await supabase
       .from('learning_items')
-      .select('*, topics!inner(priority)')
+      .select('*, topics!inner(priority, archive_status)')
       .eq('user_id', userId)
+      .neq('topics.archive_status', 'archived')
       .lte('next_review_at', now.toISOString())
       .gt('review_count', 0)
       .order('next_review_at', { ascending: true })
@@ -233,11 +254,12 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       // If items are due now or overdue, show as "Now"
       nextDueIn = "Now"
     } else {
-      // Get next upcoming item (excluding new items)
+      // Get next upcoming item (excluding new items and archived topics)
       const { data: upcomingItems } = await supabase
         .from('learning_items')
-        .select('next_review_at, priority, content, topics!inner(priority)')
+        .select('next_review_at, priority, content, topics!inner(priority, archive_status)')
         .eq('user_id', userId)
+        .neq('topics.archive_status', 'archived')
         .gt('next_review_at', now.toISOString())
         .gt('review_count', 0)
         .order('next_review_at', { ascending: true })
@@ -275,11 +297,12 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       }
     }
     
-    // Count new items (never reviewed - review_count = 0)
+    // Count new items (never reviewed - review_count = 0, excluding archived topics)
     const { count: newItemsCount, error: newItemsError } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
+      .in('topic_id', activeTopicIdsForStats.length > 0 ? activeTopicIdsForStats : ['00000000-0000-0000-0000-000000000000'])
       .eq('review_count', 0)
     
     if (newItemsError) {

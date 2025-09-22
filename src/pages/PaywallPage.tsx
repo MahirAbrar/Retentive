@@ -14,7 +14,6 @@ export function PaywallPage() {
   const { addToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [trialStatus, setTrialStatus] = useState<any>(null)
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly')
 
   useEffect(() => {
     if (!user) {
@@ -94,10 +93,6 @@ export function PaywallPage() {
     }
   }
 
-  const formatPrice = (plan: 'monthly' | 'yearly') => {
-    return subscriptionService.formatPrice(plan)
-  }
-
   return (
     <div className="paywall-page">
       <div className="paywall-container">
@@ -151,7 +146,7 @@ export function PaywallPage() {
           )}
 
           {/* Monthly Plan */}
-          <div className={`pricing-card ${selectedPlan === 'monthly' ? 'selected' : ''}`}>
+          <div className="pricing-card">
             <div className="card-header">
               <h3 className="card-title">Monthly</h3>
               <div className="price">
@@ -176,7 +171,7 @@ export function PaywallPage() {
           </div>
 
           {/* Yearly Plan */}
-          <div className={`pricing-card featured ${selectedPlan === 'yearly' ? 'selected' : ''}`}>
+          <div className="pricing-card featured">
             <div className="badge">BEST VALUE</div>
             <div className="card-header">
               <h3 className="card-title">Yearly</h3>

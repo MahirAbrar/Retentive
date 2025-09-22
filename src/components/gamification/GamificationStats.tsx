@@ -4,6 +4,7 @@ import { gamificationService } from '../../services/gamificationService'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { LevelProgress } from './LevelProgress'
 import { StreakIndicator } from './StreakIndicator'
+import { Gem } from 'lucide-react'
 import styles from './GamificationStats.module.css'
 
 export const GamificationStats = memo(function GamificationStats() {
@@ -69,7 +70,9 @@ export const GamificationStats = memo(function GamificationStats() {
       <div className={styles.separator} />
       
       <div className={styles.points}>
-        <span className={styles.pointsIcon}>💎</span>
+        <span className={styles.pointsIcon}>
+          <Gem size={16} />
+        </span>
         <span className={styles.pointsText}>{stats.totalPoints.toLocaleString()}</span>
       </div>
       

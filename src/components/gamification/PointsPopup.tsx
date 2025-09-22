@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import styles from './PointsPopup.module.css'
+import { Sparkles } from 'lucide-react'
 
 interface PointsPopupProps {
   points: number
@@ -28,9 +29,9 @@ export function PointsPopup({ points, message, isPerfect = false, onComplete }: 
       {message && <div className={styles.message}>{message}</div>}
       {isPerfect && (
         <div className={styles.particles}>
-          <span className={styles.particle}>✨</span>
-          <span className={styles.particle}>⭐</span>
-          <span className={styles.particle}>🌟</span>
+          <Sparkles className={styles.particle} size={16} />
+          <Sparkles className={styles.particle} size={20} />
+          <Sparkles className={styles.particle} size={16} />
         </div>
       )}
     </div>

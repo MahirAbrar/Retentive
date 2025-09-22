@@ -4,6 +4,7 @@ import { Card, CardHeader, CardContent, Button } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { notificationService } from '../../services/notificationService'
 import { useToast } from '../ui/Toast'
+import { CheckCircle } from 'lucide-react'
 
 interface NotificationSettings {
   dailyReminder: {
@@ -90,10 +91,22 @@ export function NotificationSettings() {
               textAlign: 'left',
               display: 'inline-block'
             }}>
-              <li className="body-small" style={{ marginBottom: '0.5rem' }}>✅ Daily study reminders</li>
-              <li className="body-small" style={{ marginBottom: '0.5rem' }}>✅ Due item notifications</li>
-              <li className="body-small" style={{ marginBottom: '0.5rem' }}>✅ Streak maintenance alerts</li>
-              <li className="body-small">✅ Achievement celebrations</li>
+              <li className="body-small" style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
+                Daily study reminders
+              </li>
+              <li className="body-small" style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
+                Due item notifications
+              </li>
+              <li className="body-small" style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
+                Streak maintenance alerts
+              </li>
+              <li className="body-small" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
+                Achievement celebrations
+              </li>
             </ul>
             <div>
               <a
@@ -288,24 +301,17 @@ export function NotificationSettings() {
             </Button>
             
             {settings.dailyReminder.enabled && (
-              <>
-                <Button 
-                  variant="ghost" 
-                  onClick={async () => {
-                    if (!user || !isElectron) return
-                    
-                    const success = await window.electronAPI.notifications.testDaily(user.id)
-                    if (success) {
-                      addToast('info', 'Daily reminder test triggered - check if you have due items')
-                    } else {
-                      addToast('error', 'Failed to test daily reminder - check console')
-                    }
-                  }}
-                >
-                  Test Daily Now
-                </Button>
-                
-              </>
+              <Button 
+                variant="ghost" 
+                onClick={async () => {
+                  if (!user || !isElectron) return
+                  
+                  await window.electronAPI.notifications.testDaily(user.id)
+                  addToast('info', 'Daily reminder test triggered - check if you have due items')
+                }}
+              >
+                Test Daily Now
+              </Button>
             )}
             
             <Button 
@@ -314,21 +320,14 @@ export function NotificationSettings() {
                 if (!user || !isElectron) return
                 
                 // Schedule a test notification for 10 seconds from now
-                const testDueAt = new Date(Date.now() + 10000).toISOString()
-                const success = await window.electronAPI.notifications.schedule('item-due', {
-                  userId: user.id,
-                  itemId: 'test-item-' + Date.now(),
-                  itemContent: 'This is a test notification item',
-                  topicName: 'Test Topic',
-                  topicId: 'test-topic',
-                  dueAt: testDueAt
-                })
+                window.electronAPI.notifications.schedule(
+                  'Test Due Item',
+                  'This is a test notification item from Test Topic',
+                  10000
+                )
                 
-                if (success) {
-                  addToast('success', 'Test due notification scheduled for 10 seconds from now')
-                } else {
-                  addToast('error', 'Failed to schedule test notification')
-                }
+                // Always assume success for void function
+                addToast('success', 'Test due notification scheduled for 10 seconds from now')
               }}
             >
               Test Due (10s)

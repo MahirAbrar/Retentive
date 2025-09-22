@@ -204,6 +204,11 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  // Handle open-external IPC
+  ipcMain.on('open-external', (event, url) => {
+    shell.openExternal(url);
+  });
+
   // Handle window close - hide instead of quit
   mainWindow.on('close', (event) => {
     if (!isQuitting) {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 
 export function OfflineDisclaimer() {
@@ -74,7 +75,7 @@ export function OfflineDisclaimer() {
           onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
           title="Dismiss"
         >
-          ×
+          <X size={20} />
         </button>
       </div>
     </>

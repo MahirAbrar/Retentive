@@ -1,22 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, CardHeader, CardContent, Button, useToast } from '../ui'
+import { Card, CardHeader, CardContent, Button } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { subscriptionService } from '../../services/subscriptionService'
 import { trialService } from '../../services/trialService'
 import { logger } from '../../utils/logger'
 import type { SubscriptionStatus as SubStatus } from '../../services/subscriptionService'
 import type { TrialStatus } from '../../services/trialService'
+import { AlertTriangle } from 'lucide-react'
 import './SubscriptionStatus.css'
 
 export function SubscriptionStatus() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { addToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubStatus | null>(null)
   const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null)
-  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     logger.info('SubscriptionStatus component mounted, user:', user?.id)
@@ -49,30 +48,6 @@ export function SubscriptionStatus() {
     navigate('/paywall')
   }
 
-  const handleCancelSubscription = async () => {
-    if (!user || !subscriptionStatus?.isPaid) return
-
-    if (!confirm('Are you sure you want to cancel your subscription? You will lose access at the end of your billing period.')) {
-      return
-    }
-
-    setCancelling(true)
-    try {
-      const result = await subscriptionService.cancelSubscription(user.id)
-      
-      if (result.success) {
-        addToast('success', 'Subscription cancelled. You will retain access until the end of your billing period.')
-        await loadStatus() // Reload status
-      } else {
-        addToast('error', result.error || 'Failed to cancel subscription')
-      }
-    } catch (error) {
-      logger.error('Error cancelling subscription:', error)
-      addToast('error', 'Failed to cancel subscription')
-    } finally {
-      setCancelling(false)
-    }
-  }
 
   const formatDate = (date: Date | null) => {
     if (!date) return 'N/A'
@@ -213,7 +188,8 @@ export function SubscriptionStatus() {
                 </div>
                 {trialStatus.daysRemaining <= 5 && (
                   <div className="trial-warning">
-                    ⚠️ Your trial is expiring soon! Only {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'day' : 'days'} left. Upgrade now to keep full access.
+                    <AlertTriangle size={16} style={{ display: 'inline', marginRight: '4px' }} />
+                    Your trial is expiring soon! Only {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'day' : 'days'} left. Upgrade now to keep full access.
                   </div>
                 )}
               </>
@@ -244,21 +220,12 @@ export function SubscriptionStatus() {
             )}
 
             {subscriptionStatus?.isPaid && subscriptionStatus.status !== 'cancelled' && (
-              <>
-                <Button
-                  className="btn btn-secondary"
-                  onClick={handleUpgrade}
-                >
-                  Change Plan
-                </Button>
-                <Button
-                  className="btn btn-ghost"
-                  onClick={handleCancelSubscription}
-                  disabled={cancelling}
-                >
-                  {cancelling ? 'Cancelling...' : 'Cancel Subscription'}
-                </Button>
-              </>
+              <Button
+                className="btn btn-secondary"
+                onClick={handleUpgrade}
+              >
+                Manage Subscription
+              </Button>
             )}
 
             {subscriptionStatus?.status === 'cancelled' && (

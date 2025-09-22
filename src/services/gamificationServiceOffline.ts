@@ -393,14 +393,14 @@ export class GamificationService {
     if (!this.userId) return false
     
     const achievements = await offlineService.getAchievements()
-    return achievements.some(a => a.achievement_id === achievementId)
+    return achievements.some((a: any) => a.achievement_id === achievementId)
   }
 
   async getAchievements(): Promise<Achievement[]> {
     if (!this.userId) return []
     
     const unlockedAchievements = await offlineService.getAchievements()
-    const unlockedIds = new Set(unlockedAchievements.map(a => a.achievement_id))
+    const unlockedIds = new Set(unlockedAchievements.map((a: any) => a.achievement_id))
     
     return Object.entries(GAMIFICATION_CONFIG.ACHIEVEMENTS).map(([id, config]) => ({
       id,
@@ -408,7 +408,7 @@ export class GamificationService {
       description: config.description,
       points: config.points,
       unlocked: unlockedIds.has(id),
-      unlockedAt: unlockedAchievements.find(a => a.achievement_id === id)?.unlocked_at
+      unlockedAt: unlockedAchievements.find((a: any) => a.achievement_id === id)?.unlocked_at
     }))
   }
 
