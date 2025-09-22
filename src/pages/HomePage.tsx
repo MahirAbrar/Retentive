@@ -4,8 +4,8 @@ import { Button, Card, CardHeader, CardContent, Badge, Skeleton } from '../compo
 import { useAuth } from '../hooks/useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
 import type { Priority } from '../types/database'
-import { BookOpen, Trophy, Target, Brain, HardDrive, Clock, Zap, GraduationCap, FlaskConical, Info, Timer, Activity, BrainCircuit } from 'lucide-react'
-import { LEARNING_MODE_EXAMPLES, getModeRecommendation } from '../utils/learningScience'
+import { Target, Clock, Zap, GraduationCap, FlaskConical, Timer, Activity, BrainCircuit } from 'lucide-react'
+import { LEARNING_MODE_EXAMPLES } from '../utils/learningScience'
 
 // Lazy load heavy component for better initial load performance
 const GamificationDashboard = lazy(() => 

@@ -16,7 +16,7 @@ export function HeaderFixed() {
       position: 'sticky',
       top: 0,
       zIndex: 'var(--z-sticky)',
-      WebkitAppRegion: 'drag' as any,
+      WebkitAppRegion: 'drag',
       userSelect: 'none'
     }}>
       <div style={{
@@ -28,12 +28,12 @@ export function HeaderFixed() {
         alignItems: 'center'
       }}>
         <nav style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}>
-          <Link to="/" style={{ textDecoration: 'none', WebkitAppRegion: 'no-drag' as any }}>
+          <Link to="/" style={{ textDecoration: 'none', WebkitAppRegion: 'no-drag' }}>
             <h1 className="h4" style={{ margin: 0 }}>Retentive</h1>
           </Link>
 
           {user && (
-            <div style={{ display: 'flex', gap: 'var(--space-4)', WebkitAppRegion: 'no-drag' as any }}>
+            <div style={{ display: 'flex', gap: 'var(--space-4)', WebkitAppRegion: 'no-drag' }}>
               <Link 
                 to="/topics" 
                 style={{ 
@@ -65,7 +65,7 @@ export function HeaderFixed() {
           )}
         </nav>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', WebkitAppRegion: 'no-drag' as any }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', WebkitAppRegion: 'no-drag' }}>
           {user ? (
             <>
               <GamificationStats />
