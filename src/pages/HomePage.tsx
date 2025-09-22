@@ -359,142 +359,8 @@ export function HomePage() {
             </div>
           </CardHeader>
           <CardContent>
-            {isGuideExpanded ? (
+            {isGuideExpanded && (
               <div style={{ display: 'grid', gap: '2rem' }}>
-                {/* Why Use Retentive */}
-                <section>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                    <Target size={20} color="var(--color-primary)" />
-                    <h3 className="h4" style={{ color: 'var(--color-primary)' }}>Why Use Retentive?</h3>
-                  </div>
-                  <div style={{ display: 'grid', gap: '1rem' }}>
-                    <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <BookOpen size={16} />
-                        <h4 className="body" style={{ fontWeight: '600' }}>Scientifically Proven Learning</h4>
-                      </div>
-                      <p className="body-small text-secondary">
-                        Retentive uses spaced repetition, a learning technique proven to increase retention by up to 200%. 
-                        Instead of cramming, you review information at optimal intervals just before you're about to forget it.
-                      </p>
-                    </div>
-                    <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <Brain size={16} />
-                        <h4 className="body" style={{ fontWeight: '600' }}>Multiple Learning Modes</h4>
-                      </div>
-                      <p className="body-small text-secondary">
-                        Choose from Ultra-Cram (30 minutes), Standard Cram (4 hours), Extended Cram (1 day), or Steady mode (gradual learning). 
-                        Each mode is optimized for different learning scenarios and time constraints.
-                      </p>
-                    </div>
-                    <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <Trophy size={16} />
-                        <h4 className="body" style={{ fontWeight: '600' }}>Gamification & Progress Tracking</h4>
-                      </div>
-                      <p className="body-small text-secondary">
-                        Earn achievements, maintain streaks, and track your mastery progress. 
-                        Turn learning into an engaging experience with rewards and visual progress indicators.
-                      </p>
-                    </div>
-                    <div style={{ padding: '1rem', backgroundColor: 'var(--color-gray-50)', borderRadius: 'var(--radius-md)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <HardDrive size={16} />
-                        <h4 className="body" style={{ fontWeight: '600' }}>Works Offline</h4>
-                      </div>
-                      <p className="body-small text-secondary">
-                        Study anywhere, anytime. Your data syncs automatically when you're back online. 
-                        Perfect for commutes, flights, or anywhere without reliable internet.
-                      </p>
-                    </div>
-                  </div>
-                </section>
-
-                {/* How to Use */}
-                <section>
-                  <h3 className="h4" style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>📖 How to Use Retentive</h3>
-                  <div style={{ display: 'grid', gap: '1rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>1</span>
-                      <div>
-                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Create Topics</h4>
-                        <p className="body-small text-secondary">
-                          Organize your learning by creating topics (e.g., "Spanish Vocabulary", "Medical Terms", "History Facts").
-                        </p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>2</span>
-                      <div>
-                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Add Subtopics</h4>
-                        <p className="body-small text-secondary">
-                          Break down topics into specific items to learn (e.g., individual words, concepts, or facts).
-                        </p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>3</span>
-                      <div>
-                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Choose Your Learning Mode</h4>
-                        <p className="body-small text-secondary">
-                          Select between different modes based on your timeline:
-                        </p>
-                        <ul className="body-small text-secondary" style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-                          <li><strong>Ultra-Cram:</strong> Quick review (30 min intervals)</li>
-                          <li><strong>Standard Cram:</strong> Exam prep (4 hour intervals)</li>
-                          <li><strong>Extended Cram:</strong> Intensive study (1 day intervals)</li>
-                          <li><strong>Steady:</strong> Long-term retention (gradually increasing intervals)</li>
-                        </ul>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>4</span>
-                      <div>
-                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Review When Due</h4>
-                        <p className="body-small text-secondary">
-                          Items appear for review at scientifically optimal intervals. Rate your recall (Again/Hard/Good/Easy) to adjust future scheduling.
-                        </p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                      <span className="h3" style={{ color: 'var(--color-primary)', minWidth: '2rem' }}>5</span>
-                      <div>
-                        <h4 className="body" style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Master Your Knowledge</h4>
-                        <p className="body-small text-secondary">
-                          After 5 successful reviews, items are marked as "mastered" and won't appear again unless you reset them.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Best Practices */}
-                <section>
-                  <h3 className="h4" style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>💡 Best Practices</h3>
-                  <div style={{ display: 'grid', gap: '0.75rem' }}>
-                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-success-light)', borderRadius: 'var(--radius-sm)' }}>
-                      <p className="body-small">
-                        <strong>Daily Reviews:</strong> Spend 10-15 minutes daily reviewing due items for best retention.
-                      </p>
-                    </div>
-                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-info-light)', borderRadius: 'var(--radius-sm)' }}>
-                      <p className="body-small">
-                        <strong>Be Honest:</strong> Rate your recall honestly - it helps the algorithm optimize your learning.
-                      </p>
-                    </div>
-                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-warning-light)', borderRadius: 'var(--radius-sm)' }}>
-                      <p className="body-small">
-                        <strong>Start Small:</strong> Begin with 5-10 items per topic and gradually increase as you build the habit.
-                      </p>
-                    </div>
-                    <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-gray-100)', borderRadius: 'var(--radius-sm)' }}>
-                      <p className="body-small">
-                        <strong>Use Priorities:</strong> Set higher priorities (1-5) for important items to review them more frequently.
-                      </p>
-                    </div>
-                  </div>
-                </section>
 
                 {/* Learning Science Sections */}
                 <section style={{ marginTop: '3rem' }}>
@@ -766,7 +632,8 @@ export function HomePage() {
                   </div>
                 </div>
               </div>
-            ) : (
+            )}
+            {!isGuideExpanded && (
               // Collapsed view
               <div>
                 <p className="body" style={{ marginBottom: '1.5rem' }}>

@@ -185,24 +185,24 @@ export const LEARNING_MODE_EXAMPLES: Record<LearningMode, LearningModeExample> =
 }
 
 export function getModeRecommendation(mode: LearningMode): ModeRecommendation {
-  return LEARNING_MODE_RECOMMENDATIONS[mode]
+  return LEARNING_MODE_RECOMMENDATIONS[mode] || LEARNING_MODE_RECOMMENDATIONS['steady']
 }
 
 export function getModeExample(mode: LearningMode): LearningModeExample {
-  return LEARNING_MODE_EXAMPLES[mode]
+  return LEARNING_MODE_EXAMPLES[mode] || LEARNING_MODE_EXAMPLES['steady']
 }
 
 export function formatChunkRecommendation(mode: LearningMode): string {
-  const rec = LEARNING_MODE_RECOMMENDATIONS[mode]
+  const rec = LEARNING_MODE_RECOMMENDATIONS[mode] || LEARNING_MODE_RECOMMENDATIONS['steady']
   return `${rec.chunkSize.min}-${rec.chunkSize.max} sentences`
 }
 
 export function formatSessionRecommendation(mode: LearningMode): string {
-  const rec = LEARNING_MODE_RECOMMENDATIONS[mode]
+  const rec = LEARNING_MODE_RECOMMENDATIONS[mode] || LEARNING_MODE_RECOMMENDATIONS['steady']
   return `${rec.sessionLength.chunks} (${rec.sessionLength.minutes} min)`
 }
 
 export function formatBreakRecommendation(mode: LearningMode): string {
-  const rec = LEARNING_MODE_RECOMMENDATIONS[mode]
+  const rec = LEARNING_MODE_RECOMMENDATIONS[mode] || LEARNING_MODE_RECOMMENDATIONS['steady']
   return `${rec.breakTime.duration} after ${rec.breakTime.after} min`
 }

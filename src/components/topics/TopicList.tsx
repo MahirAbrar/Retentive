@@ -1038,13 +1038,14 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                                                     whiteSpace: 'normal'
                                                   }}>
                                                     {(() => {
-                                                      const window = getOptimalReviewWindow(item.learning_mode)
-                                                      const recommendation = getModeRecommendation(item.learning_mode)
+                                                      const mode = item.learning_mode || 'steady' // Default to steady if undefined
+                                                      const window = getOptimalReviewWindow(mode)
+                                                      const recommendation = getModeRecommendation(mode)
                                                       return (
                                                         <>
                                                           <div style={{ marginBottom: '0.75rem' }}>
                                                             <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '13px' }}>
-                                                              📊 Optimal Review Window ({item.learning_mode})
+                                                              📊 Optimal Review Window ({mode})
                                                             </div>
                                                             <div style={{ paddingLeft: '0.5rem' }}>
                                                               <div><span style={{ color: '#22c55e', marginRight: '4px' }}>●</span> Perfect: {window.perfect}</div>
