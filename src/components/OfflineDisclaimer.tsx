@@ -54,8 +54,8 @@ export function OfflineDisclaimer() {
           </div>
           
           <p className="body-small" style={{ margin: 0 }}>
-            You're currently offline. You can only access topics and items you've previously loaded. 
-            New data won't sync until you're back online.
+            You&rsquo;re currently offline. You can only access topics and items you&rsquo;ve previously loaded.
+            New data won&rsquo;t sync until you&rsquo;re back online.
           </p>
         </div>
         

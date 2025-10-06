@@ -32,7 +32,10 @@ export function useOptimizedStats(items: LearningItem[]) {
       if (!statusMap.has(status)) {
         statusMap.set(status, [])
       }
-      statusMap.get(status)!.push(item)
+      const statusArray = statusMap.get(status)
+      if (statusArray) {
+        statusArray.push(item)
+      }
     })
     
     return statusMap

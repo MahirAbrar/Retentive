@@ -267,12 +267,15 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       
       if (upcomingItems && upcomingItems.length > 0) {
         // Group items due within 1 hour of the first item
-        const firstDueTime = new Date(upcomingItems[0].next_review_at!)
+        const firstNextReview = upcomingItems[0].next_review_at
+        if (firstNextReview) {
+        const firstDueTime = new Date(firstNextReview)
         const oneHourLater = new Date(firstDueTime.getTime() + 60 * 60 * 1000)
-        
-        const itemsWithinHour = upcomingItems.filter(item => 
-          new Date(item.next_review_at!) <= oneHourLater
-        )
+
+        const itemsWithinHour = upcomingItems.filter(item => {
+          if (!item.next_review_at) return false
+          return new Date(item.next_review_at) <= oneHourLater
+        })
         
         // Sort by priority (highest first), then alphabetically
         const selectedItem = itemsWithinHour.sort((a: any, b: any) => {
@@ -280,9 +283,10 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
           if (priorityDiff !== 0) return priorityDiff
           return a.content.localeCompare(b.content)
         })[0]
-        
+
         // Calculate time until due
-        const timeDiff = new Date(selectedItem.next_review_at!).getTime() - now.getTime()
+        if (selectedItem.next_review_at) {
+        const timeDiff = new Date(selectedItem.next_review_at).getTime() - now.getTime()
         const minutes = Math.floor(timeDiff / (1000 * 60))
         const hours = Math.floor(minutes / 60)
         const days = Math.floor(hours / 24)
@@ -294,6 +298,8 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
         } else {
           nextDueIn = `${days} day${days !== 1 ? 's' : ''}`
         }
+        }
+      }
       }
     }
     

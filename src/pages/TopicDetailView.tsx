@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Button, Card, CardContent, useToast, Pagination, PaginationInfo } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
@@ -16,30 +16,8 @@ export function TopicDetailView() {
   const [topic, setTopic] = useState<Topic | null>(null)
   const [items, setItems] = useState<LearningItem[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Pagination
-  const {
-    currentPage,
-    totalPages,
-    currentItems,
-    isFirstPage,
-    isLastPage,
-    nextPage,
-    previousPage,
-    goToPage,
-    setItemsPerPage,
-    itemsPerPage,
-    startIndex,
-    endIndex
-  } = usePagination(items, { itemsPerPage: 20 })
 
-  useEffect(() => {
-    if (topicId && user) {
-      loadTopicAndItems()
-    }
-  }, [topicId, user])
-
-  const loadTopicAndItems = async () => {
+  const loadTopicAndItems = useCallback(async () => {
     if (!topicId) return
     
     setLoading(true)
@@ -57,13 +35,35 @@ export function TopicDetailView() {
 
       setTopic(topicResponse.data)
       setItems(itemsResponse.data || [])
-    } catch (error) {
+    } catch (_error) {
       addToast('error', 'Failed to load topic')
       navigate('/topics')
     } finally {
       setLoading(false)
     }
-  }
+  }, [topicId, addToast, navigate])
+
+  useEffect(() => {
+    if (topicId && user) {
+      loadTopicAndItems()
+    }
+  }, [topicId, user, loadTopicAndItems])
+
+  // Pagination
+  const {
+    currentPage,
+    totalPages,
+    currentItems,
+    isFirstPage,
+    isLastPage,
+    nextPage,
+    previousPage,
+    goToPage,
+    setItemsPerPage,
+    itemsPerPage,
+    startIndex,
+    endIndex
+  } = usePagination<LearningItem>(items, { itemsPerPage: 20 })
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Not reviewed yet'

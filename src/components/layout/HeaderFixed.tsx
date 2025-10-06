@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Button } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { GamificationStats } from '../gamification/GamificationStats'
+import { FocusSessionIndicator } from '../focus/FocusSessionIndicator'
 
 export function HeaderFixed() {
   const { user, signOut } = useAuth()
@@ -68,6 +69,7 @@ export function HeaderFixed() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', WebkitAppRegion: 'no-drag' }}>
           {user ? (
             <>
+              <FocusSessionIndicator />
               <GamificationStats />
               <span className="body-small text-secondary">
                 {user.user_metadata?.display_name || user.email}

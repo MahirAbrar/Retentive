@@ -54,7 +54,7 @@ function App() {
     
     // Make clearAuthCache available globally for debugging
     if (typeof window !== 'undefined') {
-      (window as any).clearAuthCache = clearAuthCache
+      (window as Window & { clearAuthCache?: () => void }).clearAuthCache = clearAuthCache
     }
   }, [])
   

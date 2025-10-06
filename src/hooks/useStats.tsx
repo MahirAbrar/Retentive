@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger'
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from './useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
@@ -38,7 +38,7 @@ export function StatsProvider({ children }: { children: ReactNode }) {
   })
   const [loading, setLoading] = useState(true)
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     if (!user) {
       setLoading(false)
       return
@@ -53,11 +53,11 @@ export function StatsProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   useEffect(() => {
     fetchStats()
-  }, [user])
+  }, [fetchStats])
 
   const refresh = () => {
     if (user) {

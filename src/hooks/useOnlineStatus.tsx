@@ -58,7 +58,7 @@ export function useOnlineStatus() {
             lastSync: status.lastSync
           })
         }
-      } catch (error) {
+      } catch (_error) {
         // Silently ignore errors in browser mode
         console.debug('Sync status not available in browser mode')
       }

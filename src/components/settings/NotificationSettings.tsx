@@ -224,7 +224,7 @@ export function NotificationSettings() {
                   />
                 </label>
                 <p className="body-small text-secondary" style={{ marginTop: '0.25rem' }}>
-                  You'll receive a notification if you have items due for review
+                  You&rsquo;ll receive a notification if you have items due for review
                 </p>
               </div>
             )}

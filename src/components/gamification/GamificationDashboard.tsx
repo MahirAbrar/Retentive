@@ -191,7 +191,7 @@ export function GamificationDashboard() {
           </div>
 
           <div className={styles.stat}>
-            <h3 className={styles.statTitle}>Today's Activity</h3>
+            <h3 className={styles.statTitle}>Today&rsquo;s Activity</h3>
             <div className={styles.todayStats}>
               <div className={styles.todayStat}>
                 <span className={styles.todayValue}>{stats.todayReviews}</span>

@@ -59,7 +59,7 @@ export function OfflineIndicator() {
       </svg>
       <span className="body-small">
         {!isOnline ? (
-          <>You're offline. {pendingCount > 0 && `${pendingCount} changes`} will sync when connection is restored.</>
+          <>You&rsquo;re offline. {pendingCount > 0 && `${pendingCount} changes`} will sync when connection is restored.</>
         ) : isSyncing ? (
           <>Syncing {pendingCount} pending changes...</>
         ) : (

@@ -144,7 +144,7 @@ export function ArchiveInsights({ topicId, createdAt, archiveDate }: ArchiveInsi
           }}>
             <p className="body-small" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <PartyPopper size={16} />
-              <strong>Perfect mastery!</strong> You've mastered all items in this topic.
+              <strong>Perfect mastery!</strong> You&rsquo;ve mastered all items in this topic.
             </p>
           </div>
         )}

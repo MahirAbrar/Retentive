@@ -23,13 +23,7 @@ export function AllItemsPage() {
   const [visibleCount, setVisibleCount] = useState(50) // Start with 50 items
   const [searchTerm] = useState('')
 
-  useEffect(() => {
-    if (user) {
-      loadAllItems()
-    }
-  }, [user])
-
-  const loadAllItems = async () => {
+  const loadAllItems = useCallback(async () => {
     if (!user) return
     
     setLoading(true)
@@ -51,7 +45,13 @@ export function AllItemsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, addToast])
+
+  useEffect(() => {
+    if (user) {
+      loadAllItems()
+    }
+  }, [user, loadAllItems])
 
   const handleStudyItem = async (item: ItemWithTopic) => {
     if (!user) return

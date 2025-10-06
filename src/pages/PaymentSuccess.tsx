@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuthFixed'
 import { subscriptionService } from '../services/subscriptionService'
@@ -11,16 +11,7 @@ export function PaymentSuccess() {
   const [loading, setLoading] = useState(true)
   const [success, setSuccess] = useState(false)
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/login')
-      return
-    }
-
-    checkPaymentStatus()
-  }, [user])
-
-  const checkPaymentStatus = async () => {
+  const checkPaymentStatus = useCallback(async () => {
     if (!user) return
 
     try {
@@ -47,7 +38,16 @@ export function PaymentSuccess() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, navigate])
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    checkPaymentStatus()
+  }, [user, checkPaymentStatus, navigate])
 
   const handleContinue = () => {
     navigate('/')
@@ -62,7 +62,7 @@ export function PaymentSuccess() {
       <div className="payment-success-page">
         <div className="payment-container">
           <div className="loading-spinner">
-            <div className="spinner"></div>
+            <div className="spinner" />
           </div>
           <h2>Processing your payment...</h2>
           <p>Please wait while we confirm your subscription.</p>
@@ -79,7 +79,7 @@ export function PaymentSuccess() {
           <h1>Welcome to Retentive Premium!</h1>
           <p>Your payment was successful and your subscription is now active.</p>
           <div className="success-details">
-            <h3>What's next?</h3>
+            <h3>What&rsquo;s next?</h3>
             <ul>
               <li>✓ Unlimited topics and learning items</li>
               <li>✓ Advanced analytics and insights</li>

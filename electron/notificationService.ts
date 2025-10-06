@@ -1,4 +1,4 @@
-import { Notification, app, BrowserWindow } from 'electron'
+import { Notification, BrowserWindow } from 'electron'
 import schedule from 'node-schedule'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -338,7 +338,7 @@ export class NotificationService {
    * Cancel all jobs
    */
   cancelAllJobs() {
-    for (const [key, scheduledJob] of this.jobs.entries()) {
+    for (const [_key, scheduledJob] of this.jobs.entries()) {
       scheduledJob.job.cancel()
     }
     this.jobs.clear()

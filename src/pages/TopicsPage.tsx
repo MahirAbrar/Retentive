@@ -47,19 +47,6 @@ export function TopicsPage() {
     endIndex
   } = usePagination(filteredTopics, { itemsPerPage: 10 })
 
-  useEffect(() => {
-    if (user) {
-      loadTopics()
-      if (activeTab === 'archived') {
-        loadArchivedTopics()
-      }
-    }
-  }, [user, activeTab])
-
-  useEffect(() => {
-    filterAndSortTopics()
-  }, [topics, archivedTopics, searchQuery, filterBy, sortBy, activeTab])
-
   const loadTopics = useCallback(async (forceRefresh = false) => {
     if (!user) return
     
@@ -108,13 +95,15 @@ export function TopicsPage() {
           
           // Mastered items: review_count >= 5 (based on GAMIFICATION_CONFIG)
           const masteredCount = itemsList.filter(item => item.review_count >= 5).length
-          
+
           // Find last studied date
           const lastStudiedAt = itemsList
             .filter(item => item.last_reviewed_at)
-            .sort((a, b) => 
-              new Date(b.last_reviewed_at!).getTime() - new Date(a.last_reviewed_at!).getTime()
-            )[0]?.last_reviewed_at
+            .sort((a, b) => {
+              const aTime = a.last_reviewed_at ? new Date(a.last_reviewed_at).getTime() : 0
+              const bTime = b.last_reviewed_at ? new Date(b.last_reviewed_at).getTime() : 0
+              return bTime - aTime
+            })[0]?.last_reviewed_at
           
           return {
             ...topic,
@@ -179,9 +168,11 @@ export function TopicsPage() {
           // Find last studied date
           const lastStudiedAt = itemsList
             .filter(item => item.last_reviewed_at)
-            .sort((a, b) => 
-              new Date(b.last_reviewed_at!).getTime() - new Date(a.last_reviewed_at!).getTime()
-            )[0]?.last_reviewed_at
+            .sort((a, b) => {
+              const aTime = a.last_reviewed_at ? new Date(a.last_reviewed_at).getTime() : 0
+              const bTime = b.last_reviewed_at ? new Date(b.last_reviewed_at).getTime() : 0
+              return bTime - aTime
+            })[0]?.last_reviewed_at
           
           return {
             ...topic,
@@ -210,8 +201,8 @@ export function TopicsPage() {
     if (error) {
       addToast('error', 'Failed to delete topic')
     } else {
-      setTopics(topics.filter(t => t.id !== topicId))
-      setArchivedTopics(archivedTopics.filter(t => t.id !== topicId))
+      setTopics(topics.filter((t: any) => t.id !== topicId))
+      setArchivedTopics(archivedTopics.filter((t: any) => t.id !== topicId))
       // Invalidate cache when topic is deleted
       if (user) {
         cacheService.invalidate(`topics:${user.id}`)
@@ -250,7 +241,7 @@ export function TopicsPage() {
     }
   }, [addToast, loadTopics, loadArchivedTopics])
 
-  const filterAndSortTopics = () => {
+  const filterAndSortTopics = useCallback(() => {
     // Use appropriate topics based on active tab
     let filtered = activeTab === 'active' ? [...topics] : [...archivedTopics]
 
@@ -261,7 +252,7 @@ export function TopicsPage() {
         // Search in topic name
         topic.name.toLowerCase().includes(query) ||
         // Search in subtopic content
-        (topic.items && topic.items.some(item => 
+        (topic.items && topic.items.some((item: any) =>
           item.content.toLowerCase().includes(query)
         ))
       )
@@ -306,7 +297,20 @@ export function TopicsPage() {
     })
 
     setFilteredTopics(filtered)
-  }
+  }, [activeTab, topics, archivedTopics, searchQuery, filterBy, sortBy])
+
+  useEffect(() => {
+    if (user) {
+      loadTopics()
+      if (activeTab === 'archived') {
+        loadArchivedTopics()
+      }
+    }
+  }, [user, activeTab, loadTopics, loadArchivedTopics])
+
+  useEffect(() => {
+    filterAndSortTopics()
+  }, [filterAndSortTopics])
 
   return (
     <div style={{ maxWidth: 'var(--container-lg)', margin: '0 auto' }}>
@@ -385,7 +389,7 @@ export function TopicsPage() {
           <Input
             placeholder="Search topics..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
             style={{ flex: '1', minWidth: '200px' }}
           />
           

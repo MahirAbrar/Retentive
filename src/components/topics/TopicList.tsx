@@ -241,7 +241,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       await onDelete(deleteConfirm.topicId)
       addToast('success', 'Topic deleted successfully')
       setDeleteConfirm({ open: false, topicId: null, topicName: '' })
-    } catch (error) {
+    } catch (_error) {
       addToast('error', 'Failed to delete topic')
     }
   }
@@ -270,7 +270,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
 
       addToast('success', 'Item updated successfully')
       setEditingItem(null)
-    } catch (error) {
+    } catch (_error) {
       addToast('error', 'Failed to update item')
     }
   }
@@ -333,7 +333,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       
       // Invalidate global stats cache
       if (user) cacheService.invalidate(`stats:${user.id}`)
-    } catch (error) {
+    } catch (_error) {
       addToast('error', 'Failed to add item')
     }
   }
@@ -383,7 +383,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       
       // Invalidate global stats cache
       if (user) cacheService.invalidate(`stats:${user.id}`)
-    } catch (error) {
+    } catch (_error) {
       addToast('error', 'Failed to delete item')
     }
   }
@@ -557,7 +557,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       
       // Invalidate stats cache
       if (user) cacheService.invalidate(`stats:${user.id}`)
-    } catch (error) {
+    } catch (_error) {
       addToast('error', 'Failed to update review')
     } finally {
       setProcessingItems(prev => {
@@ -657,7 +657,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       
       // Refresh stats
       loadTopicStats(masteryDialogItem.topic_id)
-    } catch (error) {
+    } catch (_error) {
       addToast('error', 'Failed to update mastery status')
     }
   }

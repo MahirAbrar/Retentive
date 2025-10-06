@@ -152,7 +152,7 @@ export function TestAchievements() {
             </Button>
           </div>
           <p className="body-small text-secondary" style={{ marginTop: '1rem' }}>
-            These simulations will actually unlock achievements if you haven't earned them yet.
+            These simulations will actually unlock achievements if you haven&rsquo;t earned them yet.
           </p>
         </CardContent>
       </Card>

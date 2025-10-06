@@ -36,7 +36,7 @@ export function StudyPage() {
       }
 
       setItem(data)
-    } catch (error) {
+    } catch (_error) {
       addToast('error', 'Failed to load item')
       navigate('/topics')
     } finally {
@@ -146,7 +146,7 @@ export function StudyPage() {
                   >
                     <div>
                       <div className="body">Again</div>
-                      <div className="body-small text-secondary">Didn't know</div>
+                      <div className="body-small text-secondary">Didn&rsquo;t know</div>
                     </div>
                   </Button>
                   

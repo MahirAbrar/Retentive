@@ -81,7 +81,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </CardHeader>
             <CardContent>
               <p className="body" style={{ marginBottom: '1rem' }}>
-                We're sorry, but something unexpected happened. The error has been logged and we'll look into it.
+                We&rsquo;re sorry, but something unexpected happened. The error has been logged and we&rsquo;ll look into it.
               </p>
               
               {process.env.NODE_ENV === 'development' && this.state.error && (

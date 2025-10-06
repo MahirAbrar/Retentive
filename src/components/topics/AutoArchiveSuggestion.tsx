@@ -33,7 +33,7 @@ export function AutoArchiveSuggestion({ topicName, onArchive, onDismiss }: AutoA
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ flex: 1 }}>
           <p className="body" style={{ fontWeight: '500', marginBottom: '0.25rem' }}>
-            🎉 Congratulations! All items mastered in "{topicName}"
+            🎉 Congratulations! All items mastered in &quot;{topicName}&quot;
           </p>
           <p className="body-small text-secondary">
             Would you like to archive this topic to keep your list clean?

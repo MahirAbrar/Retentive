@@ -56,7 +56,7 @@ export function ThemeShowcase() {
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       <h1 className="h1">Color Theme Explorer</h1>
       <p className="body-large" style={{ marginBottom: '3rem' }}>
-        Let's find a color scheme that brings life to your learning app while maintaining Swiss design principles.
+        Let&rsquo;s find a color scheme that brings life to your learning app while maintaining Swiss design principles.
       </p>
 
       {/* Theme Selector */}
@@ -196,16 +196,16 @@ export function ThemeShowcase() {
           <CardContent>
             <h3 className="h4" style={{ marginBottom: '1rem' }}>My Recommendation</h3>
             <p className="body">
-              For a learning app, I'd recommend the <strong>"Swiss Education"</strong> theme. It maintains the clean Swiss aesthetic while adding:
+              For a learning app, I&rsquo;d recommend the <strong>&quot;Swiss Education&quot;</strong> theme. It maintains the clean Swiss aesthetic while adding:
             </p>
             <ul style={{ marginTop: '0.5rem', marginLeft: '1.5rem' }}>
-              <li>A professional blue-gray that's easier on the eyes than pure black</li>
+              <li>A professional blue-gray that&rsquo;s easier on the eyes than pure black</li>
               <li>Color-coded states (red for overdue, green for mastered) that help users quickly assess their progress</li>
               <li>Sufficient contrast without being harsh</li>
               <li>A slight warmth that makes long study sessions more pleasant</li>
             </ul>
             <p className="body" style={{ marginTop: '1rem' }}>
-              The <strong>"Neo-Swiss"</strong> option is great if you want something more playful and energetic, while still maintaining the geometric clarity of Swiss design.
+              The <strong>&quot;Neo-Swiss&quot;</strong> option is great if you want something more playful and energetic, while still maintaining the geometric clarity of Swiss design.
             </p>
           </CardContent>
         </Card>

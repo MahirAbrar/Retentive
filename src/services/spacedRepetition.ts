@@ -210,7 +210,9 @@ export class SpacedRepetitionService {
       return reviewDate > now && reviewDate <= future
     }).sort((a, b) => {
       // Sort by due date (ascending)
-      return new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime()
+      const aTime = a.next_review_at ? new Date(a.next_review_at).getTime() : 0
+      const bTime = b.next_review_at ? new Date(b.next_review_at).getTime() : 0
+      return aTime - bTime
     })
   }
 

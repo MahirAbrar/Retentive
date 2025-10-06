@@ -83,18 +83,20 @@ class SyncEngine {
     return result
   }
 
-  private async syncUser(userId: string) {
+  private async syncUser(_userId: string) {
     const { data: user, error } = await supabase.auth.getUser()
     
     if (error || !user) {
       throw new Error('Failed to get user data')
     }
 
-    offlineDataService.upsertUser({
-      id: user.user.id,
-      email: user.user.email!,
-      display_name: user.user.user_metadata?.display_name
-    })
+    if (user.user.email) {
+      offlineDataService.upsertUser({
+        id: user.user.id,
+        email: user.user.email,
+        display_name: user.user.user_metadata?.display_name
+      })
+    }
   }
 
   private async pullChanges(userId: string) {
@@ -392,7 +394,7 @@ class SyncEngine {
     }
   }
 
-  private async pushChanges(userId: string): Promise<{ synced: number, failed: number, errors: string[] }> {
+  private async pushChanges(_userId: string): Promise<{ synced: number, failed: number, errors: string[] }> {
     const queue = offlineDataService.getSyncQueue()
     let synced = 0
     let failed = 0

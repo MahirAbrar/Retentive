@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardHeader, CardContent, Button } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
@@ -17,16 +17,7 @@ export function SubscriptionStatus() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubStatus | null>(null)
   const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null)
 
-  useEffect(() => {
-    logger.info('SubscriptionStatus component mounted, user:', user?.id)
-    if (user) {
-      loadStatus()
-    } else {
-      setLoading(false)
-    }
-  }, [user])
-
-  const loadStatus = async () => {
+  const loadStatus = useCallback(async () => {
     if (!user) return
 
     try {
@@ -42,7 +33,16 @@ export function SubscriptionStatus() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    logger.info('SubscriptionStatus component mounted, user:', user?.id)
+    if (user) {
+      loadStatus()
+    } else {
+      setLoading(false)
+    }
+  }, [user, loadStatus])
 
   const handleUpgrade = () => {
     navigate('/paywall')
@@ -198,7 +198,7 @@ export function SubscriptionStatus() {
             {!subscriptionStatus?.isPaid && !trialStatus?.isActive && (
               <div className="free-plan-info">
                 <p className="body-small text-secondary">
-                  You're on the free plan with limited features.
+                  You&rsquo;re on the free plan with limited features.
                 </p>
                 {!trialStatus?.hasUsedTrial && (
                   <p className="body-small text-secondary">

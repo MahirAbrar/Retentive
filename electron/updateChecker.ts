@@ -1,7 +1,5 @@
 import { autoUpdater, dialog, shell } from 'electron'
 import { app } from 'electron'
-import * as path from 'path'
-import * as fs from 'fs'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -32,13 +30,14 @@ class UpdateChecker {
     }
 
     try {
-      // Public releases repository (no source code)
-      const GITHUB_REPO = 'MahirAbrar/Retentive-Releases'
+      // Check your website for latest version info
+      // You'll need to create a version.json file on your website
       const response = await fetch(
-        `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
+        'https://yourwebsite.com/downloads/version.json',
         {
           headers: {
-            'User-Agent': 'Retentive-App'
+            'User-Agent': 'Retentive-App',
+            'Cache-Control': 'no-cache'
           }
         }
       )
@@ -48,15 +47,15 @@ class UpdateChecker {
         return
       }
 
-      const release = await response.json()
-      const latestVersion = release.tag_name.replace('v', '')
+      const versionInfo = await response.json()
+      const latestVersion = versionInfo.version
 
       if (this.isNewerVersion(latestVersion)) {
         this.notifyUserOfUpdate({
           version: latestVersion,
-          releaseNotes: release.body,
-          releaseDate: release.published_at,
-          downloadUrl: release.html_url
+          releaseNotes: versionInfo.releaseNotes,
+          releaseDate: versionInfo.releaseDate,
+          downloadUrl: versionInfo.downloadUrl
         })
       }
     } catch (error) {

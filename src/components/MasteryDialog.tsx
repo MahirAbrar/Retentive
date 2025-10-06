@@ -84,7 +84,7 @@ export function MasteryDialog({
       <div style={{ display: 'grid', gap: '1.5rem' }}>
         <div style={{ textAlign: 'center' }}>
           <p className="body-large" style={{ marginBottom: '0.5rem' }}>
-            Congratulations! You've successfully reviewed this item 5 times.
+            Congratulations! You&rsquo;ve successfully reviewed this item 5 times.
           </p>
           <p className="body text-secondary" style={{ 
             padding: '0.75rem',
@@ -92,7 +92,7 @@ export function MasteryDialog({
             borderRadius: 'var(--radius-md)',
             fontStyle: 'italic'
           }}>
-            "{itemContent.substring(0, 100)}{itemContent.length > 100 ? '...' : ''}"
+            &quot;{itemContent.substring(0, 100)}{itemContent.length > 100 ? '...' : ''}&quot;
           </p>
         </div>
 

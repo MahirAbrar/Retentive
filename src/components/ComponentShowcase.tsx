@@ -46,48 +46,48 @@ export function ComponentShowcase() {
           <CardContent>
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div>
-                <code className="caption text-muted">className="h1"</code>
+                <code className="caption text-muted">className=&quot;h1&quot;</code>
                 <h1 className="h1">Heading 1 - Bold 48px</h1>
               </div>
               <div>
-                <code className="caption text-muted">className="h2"</code>
+                <code className="caption text-muted">className=&quot;h2&quot;</code>
                 <h2 className="h2">Heading 2 - Semibold 36px</h2>
               </div>
               <div>
-                <code className="caption text-muted">className="h3"</code>
+                <code className="caption text-muted">className=&quot;h3&quot;</code>
                 <h3 className="h3">Heading 3 - Semibold 30px</h3>
               </div>
               <div>
-                <code className="caption text-muted">className="h4"</code>
+                <code className="caption text-muted">className=&quot;h4&quot;</code>
                 <h4 className="h4">Heading 4 - Medium 24px</h4>
               </div>
               <div>
-                <code className="caption text-muted">className="h5"</code>
+                <code className="caption text-muted">className=&quot;h5&quot;</code>
                 <h5 className="h5">Heading 5 - Medium 20px</h5>
               </div>
               <div>
-                <code className="caption text-muted">className="h6"</code>
+                <code className="caption text-muted">className=&quot;h6&quot;</code>
                 <h6 className="h6">Heading 6 - Medium 18px</h6>
               </div>
               <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid var(--color-gray-200)' }} />
               <div>
-                <code className="caption text-muted">className="body-large"</code>
+                <code className="caption text-muted">className=&quot;body-large&quot;</code>
                 <p className="body-large">Body Large - Regular 18px with relaxed line height</p>
               </div>
               <div>
-                <code className="caption text-muted">className="body"</code>
+                <code className="caption text-muted">className=&quot;body&quot;</code>
                 <p className="body">Body Regular - Regular 16px with normal line height</p>
               </div>
               <div>
-                <code className="caption text-muted">className="body-small"</code>
+                <code className="caption text-muted">className=&quot;body-small&quot;</code>
                 <p className="body-small">Body Small - Regular 14px with normal line height</p>
               </div>
               <div>
-                <code className="caption text-muted">className="caption"</code>
+                <code className="caption text-muted">className=&quot;caption&quot;</code>
                 <p className="caption">Caption - Regular 12px with wide letter spacing</p>
               </div>
               <div>
-                <code className="caption text-muted">className="label"</code>
+                <code className="caption text-muted">className=&quot;label&quot;</code>
                 <p className="label">Label - Medium 14px uppercase with wide spacing</p>
               </div>
             </div>
@@ -309,7 +309,7 @@ export function ComponentShowcase() {
             <CardHeader>Default Card</CardHeader>
             <CardContent>
               <p className="body">Standard card with subtle border. Perfect for most use cases.</p>
-              <code className="caption text-muted">variant="default"</code>
+              <code className="caption text-muted">variant=&quot;default&quot;</code>
             </CardContent>
             <CardFooter>
               <Button size="small" variant="ghost">Cancel</Button>
@@ -321,7 +321,7 @@ export function ComponentShowcase() {
             <CardHeader>Bordered Card</CardHeader>
             <CardContent>
               <p className="body">Prominent 2px border for emphasis and visual hierarchy.</p>
-              <code className="caption text-muted">variant="bordered"</code>
+              <code className="caption text-muted">variant=&quot;bordered&quot;</code>
             </CardContent>
           </Card>
 
@@ -329,7 +329,7 @@ export function ComponentShowcase() {
             <CardHeader>Elevated Card</CardHeader>
             <CardContent>
               <p className="body">Shadow creates depth and draws attention. Hover for effect.</p>
-              <code className="caption text-muted">variant="elevated"</code>
+              <code className="caption text-muted">variant=&quot;elevated&quot;</code>
             </CardContent>
           </Card>
 
@@ -337,7 +337,7 @@ export function ComponentShowcase() {
             <CardHeader>No Padding Card</CardHeader>
             <CardContent>
               <p className="body" style={{ padding: '1rem' }}>Custom padding control</p>
-              <code className="caption text-muted" style={{ padding: '1rem' }}>padding="none"</code>
+              <code className="caption text-muted" style={{ padding: '1rem' }}>padding=&quot;none&quot;</code>
             </CardContent>
           </Card>
         </div>

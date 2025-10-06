@@ -197,12 +197,12 @@ export function ResetPasswordPage() {
               </div>
               <h3 className="h4" style={{ marginBottom: '1rem' }}>Check Your Email</h3>
               <p className="body text-secondary" style={{ marginBottom: '2rem' }}>
-                We've sent a password reset link to:
+                We&rsquo;ve sent a password reset link to:
                 <br />
                 <strong>{email}</strong>
               </p>
               <p className="body-small text-secondary" style={{ marginBottom: '2rem' }}>
-                The link will expire in 1 hour. If you don't see the email, check your spam folder.
+                The link will expire in 1 hour. If you don&rsquo;t see the email, check your spam folder.
               </p>
               <Link to="/login">
                 <Button variant="primary" fullWidth>
@@ -214,7 +214,7 @@ export function ResetPasswordPage() {
             // Email request form
             <form onSubmit={handleSendResetEmail} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <p className="body text-secondary" style={{ marginBottom: '1rem' }}>
-                Enter your email address and we'll send you a link to reset your password
+                Enter your email address and we&rsquo;ll send you a link to reset your password
               </p>
 
               <Input

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuthFixed'
 import { trialService } from '../services/trialService'
@@ -11,13 +11,7 @@ export function TrialBanner() {
   const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null)
   const [dismissed, setDismissed] = useState(false)
 
-  useEffect(() => {
-    if (user) {
-      loadTrialStatus()
-    }
-  }, [user])
-
-  const loadTrialStatus = async () => {
+  const loadTrialStatus = useCallback(async () => {
     if (!user) return
     
     try {
@@ -31,7 +25,13 @@ export function TrialBanner() {
     } catch (error) {
       console.error('Error loading trial status:', error)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (user) {
+      loadTrialStatus()
+    }
+  }, [user, loadTrialStatus])
 
   const handleUpgrade = () => {
     navigate('/paywall')

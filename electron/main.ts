@@ -4,7 +4,11 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import Store from 'electron-store';
 import { NotificationService } from './notificationService.js';
+import { setupConsoleErrorHandler } from './consoleErrorHandler.js';
 // import { setupDatabaseHandlers } from './ipcHandlers/databaseHandlers.js';
+
+// Setup console error handler immediately to prevent EIO errors
+setupConsoleErrorHandler();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -512,6 +516,4 @@ app.on('window-all-closed', () => {
   }
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
+// Removed duplicate unhandledRejection handler - now handled in consoleErrorHandler

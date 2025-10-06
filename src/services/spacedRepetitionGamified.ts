@@ -185,7 +185,9 @@ export class SpacedRepetitionGamifiedService {
       
       return earliestReview > now && earliestReview <= future
     }).sort((a, b) => {
-      return new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime()
+      const aTime = a.next_review_at ? new Date(a.next_review_at).getTime() : 0
+      const bTime = b.next_review_at ? new Date(b.next_review_at).getTime() : 0
+      return aTime - bTime
     })
   }
 

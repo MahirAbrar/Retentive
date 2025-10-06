@@ -19,6 +19,9 @@ out
 build
 *.local
 
+# Archived versions
+versions/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

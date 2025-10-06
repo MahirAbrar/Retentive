@@ -1,7 +1,6 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import { app } from 'electron'
-import crypto from 'crypto'
 
 export interface LocalDatabase {
   db: Database.Database

@@ -15,7 +15,7 @@ export function SubscriptionStatusSimple() {
             <strong>Current Plan:</strong> Free
           </p>
           <p style={{ marginBottom: '1.5rem', color: 'var(--color-text-secondary)' }}>
-            You're on the free plan. Start your 14-day trial to unlock all features!
+            You&rsquo;re on the free plan. Start your 14-day trial to unlock all features!
           </p>
           <Button 
             className="btn btn-primary"

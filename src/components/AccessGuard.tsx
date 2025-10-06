@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuthFixed'
 import { subscriptionService } from '../services/subscriptionService'
@@ -16,11 +16,7 @@ export function AccessGuard({ children, requirePayment = true }: AccessGuardProp
   const [checking, setChecking] = useState(true)
   const [hasAccess, setHasAccess] = useState(false)
 
-  useEffect(() => {
-    checkAccess()
-  }, [user])
-
-  const checkAccess = async () => {
+  const checkAccess = useCallback(async () => {
     if (!user) {
       navigate('/login')
       return
@@ -70,7 +66,11 @@ export function AccessGuard({ children, requirePayment = true }: AccessGuardProp
     } finally {
       setChecking(false)
     }
-  }
+  }, [user, navigate, requirePayment])
+
+  useEffect(() => {
+    checkAccess()
+  }, [checkAccess])
 
   if (checking) {
     return (

@@ -424,7 +424,7 @@ export class AuthService {
   private mapSupabaseUser(supabaseUser: any): User {
     return {
       id: supabaseUser.id,
-      email: supabaseUser.email!,
+      email: supabaseUser.email || '',
       created_at: supabaseUser.created_at,
       updated_at: supabaseUser.updated_at || supabaseUser.created_at,
       user_metadata: supabaseUser.user_metadata || {}

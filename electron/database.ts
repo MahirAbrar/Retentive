@@ -459,7 +459,7 @@ export function setupDatabaseHandlers() {
     try {
       stmt.run(id, userId, achievementId, pointsAwarded)
       return true
-    } catch (error) {
+    } catch (_error) {
       // Achievement already unlocked
       return false
     }
@@ -537,7 +537,7 @@ export function setupDatabaseHandlers() {
   })
 
   // ========== SYNC ==========
-  ipcMain.handle('db:sync:all', async (_event, userId: string) => {
+  ipcMain.handle('db:sync:all', async (_event, _userId: string) => {
     // Simplified sync - just return success for now
     return { success: true, synced: 0, failed: 0, errors: [] }
   })

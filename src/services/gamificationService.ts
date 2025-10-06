@@ -30,7 +30,8 @@ export class GamificationService {
   private sessionCombo: number = 0
   private lastReviewTime: Date | null = null
   private updateListeners: Set<(stats: UserGamificationStats) => void> = new Set()
-  
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
   
   public static getInstance(): GamificationService {

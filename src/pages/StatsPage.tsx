@@ -7,6 +7,7 @@ import { getExtendedStats } from '../services/statsService'
 import { cacheService } from '../services/cacheService'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { BarChart3 } from 'lucide-react'
+import { FocusAdherenceStats } from '../components/stats/FocusAdherenceStats'
 
 // Lazy load TimingPerformance for better initial load
 const TimingPerformance = lazy(() => import('../components/stats/TimingPerformance').then(module => ({ default: module.TimingPerformance })))
@@ -286,7 +287,10 @@ export function StatsPage() {
           if (!itemsByTopic.has(item.topic_id)) {
             itemsByTopic.set(item.topic_id, [])
           }
-          itemsByTopic.get(item.topic_id)!.push(item)
+          const topicItems = itemsByTopic.get(item.topic_id)
+          if (topicItems) {
+            topicItems.push(item)
+          }
         }
       }
       
@@ -772,6 +776,9 @@ export function StatsPage() {
         }>
           <TimingPerformance />
         </Suspense>
+
+        {/* Focus & Adherence Section */}
+        {user && <FocusAdherenceStats userId={user.id} />}
       </div>
     </div>
   )
