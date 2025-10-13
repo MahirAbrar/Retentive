@@ -369,6 +369,8 @@ export class DataService {
       ease_factor: 2.5,
       review_count: 0,
       interval_days: 0,
+      next_review_at: null,
+      last_reviewed_at: null,
     }))
 
     return withRetry(async () => {

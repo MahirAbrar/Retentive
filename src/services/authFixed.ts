@@ -9,6 +9,7 @@ import type { User } from '../types/database'
 import type { Session } from '@supabase/supabase-js'
 import { handleError } from '../utils/errors'
 import { withRetry } from '../utils/supabase'
+import { logger } from '../utils/logger'
 
 export interface AuthCredentials {
   email: string
@@ -194,13 +195,13 @@ export class AuthService {
         })
 
         if (error) {
-          console.error('Supabase signup error:', error)
+          logger.error('Supabase signup error:', error)
           throw error
         }
-        
+
         // Log successful signup
         if (data.user) {
-          console.log('User created successfully:', data.user.id)
+          logger.info('User created successfully:', data.user.id)
           
           // Ensure user settings are created (fallback if trigger fails)
           try {
@@ -210,7 +211,7 @@ export class AuthService {
             })
             
             if (settingsError) {
-              console.warn('Could not ensure user settings via RPC:', settingsError)
+              logger.warn('Could not ensure user settings via RPC:', settingsError)
               
               // Try direct insert as last resort
               const { error: insertError } = await supabase
@@ -230,7 +231,7 @@ export class AuthService {
                 .single()
               
               if (insertError && !insertError.message.includes('duplicate')) {
-                console.warn('Could not create user settings directly:', insertError)
+                logger.warn('Could not create user settings directly:', insertError)
               }
             }
             
@@ -251,11 +252,11 @@ export class AuthService {
               .single()
             
             if (statsError && !statsError.message.includes('duplicate')) {
-              console.warn('Could not create gamification stats:', statsError)
+              logger.warn('Could not create gamification stats:', statsError)
             }
           } catch (fallbackError) {
             // Log but don't fail the signup
-            console.warn('Fallback user settings creation failed:', fallbackError)
+            logger.warn('Fallback user settings creation failed:', fallbackError)
           }
         }
 

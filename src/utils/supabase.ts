@@ -1,6 +1,7 @@
 import type { PostgrestError, PostgrestResponse } from '@supabase/supabase-js'
 import { NetworkError, handleError, AppError } from './errors'
 import { supabaseService } from '../services/supabaseService'
+import { logger } from './logger'
 
 function parseSupabaseError(error: PostgrestError): Error {
   if (error.code === 'PGRST116') {
@@ -60,7 +61,7 @@ export async function withRetry<T>(
   delay: number = 1000
 ): Promise<T> {
   let lastError: Error | null = null
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       // Wait for connection if offline
@@ -73,21 +74,41 @@ export async function withRetry<T>(
       return result
     } catch (error) {
       lastError = error as Error
-      
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
+      // Silence network errors in console but log them
+      if (errorMessage.includes('ERR_NETWORK') ||
+          errorMessage.includes('ERR_TIMED_OUT') ||
+          errorMessage.includes('ERR_INTERNET_DISCONNECTED') ||
+          errorMessage.includes('ERR_DNS_NO_MATCHING_SUPPORTED_ALPN') ||
+          errorMessage.includes('ERR_NETWORK_IO_SUSPENDED')) {
+        logger.debug(`Network error (attempt ${attempt + 1}/${maxRetries + 1}):`, errorMessage)
+
+        // Don't retry if offline
+        if (!navigator.onLine) {
+          logger.debug('Device is offline, stopping retries')
+          throw new NetworkError('Device is offline')
+        }
+      } else {
+        // Log non-network errors normally
+        logger.warn(`Request failed (attempt ${attempt + 1}/${maxRetries + 1}):`, errorMessage)
+      }
+
       // Don't retry auth errors or validation errors
       if (
-        error instanceof Error &&
-        (error.message.includes('JWT') ||
-         error.message.includes('auth') ||
-         error.message.includes('validation'))
+        errorMessage.includes('JWT') ||
+        errorMessage.includes('auth') ||
+        errorMessage.includes('validation') ||
+        errorMessage.includes('401')
       ) {
         throw error
       }
-      
+
       // Check if we should retry
       if (attempt < maxRetries) {
-        // Exponential backoff
-        const waitTime = delay * Math.pow(2, attempt)
+        // Exponential backoff with max delay of 10 seconds
+        const waitTime = Math.min(delay * Math.pow(2, attempt), 10000)
+        logger.debug(`Retrying in ${waitTime}ms...`)
         await new Promise(resolve => setTimeout(resolve, waitTime))
         continue
       }

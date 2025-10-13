@@ -7,6 +7,7 @@ import { GoalReachedModal } from './GoalReachedModal'
 import { BreakCompleteModal } from './BreakCompleteModal'
 import { SessionSummary } from './SessionSummary'
 import { FocusTimerSettings } from './FocusTimerSettings'
+import { logger } from '../../utils/logger'
 
 interface SummaryData {
   sessionMinutes?: number
@@ -65,7 +66,7 @@ export function FocusTimer() {
 
     // If session is active and user is working, we might want to recalculate progress
     // The timer will automatically adjust the goal progress calculation
-    console.log(`Goal updated to ${minutes} minutes`)
+    logger.debug(`Goal updated to ${minutes} minutes`)
   }
 
   const getStatusBadge = () => {

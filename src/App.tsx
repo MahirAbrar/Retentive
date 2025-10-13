@@ -6,6 +6,7 @@ import { AuthProvider } from './hooks/useAuthFixed'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AchievementProvider } from './hooks/useAchievements'
 import { syncService } from './services/syncService'
+import { networkRecovery } from './services/networkRecovery'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineIndicator } from './components/OfflineIndicator'
@@ -45,16 +46,25 @@ const PageLoader = () => (
 )
 
 function App() {
-  // Initialize sync service on app load
+  // Initialize services on app load
   useEffect(() => {
+    // Initialize network recovery service (sets up listeners automatically)
+    // This ensures auth tokens are refreshed when computer wakes from sleep
+    networkRecovery // Service initializes on import
+
     // Sync pending operations if online
     if (navigator.onLine) {
       syncService.syncPendingOperations()
     }
-    
+
     // Make clearAuthCache available globally for debugging
     if (typeof window !== 'undefined') {
       (window as Window & { clearAuthCache?: () => void }).clearAuthCache = clearAuthCache
+    }
+
+    // Cleanup on unmount
+    return () => {
+      networkRecovery.cleanup()
     }
   }, [])
   

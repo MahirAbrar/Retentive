@@ -135,13 +135,27 @@ export function isAuthError(error: unknown): boolean {
 export function handleError(error: unknown, context?: string): void {
   const message = getErrorMessage(error)
   const errorContext = context ? `[${context}] ` : ''
-  
+
+  // Silence network errors to prevent console spam
+  if (error instanceof Error) {
+    const errorMsg = error.message.toUpperCase()
+    if (errorMsg.includes('ERR_NETWORK') ||
+        errorMsg.includes('ERR_TIMED_OUT') ||
+        errorMsg.includes('ERR_INTERNET_DISCONNECTED') ||
+        errorMsg.includes('ERR_NETWORK_IO_SUSPENDED') ||
+        errorMsg.includes('ERR_DNS_NO_MATCHING_SUPPORTED_ALPN')) {
+      // Log to debug level only
+      logger.debug(`${errorContext}Network error (silenced): ${message}`)
+      return
+    }
+  }
+
   if (process.env.NODE_ENV === 'development') {
     logger.error(`${errorContext}${message}`, error)
   } else {
     logger.error(`${errorContext}${message}`)
   }
-  
+
   // In production, you might want to send errors to a monitoring service
   // logToSentry(error, context)
 }

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { logger } from '../utils/logger'
 
 // ================================================
 // TYPES & INTERFACES
@@ -227,7 +228,7 @@ class FocusTimerService {
       if (error?.message?.includes('NetworkError') ||
           error?.message?.includes('ERR_INTERNET_DISCONNECTED') ||
           error?.message?.includes('Failed to fetch')) {
-        console.log('Focus timer sync failed due to network issues')
+        logger.debug('Focus timer sync failed due to network issues')
         // Silently fail for network errors to prevent spam
         return
       }
@@ -256,7 +257,7 @@ class FocusTimerService {
         .eq('id', segmentId)
         .eq('user_id', userId)
     } catch (error) {
-      console.error('Error in quickEndSegment:', error)
+      logger.error('Error in quickEndSegment:', error)
     }
   }
 

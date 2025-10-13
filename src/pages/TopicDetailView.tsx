@@ -65,27 +65,32 @@ export function TopicDetailView() {
     endIndex
   } = usePagination<LearningItem>(items, { itemsPerPage: 20 })
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null, item?: LearningItem) => {
+    // Always show "Not reviewed yet" for items with 0 reviews
+    if (item && item.review_count === 0) return 'Not reviewed yet'
     if (!dateString) return 'Not reviewed yet'
+
     const date = new Date(dateString)
     const now = new Date()
     const diffDays = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays < -1) return `${Math.abs(diffDays)} days overdue`
     if (diffDays === -1) return 'Yesterday'
     if (diffDays === 0) return 'Today'
     if (diffDays === 1) return 'Tomorrow'
     if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`
-    
+
     return date.toLocaleDateString()
   }
 
   const getStatusColor = (item: LearningItem) => {
+    // Items with 0 reviews are new/unreviewed
+    if (item.review_count === 0) return 'var(--color-gray-500)'
     if (!item.next_review_at) return 'var(--color-gray-500)'
-    
+
     const now = new Date()
     const reviewDate = new Date(item.next_review_at)
-    
+
     if (reviewDate < now) return 'var(--color-error)'
     if (reviewDate.toDateString() === now.toDateString()) return 'var(--color-warning)'
     return 'var(--color-success)'
@@ -154,11 +159,11 @@ export function TopicDetailView() {
                       <span className="body-small text-secondary">
                         Reviews: {item.review_count}
                       </span>
-                      <span 
+                      <span
                         className="body-small"
                         style={{ color: getStatusColor(item) }}
                       >
-                        {formatDate(item.next_review_at)}
+                        {formatDate(item.next_review_at, item)}
                       </span>
                       {item.ease_factor < 2.0 && (
                         <span className="body-small" style={{ color: 'var(--color-warning)' }}>
