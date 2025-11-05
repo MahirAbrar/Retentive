@@ -21,6 +21,9 @@ export interface FocusSession {
   last_updated_at?: string | null
   current_segment_type?: 'work' | 'break' | null
   current_segment_id?: string | null
+  was_adjusted?: boolean
+  adjustment_reason?: string | null
+  adjusted_at?: string | null
 }
 
 export interface FocusSegment {
@@ -511,6 +514,95 @@ class FocusTimerService {
       bestAdherence: Math.round(bestAdherence * 100) / 100,
       totalFocusTime: totalWorkMinutes + totalBreakMinutes,
     }
+  }
+
+  // ================================================
+  // SESSION EDITING
+  // ================================================
+
+  /**
+   * Update session duration after completion
+   * Allows users to adjust work/break times for sessions they forgot to stop
+   */
+  async updateSessionDuration(
+    sessionId: string,
+    userId: string,
+    updates: {
+      totalWorkMinutes: number
+      totalBreakMinutes: number
+      adjustmentReason?: string
+    }
+  ): Promise<FocusSession> {
+    // Validation: Get original session first
+    const { data: originalSession, error: fetchError } = await supabase
+      .from('focus_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!originalSession) throw new Error('Session not found')
+
+    // Validate: Can only edit completed sessions
+    if (originalSession.is_active) {
+      throw new Error('Cannot edit active sessions. Please end the session first.')
+    }
+
+    // Validate: Work minutes must be positive
+    if (updates.totalWorkMinutes <= 0) {
+      throw new Error('Work time must be greater than 0 minutes')
+    }
+
+    // Validate: Break minutes must be non-negative
+    if (updates.totalBreakMinutes < 0) {
+      throw new Error('Break time cannot be negative')
+    }
+
+    // Validate: Can only reduce time, not increase (prevent cheating)
+    if (updates.totalWorkMinutes > originalSession.total_work_minutes) {
+      throw new Error('Cannot increase work time beyond original duration')
+    }
+
+    if (updates.totalBreakMinutes > originalSession.total_break_minutes) {
+      throw new Error('Cannot increase break time beyond original duration')
+    }
+
+    // Recalculate adherence with new values
+    const newAdherence = calculateAdherence(
+      updates.totalWorkMinutes,
+      updates.totalBreakMinutes
+    )
+
+    // Update session
+    const { data, error } = await supabase
+      .from('focus_sessions')
+      .update({
+        total_work_minutes: updates.totalWorkMinutes,
+        total_break_minutes: updates.totalBreakMinutes,
+        adherence_percentage: newAdherence,
+        productivity_percentage: newAdherence,
+        was_adjusted: true,
+        adjustment_reason: updates.adjustmentReason || 'No reason provided',
+        adjusted_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    logger.info('Session duration updated:', {
+      sessionId,
+      originalWork: originalSession.total_work_minutes,
+      newWork: updates.totalWorkMinutes,
+      originalBreak: originalSession.total_break_minutes,
+      newBreak: updates.totalBreakMinutes,
+      reason: updates.adjustmentReason
+    })
+
+    return data
   }
 }
 

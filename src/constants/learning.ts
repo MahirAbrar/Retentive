@@ -1,16 +1,18 @@
 import type { LearningMode, ReviewDifficulty } from '../types/database'
 import { GAMIFICATION_CONFIG } from '../config/gamification'
 
-// Pull learning modes from gamification config
+// Pull learning modes from gamification config (exclude test mode)
 export const LEARNING_MODES: Record<string, { label: string; description: string }> = Object.entries(
   GAMIFICATION_CONFIG.LEARNING_MODES
-).reduce((acc, [key, mode]) => {
-  acc[key] = {
-    label: mode.name,
-    description: mode.description,
-  }
-  return acc
-}, {} as Record<string, { label: string; description: string }>)
+)
+  .filter(([key]) => key !== 'test') // Exclude test mode from UI
+  .reduce((acc, [key, mode]) => {
+    acc[key] = {
+      label: mode.name,
+      description: mode.description,
+    }
+    return acc
+  }, {} as Record<string, { label: string; description: string }>)
 
 export const PRIORITY_LEVELS = {
   MIN: 1,

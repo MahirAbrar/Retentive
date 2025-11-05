@@ -80,44 +80,67 @@ export interface UserPromotionalCode {
 // Pricing configuration
 export const PRICING = {
   monthly: {
-    price: 3.00,
+    price: 5.00,
     currency: 'USD',
     interval: 'month' as const,
-    name: 'Monthly Plan',
+    name: 'Monthly',
     description: 'Billed monthly',
     features: [
-      'Unlimited topics',
+      'Unlimited topics & subtopics',
       'Advanced statistics',
-      'Export features',
-      'Priority support',
-      'Sync across devices'
+      'Mobile & desktop sync',
+      'Offline mode',
+      'Export your data',
+      'Cancel anytime'
     ]
   },
-  yearly: {
-    price: 30.00,
+  quarterly: {
+    price: 12.00,
     currency: 'USD',
-    interval: 'year' as const,
-    name: 'Yearly Plan',
-    description: 'Billed yearly (Save $6!)',
-    savings: 6.00,
+    interval: '3 months' as const,
+    name: 'Quarterly',
+    description: '20% off',
+    savings: 3.00,
+    pricePerMonth: 4.00,
+    badge: 'Most Popular',
     features: [
-      'Everything in Monthly',
-      '2 months free',
-      'Early access to new features',
-      'Custom learning modes',
-      'Bulk import/export'
+      'Save 20% ($4/month)',
+      'Unlimited topics & subtopics',
+      'Advanced statistics',
+      'Mobile & desktop sync',
+      'Offline mode',
+      'Export your data'
+    ]
+  },
+  semiAnnual: {
+    price: 15.00,
+    currency: 'USD',
+    interval: '6 months' as const,
+    name: 'Semi-Annual',
+    description: '50% off',
+    savings: 15.00,
+    pricePerMonth: 2.50,
+    badge: 'Best Value',
+    features: [
+      'Best value - 50% off ($2.50/month)',
+      'Unlimited topics & subtopics',
+      'Advanced statistics',
+      'Mobile & desktop sync',
+      'Offline mode',
+      'Export your data'
     ]
   },
   trial: {
-    days: 7,
+    days: 14,
     name: 'Free Trial',
-    description: '7 days of full access',
+    description: '14 days of full access',
     features: [
-      'Full app access for 7 days',
-      'No credit card required',
-      'Cancel anytime',
-      'All premium features',
-      'One-time offer'
+      'Full access to all features',
+      'Unlimited topics & subtopics',
+      'Advanced statistics',
+      'Mobile & desktop sync',
+      'Offline mode',
+      'Export your data'
     ]
   }
 } as const;
@@ -180,33 +203,127 @@ export const canStartTrial = (profile: SubscriptionProfile): boolean => {
 
 // Statistics for paywall
 export const PAYWALL_STATS = {
-  retentionImprovement: 47,
-  gradeImprovement: 15,
+  retentionImprovement: 200,
+  betterRetention: 93,
   activeUsers: '10,000+',
   statistics: [
-    { icon: '📈', value: '88%', label: 'Average Test Scores' },
-    { icon: '⚡', value: '3x Faster', label: 'Learning Speed' },
-    { icon: '🧠', value: '140+ Years', label: 'Of Research' },
-    { icon: '🔬', value: 'Proven', label: 'By Neuroscience' }
+    { iconName: 'TrendingUp', value: '93%', label: 'Better Retention' },
+    { iconName: 'Brain', value: '200%', label: 'Retention Increase' },
+    { iconName: 'Users', value: '10,000+', label: 'Active Learners' },
+    { iconName: 'Microscope', value: '140+ Years', label: 'Of Research' }
+  ],
+  howItWorks: [
+    {
+      step: 1,
+      title: 'Create Topics',
+      description: 'Organize your knowledge into main subjects that you want to master.',
+      iconName: 'BookOpen'
+    },
+    {
+      step: 2,
+      title: 'Add Subtopics',
+      description: 'Break down complex topics into bite-sized, manageable subtopics.',
+      iconName: 'FileText'
+    },
+    {
+      step: 3,
+      title: 'Study Your Subtopics',
+      description: 'Review your original content and materials at the perfect moments for maximum retention.',
+      iconName: 'Target'
+    },
+    {
+      step: 4,
+      title: 'Review at Optimal Times',
+      description: 'Our algorithm tells you exactly when to review for maximum retention.',
+      iconName: 'Clock'
+    },
+    {
+      step: 5,
+      title: 'Ace Everything!',
+      description: 'Ace your exams! Ace your work! Ace your studies! Become unstoppable.',
+      iconName: 'Trophy'
+    }
+  ],
+  learningModes: [
+    {
+      name: 'Ultra-Cram',
+      intervals: '30s → 2h → 1d → 3d...',
+      wordCount: '50-75 words',
+      bestFor: 'Night before exam, urgent deadlines',
+      iconName: 'Zap'
+    },
+    {
+      name: 'Cram',
+      intervals: '2h → 1d → 3d → 7d...',
+      wordCount: '50-75 words',
+      bestFor: 'Important presentations, job interviews',
+      iconName: 'Flame'
+    },
+    {
+      name: 'Steady',
+      intervals: '1d → 3d → 7d → 14d...',
+      wordCount: '75-125 words',
+      bestFor: 'Regular coursework, professional development',
+      iconName: 'BarChart'
+    },
+    {
+      name: 'Extended',
+      intervals: '3d → 7d → 14d → 30d...',
+      wordCount: '100-150 words',
+      bestFor: 'Background knowledge, general interest',
+      iconName: 'Sprout'
+    }
   ],
   research: [
     {
       author: 'Hermann Ebbinghaus (1880s)',
       role: 'Pioneer of Memory Research',
       text: 'Created the "forgetting curve" showing that spaced review intervals dramatically improve long-term retention compared to massed practice.',
-      icon: '🧠'
+      iconName: 'Brain'
     },
     {
       author: 'Medical Education Study',
       role: 'Journal of Medical Education',
       text: 'Students using spaced repetition for anatomy learning achieved 88% average test scores vs 78% for traditional methods.',
-      icon: '📊'
+      iconName: 'BarChart'
     },
     {
       author: 'USC Neuroscience Research',
       role: 'University of Southern California',
       text: 'Spaced repetition enhances brain connections by repeatedly firing neural pathways together over time, maximizing memory consolidation.',
-      icon: '🔬'
+      iconName: 'Microscope'
     }
-  ]
+  ],
+  timeTracking: {
+    title: 'Built-in Time Tracking & Adherence',
+    subtitle: 'Stay accountable and build learning habits that stick',
+    description: 'Track your study time automatically and build the habits that transform casual learners into knowledge masters.',
+    benefits: [
+      {
+        iconName: 'Timer',
+        title: 'Automatic Time Tracking',
+        description: 'Every study session is tracked automatically. See exactly how much time you spend mastering each topic.',
+        stat: 'Real-time tracking'
+      },
+      {
+        iconName: 'Target',
+        title: 'Accountability That Works',
+        description: 'Research shows self-monitoring increases adherence by over 100%. Visual feedback keeps you committed to your learning goals.',
+        stat: '100%+ adherence boost'
+      },
+      {
+        iconName: 'TrendingUp',
+        title: 'Build Study Habits',
+        description: 'Students who track study appointments with accountability mechanisms show significantly better exam performance and habit formation.',
+        stat: 'Better performance'
+      },
+      {
+        iconName: 'BarChart3',
+        title: 'See Your Progress',
+        description: 'Visualize your learning journey with detailed analytics. Time invested, topics mastered, and retention rates all in one place.',
+        stat: 'Complete insights'
+      }
+    ],
+    researchNote: 'Studies show that early and frequent self-monitoring predicts success. Time tracking creates accountability through visual feedback and progress monitoring.'
+  }
 } as const;

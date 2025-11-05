@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger'
 import { supabase } from './supabase'
 import type { Topic, LearningItem } from '../types/database'
+import { sanitizeInput } from '../utils/sanitize'
 
 export interface TopicsResponse<T> {
   data: T | null
@@ -59,10 +60,16 @@ class TopicsService {
 
   async createTopic(topic: Omit<Topic, 'id' | 'created_at' | 'updated_at'>): Promise<TopicsResponse<Topic>> {
     try {
-      logger.log('Creating topic with data:', topic)
+      // Sanitize user input to prevent XSS
+      const sanitizedTopic = {
+        ...topic,
+        name: sanitizeInput(topic.name)
+      }
+
+      logger.log('Creating topic with data:', sanitizedTopic)
       const { data, error } = await supabase
         .from('topics')
-        .insert(topic)
+        .insert(sanitizedTopic)
         .select()
         .single()
 
@@ -83,9 +90,15 @@ class TopicsService {
 
   async updateTopic(topicId: string, updates: Partial<Topic>): Promise<TopicsResponse<Topic>> {
     try {
+      // Sanitize name if it's being updated
+      const sanitizedUpdates = {
+        ...updates,
+        ...(updates.name && { name: sanitizeInput(updates.name) })
+      }
+
       const { data, error } = await supabase
         .from('topics')
-        .update(updates)
+        .update(sanitizedUpdates)
         .eq('id', topicId)
         .select()
         .single()
@@ -121,9 +134,15 @@ class TopicsService {
 
   async createLearningItems(items: Omit<LearningItem, 'id' | 'created_at' | 'updated_at'>[]): Promise<TopicsResponse<LearningItem[]>> {
     try {
+      // Sanitize content for all items to prevent XSS
+      const sanitizedItems = items.map(item => ({
+        ...item,
+        content: sanitizeInput(item.content)
+      }))
+
       const { data, error } = await supabase
         .from('learning_items')
-        .insert(items)
+        .insert(sanitizedItems)
         .select()
 
       if (error) throw error

@@ -5,8 +5,10 @@ import { Button, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import type { LearningItem, Topic } from '../types/database'
-import { calculateNextReview } from '../utils/spacedRepetition'
 import { formatNextReview } from '../utils/formatters'
+import { spacedRepetitionGamified } from '../services/spacedRepetitionGamified'
+import { gamificationService } from '../services/gamificationService'
+import { useAchievements } from '../hooks/useAchievements'
 
 interface ItemWithTopic extends LearningItem {
   topic?: Topic
@@ -16,7 +18,8 @@ export function AllItemsPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { addToast } = useToast()
-  
+  const { showAchievements } = useAchievements()
+
   const [items, setItems] = useState<ItemWithTopic[]>([])
   const [loading, setLoading] = useState(true)
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set())
@@ -55,57 +58,81 @@ export function AllItemsPage() {
 
   const handleStudyItem = async (item: ItemWithTopic) => {
     if (!user) return
-    
+
     // Add to processing set
     setProcessingItems(prev => new Set(prev).add(item.id))
-    
+
     try {
-      // Default to "good" difficulty for one-click study
-      const nextReview = calculateNextReview(item, 'good')
-      
+      const reviewedAt = new Date()
+
+      // Process review with gamified algorithm (default to "good" for one-click)
+      const reviewResult = spacedRepetitionGamified.processReview(item, 'good')
+      const pointsBreakdown = spacedRepetitionGamified.calculatePoints(item, reviewResult)
+      const totalPoints = pointsBreakdown.basePoints + pointsBreakdown.streakBonus + pointsBreakdown.timeBonus
+
+      const updatedItem = {
+        ...item,
+        review_count: item.review_count + 1,
+        last_reviewed_at: reviewedAt.toISOString(),
+        next_review_at: reviewResult.nextReviewDate.toISOString(),
+        interval_days: reviewResult.intervalDays,
+        ease_factor: reviewResult.easeFactor
+      }
+
       // Update the item
       const { error: updateError } = await supabase
         .from('learning_items')
         .update({
-          review_count: item.review_count + 1,
-          last_reviewed_at: new Date().toISOString(),
-          next_review_at: nextReview.next_review_at,
-          ease_factor: nextReview.ease_factor,
-          interval_days: nextReview.interval_days
+          review_count: updatedItem.review_count,
+          last_reviewed_at: updatedItem.last_reviewed_at,
+          next_review_at: updatedItem.next_review_at,
+          ease_factor: updatedItem.ease_factor,
+          interval_days: updatedItem.interval_days
         })
         .eq('id', item.id)
 
       if (updateError) throw updateError
 
-      // Create review session record
+      // Create review session record with points
       const { error: sessionError } = await supabase
         .from('review_sessions')
         .insert({
           user_id: user.id,
           learning_item_id: item.id,
           difficulty: 'good',
-          reviewed_at: new Date().toISOString(),
-          next_review_at: nextReview.next_review_at,
-          interval_days: nextReview.interval_days
+          reviewed_at: reviewedAt.toISOString(),
+          next_review_at: updatedItem.next_review_at,
+          interval_days: reviewResult.intervalDays,
+          points_earned: totalPoints,
+          timing_bonus: pointsBreakdown.timeBonus,
+          combo_count: gamificationService.getComboBonus() > 0 ? 1 : 0
         })
 
       if (sessionError) throw sessionError
 
+      // Update user points and check for achievements
+      const result = await gamificationService.updateUserPoints(user.id, totalPoints, {
+        itemId: item.id,
+        wasPerfectTiming: pointsBreakdown.isPerfectTiming,
+        reviewCount: updatedItem.review_count
+      })
+
+      // Show achievements if any were unlocked
+      if (result && result.newAchievements && result.newAchievements.length > 0) {
+        showAchievements(result.newAchievements)
+      }
+
       // Update local state
-      setItems(prev => prev.map(i => 
-        i.id === item.id 
-          ? {
-              ...i,
-              review_count: item.review_count + 1,
-              last_reviewed_at: new Date().toISOString(),
-              next_review_at: nextReview.next_review_at,
-              ease_factor: nextReview.ease_factor,
-              interval_days: nextReview.interval_days
-            }
-          : i
+      setItems(prev => prev.map(i =>
+        i.id === item.id ? updatedItem : i
       ))
 
-      addToast('success', `Done! Next review: ${formatNextReview(nextReview.next_review_at)}`)
+      // Show success with points
+      const pointsMessage = pointsBreakdown.isPerfectTiming
+        ? `+${totalPoints} pts (Perfect Timing! ⚡)`
+        : `+${totalPoints} pts`
+
+      addToast('success', `${pointsMessage} • Next review: ${formatNextReview(updatedItem.next_review_at)}`)
     } catch (error) {
       addToast('error', 'Failed to update item')
       logger.error('Error updating item:', error)

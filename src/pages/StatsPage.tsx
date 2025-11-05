@@ -6,8 +6,10 @@ import { supabase } from '../services/supabase'
 import { getExtendedStats } from '../services/statsService'
 import { cacheService } from '../services/cacheService'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, Timer, Edit2 } from 'lucide-react'
 import { FocusAdherenceStats } from '../components/stats/FocusAdherenceStats'
+import { focusTimerService, getAdherenceColor, type FocusSession } from '../services/focusTimerService'
+import { EditSessionModal } from '../components/focus/EditSessionModal'
 
 // Lazy load TimingPerformance for better initial load
 const TimingPerformance = lazy(() => import('../components/stats/TimingPerformance').then(module => ({ default: module.TimingPerformance })))
@@ -38,6 +40,35 @@ interface DailyActivity {
   date: string
   reviews: number
 }
+
+interface FocusSessionDisplay {
+  id: string
+  type: 'focus'
+  created_at: string
+  total_work_minutes: number
+  total_break_minutes: number
+  goal_minutes: number
+  adherence_percentage: number
+  was_adjusted?: boolean
+  adjustment_reason?: string | null
+  adjusted_at?: string | null
+}
+
+interface ReviewSessionDisplay {
+  id: string
+  type: 'review'
+  reviewed_at: string
+  difficulty: string
+  interval_days: number
+  learning_item: {
+    content: string
+    topic: {
+      name: string
+    }
+  }
+}
+
+type ActivityItem = FocusSessionDisplay | ReviewSessionDisplay
 
 // Memoized chart components
 const DailyActivityChart = memo(function DailyActivityChart({ data }: { data: DailyActivity[] }) {
@@ -106,6 +137,7 @@ export function StatsPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<any>(null)
   const [formattedSessions, setFormattedSessions] = useState<ReviewSession[]>([])
+  const [combinedActivity, setCombinedActivity] = useState<ActivityItem[]>([])
   const [visibleSessions, setVisibleSessions] = useState(10) // Pagination for recent activity
   const [topicStats, setTopicStats] = useState<TopicStats[]>([])
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([])
@@ -116,6 +148,7 @@ export function StatsPage() {
   const [sessionsLoading, setSessionsLoading] = useState(true)
   const [topicsLoading, setTopicsLoading] = useState(true)
   const [streakWarning, setStreakWarning] = useState<{ show: boolean; hoursLeft: number }>({ show: false, hoursLeft: 0 })
+  const [editingSession, setEditingSession] = useState<FocusSession | null>(null)
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -156,10 +189,10 @@ export function StatsPage() {
       }
       
       // Run all independent queries in parallel for better performance
-      const [extendedStats, sessionsResult, topicsResult, itemsResult] = await Promise.all([
+      const [extendedStats, sessionsResult, focusSessionsResult, topicsResult, itemsResult] = await Promise.all([
         // Get extended stats
         getExtendedStats(user.id),
-        
+
         // Get recent review sessions with joined data in single query
         supabase
           .from('review_sessions')
@@ -181,13 +214,19 @@ export function StatsPage() {
           .gte('reviewed_at', startDate.toISOString())
           .order('reviewed_at', { ascending: false })
           .limit(100), // Increased limit but still bounded
-        
+
+        // Get recent focus sessions
+        focusTimerService.getUserSessions(user.id, 50).catch(err => {
+          logger.error('Error fetching focus sessions:', err)
+          return []
+        }),
+
         // Get topics for stats
         supabase
           .from('topics')
           .select('id, name')
           .eq('user_id', user.id),
-        
+
         // Get all items with stats
         supabase
           .from('learning_items')
@@ -219,8 +258,39 @@ export function StatsPage() {
       }
       
       setFormattedSessions(formattedSessionsData)
+
+      // Process focus sessions
+      const focusSessionsData: FocusSessionDisplay[] = (focusSessionsResult || [])
+        .filter(session => new Date(session.created_at) >= startDate)
+        .map(session => ({
+          id: session.id,
+          type: 'focus' as const,
+          created_at: session.created_at,
+          total_work_minutes: session.total_work_minutes,
+          total_break_minutes: session.total_break_minutes,
+          goal_minutes: session.goal_minutes,
+          adherence_percentage: session.adherence_percentage || 0,
+          was_adjusted: session.was_adjusted,
+          adjustment_reason: session.adjustment_reason,
+          adjusted_at: session.adjusted_at,
+        }))
+
+      // Combine review sessions and focus sessions
+      const reviewActivities: ReviewSessionDisplay[] = formattedSessionsData.map(s => ({
+        ...s,
+        type: 'review' as const
+      }))
+
+      const allActivity: ActivityItem[] = [...reviewActivities, ...focusSessionsData]
+        .sort((a, b) => {
+          const dateA = a.type === 'review' ? new Date(a.reviewed_at) : new Date(a.created_at)
+          const dateB = b.type === 'review' ? new Date(b.reviewed_at) : new Date(b.created_at)
+          return dateB.getTime() - dateA.getTime() // Descending order
+        })
+
+      setCombinedActivity(allActivity)
       setSessionsLoading(false) // Sessions section can show now
-      
+
       // Process daily activity data more efficiently
       const activityMap = new Map<string, number>()
       const daysToShow = 7 // Always show 7 days in chart
@@ -346,6 +416,55 @@ export function StatsPage() {
     }, 300)
     return () => clearTimeout(timer)
   }, [pendingDateRange, dateRange])
+
+  // Handle session editing
+  const handleEditSession = useCallback((session: FocusSessionDisplay) => {
+    // Convert FocusSessionDisplay to FocusSession for the modal
+    const fullSession: FocusSession = {
+      id: session.id,
+      user_id: user!.id,
+      created_at: session.created_at,
+      started_at: session.created_at,
+      ended_at: session.created_at,
+      goal_minutes: session.goal_minutes,
+      total_work_minutes: session.total_work_minutes,
+      total_break_minutes: session.total_break_minutes,
+      adherence_percentage: session.adherence_percentage,
+      productivity_percentage: session.adherence_percentage,
+      is_active: false,
+      updated_at: session.created_at,
+      was_adjusted: session.was_adjusted,
+      adjustment_reason: session.adjustment_reason,
+      adjusted_at: session.adjusted_at,
+    }
+    setEditingSession(fullSession)
+  }, [user])
+
+  const handleSaveEdit = useCallback(async (
+    sessionId: string,
+    workMinutes: number,
+    breakMinutes: number,
+    reason: string
+  ) => {
+    if (!user) return
+
+    try {
+      await focusTimerService.updateSessionDuration(sessionId, user.id, {
+        totalWorkMinutes: workMinutes,
+        totalBreakMinutes: breakMinutes,
+        adjustmentReason: reason,
+      })
+
+      // Refresh stats to show updated values
+      await loadStats()
+      setEditingSession(null)
+
+      logger.info('Session updated successfully')
+    } catch (error) {
+      logger.error('Failed to update session:', error)
+      throw error // Re-throw so modal can show error
+    }
+  }, [user, loadStats])
 
   const formatDifficulty = useCallback((difficulty: string) => {
     const colors = {
@@ -705,41 +824,133 @@ export function StatsPage() {
             <h3 className="h4">Recent Activity</h3>
           </CardHeader>
           <CardContent>
-            {formattedSessions.length === 0 ? (
-              <p className="body text-secondary">No recent reviews</p>
+            {combinedActivity.length === 0 ? (
+              <p className="body text-secondary">No recent activity</p>
             ) : (
               <div style={{ display: 'grid', gap: '0.5rem' }}>
-                {formattedSessions.slice(0, visibleSessions).map(session => (
-                  <div 
-                    key={session.id}
-                    style={{ 
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '0.75rem',
-                      backgroundColor: 'var(--color-gray-50)',
-                      borderRadius: 'var(--radius-sm)'
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <p className="body-small" style={{ marginBottom: '0.25rem' }}>
-                        {session.learning_item.content}
-                      </p>
-                      <p className="body-small text-secondary">
-                        {session.learning_item.topic.name} • {formatDate(session.reviewed_at)}
-                      </p>
-                    </div>
-                    <div style={{ 
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: formatDifficulty(session.difficulty)
-                    }} />
-                  </div>
-                ))}
-                {formattedSessions.length > visibleSessions && (
+                {combinedActivity.slice(0, visibleSessions).map(item => {
+                  if (item.type === 'review') {
+                    // Review session card
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.75rem',
+                          backgroundColor: 'var(--color-gray-50)',
+                          borderRadius: 'var(--radius-sm)'
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <p className="body-small" style={{ marginBottom: '0.25rem' }}>
+                            {item.learning_item.content}
+                          </p>
+                          <p className="body-small text-secondary">
+                            {item.learning_item.topic.name} • {formatDate(item.reviewed_at)}
+                          </p>
+                        </div>
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: formatDifficulty(item.difficulty)
+                        }} />
+                      </div>
+                    )
+                  } else {
+                    // Focus session card
+                    const adherenceColor = getAdherenceColor(item.adherence_percentage)
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.75rem',
+                          backgroundColor: adherenceColor.color + '10',
+                          borderLeft: `3px solid ${adherenceColor.color}`,
+                          borderRadius: 'var(--radius-sm)'
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                            <Timer size={14} color={adherenceColor.color} />
+                            <p className="body-small" style={{ fontWeight: '600' }}>
+                              Focus Session
+                            </p>
+                            {item.was_adjusted && (
+                              <span
+                                className="caption"
+                                style={{
+                                  padding: '0.125rem 0.375rem',
+                                  backgroundColor: 'var(--color-info-light)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  color: 'var(--color-info)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                }}
+                                title={`Adjusted: ${item.adjustment_reason || 'No reason provided'}`}
+                              >
+                                <Edit2 size={10} /> Edited
+                              </span>
+                            )}
+                          </div>
+                          <p className="body-small text-secondary">
+                            {item.total_work_minutes}m work / {item.goal_minutes}m goal • {formatDate(item.created_at)}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: adherenceColor.color,
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'white'
+                          }}>
+                            <span className="caption" style={{ fontWeight: '600' }}>
+                              {Math.round(item.adherence_percentage)}%
+                            </span>
+                            <span style={{ fontSize: '0.875rem' }}>{adherenceColor.emoji}</span>
+                          </div>
+                          <button
+                            onClick={() => handleEditSession(item)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '0.25rem',
+                              color: 'var(--color-text-secondary)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: 'var(--radius-sm)',
+                              transition: 'background-color 0.2s',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = 'var(--color-gray-100)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                            }}
+                            title="Edit session duration"
+                            aria-label="Edit session"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+                })}
+                {combinedActivity.length > visibleSessions && (
                   <button
-                    onClick={() => setVisibleSessions(prev => Math.min(prev + 10, formattedSessions.length))}
+                    onClick={() => setVisibleSessions(prev => Math.min(prev + 10, combinedActivity.length))}
                     style={{
                       padding: '0.5rem',
                       border: '1px solid var(--color-border)',
@@ -749,7 +960,7 @@ export function StatsPage() {
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    Show More ({formattedSessions.length - visibleSessions} remaining)
+                    Show More ({combinedActivity.length - visibleSessions} remaining)
                   </button>
                 )}
               </div>
@@ -780,6 +991,16 @@ export function StatsPage() {
         {/* Focus & Adherence Section */}
         {user && <FocusAdherenceStats userId={user.id} />}
       </div>
+
+      {/* Edit Session Modal */}
+      {editingSession && (
+        <EditSessionModal
+          session={editingSession}
+          isOpen={!!editingSession}
+          onClose={() => setEditingSession(null)}
+          onSave={handleSaveEdit}
+        />
+      )}
     </div>
   )
 }

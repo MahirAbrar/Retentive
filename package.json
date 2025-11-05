@@ -1,7 +1,7 @@
 {
   "name": "retentive-app",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A clean, Swiss design-inspired spaced repetition learning app",
   "author": "Your Name",
   "main": "dist-electron/main.js",
@@ -14,7 +14,7 @@
     "preview": "vite preview",
     "start": "electron .",
     "dist": "npm run build && electron-builder",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npx vite build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
     "optimize": "node scripts/optimize-build.js",

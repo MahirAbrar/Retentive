@@ -5,6 +5,7 @@ import {
   EASE_FACTOR,
   PRIORITY_INTERVAL_MODIFIER,
 } from '@/constants/learning'
+import { GAMIFICATION_CONFIG } from '@/config/gamification'
 
 export interface ReviewResult {
   nextReviewAt: string
@@ -123,15 +124,46 @@ export class SpacedRepetitionService {
     const mode = item.learning_mode
     const priority = item.priority
     const priorityModifier = PRIORITY_INTERVAL_MODIFIER[priority as keyof typeof PRIORITY_INTERVAL_MODIFIER] || 1
-    
+
+    // Use fixed intervals from gamification config
+    const modeConfig = GAMIFICATION_CONFIG.LEARNING_MODES[mode]
+    if (modeConfig && modeConfig.intervals) {
+      // Determine which review this is
+      let reviewIndex = item.review_count
+
+      // If "again" was selected, reset to first interval
+      if (difficulty === 'again') {
+        reviewIndex = 0
+      }
+
+      // Get the interval in hours from config
+      const intervalHours = modeConfig.intervals[reviewIndex] || modeConfig.intervals[modeConfig.intervals.length - 1]
+
+      // Convert hours to days
+      let intervalDays = intervalHours / 24
+
+      // Apply difficulty modifier if not using "good"
+      if (difficulty === 'hard' && reviewIndex > 0) {
+        intervalDays *= 0.8 // 20% shorter for hard
+      } else if (difficulty === 'easy' && reviewIndex > 0) {
+        intervalDays *= 1.2 // 20% longer for easy
+      }
+
+      // Apply priority modifier
+      intervalDays *= priorityModifier
+
+      return intervalDays
+    }
+
+    // Fallback to old calculation if config not found
     // First review or "Again" response
     if (item.review_count === 0 || difficulty === 'again') {
       return BASE_INTERVALS[mode][difficulty] * priorityModifier
     }
-    
+
     // Calculate base interval
     let baseInterval: number
-    
+
     if (item.interval_days < 1) {
       // Still in initial learning phase
       baseInterval = BASE_INTERVALS[mode][difficulty]
@@ -151,10 +183,10 @@ export class SpacedRepetitionService {
           baseInterval = BASE_INTERVALS[mode][difficulty]
       }
     }
-    
+
     // Apply priority modifier
     const finalInterval = baseInterval * priorityModifier
-    
+
     // Apply mode-specific caps
     if (mode === 'cram') {
       // Cram mode caps at 7 days

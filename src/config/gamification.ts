@@ -3,21 +3,21 @@ export const GAMIFICATION_CONFIG = {
   LEARNING_MODES: {
     ultracram: {
       name: "Ultra-Cram Mode",
-      description: "Test in 24-48 hours - maximum short-term retention",
-      
+      description: "Night before exam, urgent deadlines",
+
       // Exact intervals in hours
       intervals: [
-        0.5,     // Review 1: 30 minutes
-        2,       // Review 2: 2 hours
-        9,       // Review 3: 9 hours (before bed)
-        20,      // Review 4: Next morning (~20 hours)
-        4,       // Review 5: 4 hours before test (mastered)
+        0.00833,  // Review 1: 30 seconds (~0.00833 hours)
+        2,        // Review 2: 2 hours
+        24,       // Review 3: 1 day
+        72,       // Review 4: 3 days
+        168,      // Review 5: 7 days (mastered)
       ],
-      
+
       // Review windows (hours before/after due time)
       windowBefore: 0,      // Can't review early in ultra-cram mode
       windowAfter: 1,       // 1 hour grace period
-      
+
       // Points for reviewing in different windows
       pointsMultiplier: {
         onTime: 2.5,        // Within 15 min of due time
@@ -27,73 +27,72 @@ export const GAMIFICATION_CONFIG = {
     },
     
     cram: {
-      name: "Standard Cram Mode",
-      description: "Test in 3-7 days - balanced short-term retention",
-      
+      name: "Cram Mode",
+      description: "Important presentations, job interviews",
+
       // Exact intervals in hours
       intervals: [
-        0.5,     // Review 1: 30 minutes
-        3,       // Review 2: 3 hours
-        24,      // Review 3: 1 day
-        48,      // Review 4: 2 days
-        96,      // Review 5: 4 days (mastered)
+        2,       // Review 1: 2 hours
+        24,      // Review 2: 1 day
+        72,      // Review 3: 3 days
+        168,     // Review 4: 7 days
+        336,     // Review 5: 14 days (mastered)
       ],
-      
+
       // Review windows (hours before/after due time)
-      windowBefore: 0,      // Can't review early in cram mode
-      windowAfter: 2,       // 2 hour grace period
-      
+      windowBefore: 2,      // Can review 2 hours early
+      windowAfter: 4,       // 4 hour grace period
+
       // Points for reviewing in different windows
       pointsMultiplier: {
-        onTime: 2.0,        // Within 30 min of due time
+        onTime: 2.0,        // Within 2 hours of due time
         inWindow: 1.5,      // Within the window
         late: 0.8,          // Outside window
       }
     },
     
     extended: {
-      name: "Extended Cram Mode",
-      description: "Test in 2 weeks - longer-lasting retention",
-      
+      name: "Extended Mode",
+      description: "Background knowledge, general interest",
+
       // Exact intervals in hours
       intervals: [
-        1,       // Review 1: 1 hour
-        5,       // Review 2: 5 hours
-        24,      // Review 3: 1 day
-        72,      // Review 4: 3 days
-        168,     // Review 5: 7 days
-        240,     // Review 6: 10 days (mastered)
+        72,      // Review 1: 3 days
+        168,     // Review 2: 7 days (1 week)
+        336,     // Review 3: 14 days (2 weeks)
+        720,     // Review 4: 30 days (~1 month)
+        1440,    // Review 5: 60 days (2 months) (mastered)
       ],
-      
+
       // Review windows (hours before/after due time)
-      windowBefore: 1,      // Can review 1 hour early
-      windowAfter: 4,       // 4 hour grace period
-      
+      windowBefore: 12,     // Can review 12 hours early
+      windowAfter: 24,      // 24 hour grace period
+
       // Points for reviewing in different windows
       pointsMultiplier: {
-        onTime: 1.8,        // Within 1 hour of due time
+        onTime: 1.8,        // Within 12 hours of due time
         inWindow: 1.4,      // Within the window
         late: 0.85,         // Outside window
       }
     },
     
     steady: {
-      name: "Steady Mode", 
-      description: "Long-term retention with spaced intervals",
-      
+      name: "Steady Mode",
+      description: "Regular coursework, professional development",
+
       // Exact intervals in hours
       intervals: [
         24,      // Review 1: 1 day
         72,      // Review 2: 3 days
         168,     // Review 3: 7 days (1 week)
-        384,     // Review 4: 16 days (~2.3 weeks)
-        840,     // Review 5: 35 days (~5 weeks) (mastered)
+        336,     // Review 4: 14 days (2 weeks)
+        720,     // Review 5: 30 days (~1 month) (mastered)
       ],
-      
+
       // Review windows
       windowBefore: 12,     // Can review 12 hours early
       windowAfter: 24,      // 24 hour grace period
-      
+
       // Points for reviewing in different windows
       pointsMultiplier: {
         onTime: 2.0,        // Within 2 hours of due time

@@ -6,7 +6,15 @@ import { trialService } from '../services/trialService'
 import { subscriptionService } from '../services/subscriptionService'
 import { PRICING, PAYWALL_STATS } from '../types/subscription'
 import { logger } from '../utils/logger'
+import * as Icons from 'lucide-react'
 import './PaywallPage.css'
+
+// Helper function to dynamically render Lucide icons
+const renderIcon = (iconName: string, props?: any) => {
+  const IconComponent = (Icons as any)[iconName]
+  if (!IconComponent) return null
+  return <IconComponent {...props} />
+}
 
 export function PaywallPage() {
   const navigate = useNavigate()
@@ -97,9 +105,14 @@ export function PaywallPage() {
     <div className="paywall-page">
       <div className="paywall-container">
         <div className="paywall-header">
-          <h1 className="display">Unlock Your Learning Potential</h1>
+          <h1 className="display">Unlock Your Superhuman Memory</h1>
+          <p className="subtitle">
+            Science-backed spaced repetition that transforms you into the person everyone thinks has a photographic memory.
+          </p>
+          <p className="hero-cta">Become the human everyone thinks is superhuman!</p>
+          <p className="social-proof">Join {PAYWALL_STATS.activeUsers} learners who've unlocked their brain's true potential</p>
           {trialStatus?.hasUsedTrial && (
-            <p className="subtitle">Hope you enjoyed your trial! Ready to continue your learning journey?</p>
+            <p className="subtitle trial-ended">Hope you enjoyed your trial! Ready to continue your learning journey?</p>
           )}
         </div>
 
@@ -107,7 +120,7 @@ export function PaywallPage() {
         <div className="stats-section">
           {PAYWALL_STATS.statistics.map((stat, index) => (
             <div key={index} className="stat-card">
-              <span className="stat-icon">{stat.icon}</span>
+              <span className="stat-icon">{renderIcon(stat.iconName, { size: 32, strokeWidth: 2 })}</span>
               <span className="stat-value">{stat.value}</span>
               <span className="stat-label">{stat.label}</span>
             </div>
@@ -115,88 +128,178 @@ export function PaywallPage() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="pricing-cards">
-          {/* Trial Card */}
-          {!trialStatus?.hasUsedTrial && (
-            <div className="pricing-card trial-card">
+        <div className="pricing-section">
+          <h2 className="section-title">Simple, Transparent Pricing</h2>
+          <p className="section-subtitle">Start with a free trial, upgrade when you're ready</p>
+
+          <div className="pricing-cards">
+            {/* Trial Card */}
+            {!trialStatus?.hasUsedTrial && (
+              <div className="pricing-card trial-card">
+                <div className="card-header">
+                  <h3 className="card-title">{PRICING.trial.name}</h3>
+                  <div className="price">
+                    <span className="currency">$</span>
+                    <span className="amount">0</span>
+                    <span className="period">/{PRICING.trial.days} days</span>
+                  </div>
+                  <p className="plan-description">Full access to all features</p>
+                </div>
+                <ul className="features-list">
+                  {PRICING.trial.features.map((feature, idx) => (
+                    <li key={idx}>✓ {feature}</li>
+                  ))}
+                </ul>
+                <button
+                  className="btn btn-primary btn-large"
+                  onClick={handleStartTrial}
+                  disabled={loading || trialStatus?.hasUsedTrial}
+                >
+                  {loading ? 'Starting...' : 'Start Free Trial'}
+                </button>
+              </div>
+            )}
+
+            {/* Monthly Plan */}
+            <div className="pricing-card">
               <div className="card-header">
-                <h3 className="card-title">Free Trial</h3>
+                <h3 className="card-title">{PRICING.monthly.name}</h3>
                 <div className="price">
                   <span className="currency">$</span>
-                  <span className="amount">0</span>
-                  <span className="period">14 days</span>
+                  <span className="amount">{PRICING.monthly.price}</span>
+                  <span className="period">/month</span>
                 </div>
+                <p className="plan-description">{PRICING.monthly.description}</p>
               </div>
               <ul className="features-list">
-                <li>✓ 14 days of full access</li>
-                <li>✓ Unlimited topics</li>
-                <li>✓ Advanced analytics</li>
-                <li>✓ No credit card required</li>
-                <li>✓ Cancel anytime</li>
+                {PRICING.monthly.features.map((feature, idx) => (
+                  <li key={idx}>✓ {feature}</li>
+                ))}
               </ul>
-              <button 
-                className="btn btn-primary btn-large"
-                onClick={handleStartTrial}
-                disabled={loading || trialStatus?.hasUsedTrial}
+              <button
+                className="btn btn-secondary btn-large"
+                onClick={() => handleSubscribe('monthly')}
+                disabled={loading}
               >
-                {loading ? 'Starting...' : 'Start Free Trial'}
+                {loading ? 'Processing...' : 'Get Started'}
               </button>
-              <p className="card-footer">One-time offer</p>
             </div>
-          )}
 
-          {/* Monthly Plan */}
-          <div className="pricing-card">
-            <div className="card-header">
-              <h3 className="card-title">Monthly</h3>
-              <div className="price">
-                <span className="currency">$</span>
-                <span className="amount">{PRICING.monthly.price}</span>
-                <span className="period">/month</span>
+            {/* Quarterly Plan */}
+            <div className="pricing-card featured">
+              <div className="badge">{PRICING.quarterly.badge}</div>
+              <div className="card-header">
+                <h3 className="card-title">{PRICING.quarterly.name}</h3>
+                <div className="price">
+                  <span className="currency">$</span>
+                  <span className="amount">{PRICING.quarterly.price}</span>
+                  <span className="period">/3 months</span>
+                </div>
+                <p className="plan-description">{PRICING.quarterly.description}</p>
               </div>
+              <ul className="features-list">
+                {PRICING.quarterly.features.map((feature, idx) => (
+                  <li key={idx}>✓ {feature}</li>
+                ))}
+              </ul>
+              <button
+                className="btn btn-primary btn-large"
+                onClick={() => handleSubscribe('quarterly' as any)}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Get Started'}
+              </button>
+              <p className="card-footer">Save 20%</p>
             </div>
-            <ul className="features-list">
-              <li>✓ Everything in trial</li>
-              <li>✓ Cancel anytime</li>
-              <li>✓ Email support</li>
-              <li>✓ Auto-renews monthly</li>
-            </ul>
-            <button 
-              className="btn btn-secondary btn-large"
-              onClick={() => handleSubscribe('monthly')}
-              disabled={loading}
-            >
-              {loading ? 'Processing...' : 'Subscribe Monthly'}
-            </button>
+
+            {/* Semi-Annual Plan */}
+            <div className="pricing-card best-value">
+              <div className="badge">{PRICING.semiAnnual.badge}</div>
+              <div className="card-header">
+                <h3 className="card-title">{PRICING.semiAnnual.name}</h3>
+                <div className="price">
+                  <span className="currency">$</span>
+                  <span className="amount">{PRICING.semiAnnual.price}</span>
+                  <span className="period">/6 months</span>
+                </div>
+                <p className="plan-description">{PRICING.semiAnnual.description}</p>
+              </div>
+              <ul className="features-list">
+                {PRICING.semiAnnual.features.map((feature, idx) => (
+                  <li key={idx}>✓ {feature}</li>
+                ))}
+              </ul>
+              <button
+                className="btn btn-primary btn-large"
+                onClick={() => handleSubscribe('semiannual' as any)}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Get Started'}
+              </button>
+              <p className="card-footer">Best value - 50% off</p>
+            </div>
+          </div>
+        </div>
+
+        {/* How It Works Section */}
+        <div className="how-it-works-section">
+          <h2 className="section-title">How It Works</h2>
+          <p className="section-subtitle">Transform into a learning superhuman with our science-backed method</p>
+          <p className="section-hero">Become the person everyone thinks has superhuman memory!</p>
+
+          <div className="steps-grid">
+            {PAYWALL_STATS.howItWorks.map((step) => (
+              <div key={step.step} className="step-card">
+                <div className="step-number">{step.step}</div>
+                <div className="step-icon">{renderIcon(step.iconName, { size: 48, strokeWidth: 1.5 })}</div>
+                <h3 className="step-title">{step.title}</h3>
+                <p className="step-description">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Learning Modes Section */}
+        <div className="learning-modes-section">
+          <h2 className="section-title">Choose Your Learning Mode</h2>
+          <p className="section-subtitle">
+            Pick the right pace for your goals. You review the SAME material at increasing intervals - not new content each time.
+          </p>
+          <p className="modes-tagline">This is what makes spaced repetition so powerful.</p>
+
+          <div className="modes-grid">
+            {PAYWALL_STATS.learningModes.map((mode) => (
+              <div key={mode.name} className="mode-card">
+                <div className="mode-icon">{renderIcon(mode.iconName, { size: 48, strokeWidth: 1.5 })}</div>
+                <h3 className="mode-title">{mode.name}</h3>
+                <p className="mode-intervals">{mode.intervals}</p>
+                <p className="mode-wordcount">{mode.wordCount}</p>
+                <p className="mode-bestfor">
+                  <strong>Best for:</strong> {mode.bestFor}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Time Tracking Section */}
+        <div className="time-tracking-section">
+          <h2 className="section-title">{PAYWALL_STATS.timeTracking.title}</h2>
+          <p className="section-subtitle">{PAYWALL_STATS.timeTracking.subtitle}</p>
+          <p className="tracking-description">{PAYWALL_STATS.timeTracking.description}</p>
+
+          <div className="tracking-benefits-grid">
+            {PAYWALL_STATS.timeTracking.benefits.map((benefit, index) => (
+              <div key={index} className="tracking-benefit-card">
+                <div className="benefit-icon">{renderIcon(benefit.iconName, { size: 48, strokeWidth: 1.5 })}</div>
+                <div className="benefit-stat">{benefit.stat}</div>
+                <h4 className="benefit-title">{benefit.title}</h4>
+                <p className="benefit-description">{benefit.description}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Yearly Plan */}
-          <div className="pricing-card featured">
-            <div className="badge">BEST VALUE</div>
-            <div className="card-header">
-              <h3 className="card-title">Yearly</h3>
-              <div className="price">
-                <span className="currency">$</span>
-                <span className="amount">{PRICING.yearly.price}</span>
-                <span className="period">/year</span>
-              </div>
-              <div className="savings">Save {subscriptionService.calculateSavings()} (2 months free!)</div>
-            </div>
-            <ul className="features-list">
-              <li>✓ Everything in monthly</li>
-              <li>✓ Priority support</li>
-              <li>✓ Early access to new features</li>
-              <li>✓ Best value pricing</li>
-            </ul>
-            <button 
-              className="btn btn-primary btn-large"
-              onClick={() => handleSubscribe('yearly')}
-              disabled={loading}
-            >
-              {loading ? 'Processing...' : 'Subscribe Yearly'}
-            </button>
-            <p className="card-footer">Billed annually</p>
-          </div>
+          <p className="tracking-research-note">{PAYWALL_STATS.timeTracking.researchNote}</p>
         </div>
 
         {/* Research Section */}
@@ -208,7 +311,9 @@ export function PaywallPage() {
           <div className="testimonials-grid">
             {PAYWALL_STATS.research.map((study, index) => (
               <div key={index} className="testimonial-card">
-                <div style={{ fontSize: '2rem', marginBottom: '1rem', textAlign: 'center' }}>{study.icon}</div>
+                <div style={{ marginBottom: '1rem', textAlign: 'center', color: 'var(--color-primary)' }}>
+                  {renderIcon(study.iconName, { size: 40, strokeWidth: 1.5 })}
+                </div>
                 <p className="testimonial-text">{study.text}</p>
                 <div className="testimonial-author">
                   <span className="author-name">{study.author}</span>
@@ -217,59 +322,6 @@ export function PaywallPage() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Features Comparison */}
-        <div className="features-section">
-          <h2 className="section-title">Compare Plans</h2>
-          <table className="features-table">
-            <thead>
-              <tr>
-                <th>Feature</th>
-                <th>Free Trial</th>
-                <th>Monthly</th>
-                <th>Yearly</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Duration</td>
-                <td>14 days</td>
-                <td>30 days</td>
-                <td>365 days</td>
-              </tr>
-              <tr>
-                <td>Unlimited Topics</td>
-                <td>✓</td>
-                <td>✓</td>
-                <td>✓</td>
-              </tr>
-              <tr>
-                <td>Advanced Analytics</td>
-                <td>✓</td>
-                <td>✓</td>
-                <td>✓</td>
-              </tr>
-              <tr>
-                <td>Priority Support</td>
-                <td>-</td>
-                <td>-</td>
-                <td>✓</td>
-              </tr>
-              <tr>
-                <td>Early Access</td>
-                <td>-</td>
-                <td>-</td>
-                <td>✓</td>
-              </tr>
-              <tr>
-                <td>Price</td>
-                <td>Free</td>
-                <td>$3/mo</td>
-                <td>$2.50/mo</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
 
         {/* FAQs */}

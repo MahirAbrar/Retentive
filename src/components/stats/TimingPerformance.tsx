@@ -151,7 +151,6 @@ export function TimingPerformance() {
   const [expandedTopics, setExpandedTopics] = useState(new Set<string>())
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [topicsLoading, setTopicsLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'performance' | 'name' | 'reviews'>('performance')
 
   // Load summary immediately (cached)
   useEffect(() => {
@@ -201,19 +200,8 @@ export function TimingPerformance() {
     })
   }, [])
 
-  // Sort topics based on selected criteria
-  const sortedTopics = [...topics].sort((a, b) => {
-    switch (sortBy) {
-      case 'performance':
-        return b.onTimePercentage - a.onTimePercentage
-      case 'name':
-        return a.topicName.localeCompare(b.topicName)
-      case 'reviews':
-        return b.totalReviews - a.totalReviews
-      default:
-        return 0
-    }
-  })
+  // Sort topics by performance (best to worst)
+  const sortedTopics = [...topics].sort((a, b) => b.onTimePercentage - a.onTimePercentage)
 
   const getOverallColor = (percentage: number) => {
     if (percentage >= 80) return 'var(--color-success)'
@@ -276,60 +264,6 @@ export function TimingPerformance() {
             </div>
           )}
 
-          {/* Sort Options */}
-          {!topicsLoading && topics.length > 0 && (
-            <div style={{ 
-              display: 'flex', 
-              gap: '0.5rem', 
-              justifyContent: 'center',
-              marginTop: '2rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid var(--color-border)'
-            }}>
-              <button
-                onClick={() => setSortBy('performance')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: sortBy === 'performance' ? 'var(--color-primary)' : 'var(--color-surface)',
-                  color: sortBy === 'performance' ? 'white' : 'var(--color-text)',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem'
-                }}
-              >
-                By Performance
-              </button>
-              <button
-                onClick={() => setSortBy('name')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: sortBy === 'name' ? 'var(--color-primary)' : 'var(--color-surface)',
-                  color: sortBy === 'name' ? 'white' : 'var(--color-text)',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem'
-                }}
-              >
-                By Name
-              </button>
-              <button
-                onClick={() => setSortBy('reviews')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: sortBy === 'reviews' ? 'var(--color-primary)' : 'var(--color-surface)',
-                  color: sortBy === 'reviews' ? 'white' : 'var(--color-text)',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem'
-                }}
-              >
-                By Reviews
-              </button>
-            </div>
-          )}
         </CardContent>
       </Card>
 

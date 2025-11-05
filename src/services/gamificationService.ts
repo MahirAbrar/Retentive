@@ -252,23 +252,28 @@ export class GamificationService {
         .eq('user_id', userId)
         .order('reviewed_at', { ascending: false })
         .limit(100)
-      
+
       let streakDays = 0
       if (recentSessions && recentSessions.length > 0) {
         const dates = new Set<string>()
         recentSessions.forEach(session => {
-          const date = new Date(session.reviewed_at).toDateString()
-          dates.add(date)
+          // Use UTC date to avoid timezone issues
+          const date = new Date(session.reviewed_at)
+          const utcDate = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+          dates.add(utcDate)
         })
-        
-        // Check consecutive days from today backwards
+
+        // Check consecutive days from today backwards (in UTC)
         const checkDate = new Date()
-        while (dates.has(checkDate.toDateString())) {
+        let currentUtcDate = `${checkDate.getUTCFullYear()}-${String(checkDate.getUTCMonth() + 1).padStart(2, '0')}-${String(checkDate.getUTCDate()).padStart(2, '0')}`
+
+        while (dates.has(currentUtcDate)) {
           streakDays++
-          checkDate.setDate(checkDate.getDate() - 1)
+          checkDate.setUTCDate(checkDate.getUTCDate() - 1)
+          currentUtcDate = `${checkDate.getUTCFullYear()}-${String(checkDate.getUTCMonth() + 1).padStart(2, '0')}-${String(checkDate.getUTCDate()).padStart(2, '0')}`
         }
       }
-      
+
       return streakDays
     } catch (error) {
       logger.error('Error calculating streak from history:', error)

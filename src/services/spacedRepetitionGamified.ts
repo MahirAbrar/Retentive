@@ -78,24 +78,32 @@ export class SpacedRepetitionGamifiedService {
 
   getDueItems(items: LearningItem[]): LearningItem[] {
     const now = new Date()
-    
+
     return items.filter(item => {
       // Never reviewed items (review_count = 0) are considered "ready to learn" not "due"
       if (item.review_count === 0) return false
-      
+
       // If no next_review_at is set but item has been reviewed, something is wrong
       if (!item.next_review_at) {
         logger.warn('Item has review_count > 0 but no next_review_at:', item)
         return false
       }
-      
+
       const reviewDate = new Date(item.next_review_at)
       const mode = GAMIFICATION_CONFIG.LEARNING_MODES[item.learning_mode]
-      
-      // Check if within early window (windowBefore is in hours)
-      const windowBeforeMs = mode.windowBefore * 60 * 60 * 1000
+
+      // Calculate the interval in hours
+      const intervalHours = (reviewDate.getTime() - new Date(item.last_reviewed_at || reviewDate).getTime()) / (1000 * 60 * 60)
+
+      // For short intervals (< 12 hours), don't allow early reviews
+      // This prevents "immediate" reviews for cram modes
+      let windowBeforeMs = mode.windowBefore * 60 * 60 * 1000
+      if (intervalHours < 12) {
+        windowBeforeMs = 0 // No early window for short intervals
+      }
+
       const earliestReviewTime = reviewDate.getTime() - windowBeforeMs
-      
+
       return now.getTime() >= earliestReviewTime
     }).sort((a, b) => {
       // Sort by priority (descending) then by due date (ascending)

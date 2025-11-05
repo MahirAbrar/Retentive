@@ -222,13 +222,17 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (_e: MouseEvent) => {
-      if (openMenuId) {
-        setOpenMenuId(null)
-      }
+      setOpenMenuId(prev => {
+        if (prev !== null) {
+          return null
+        }
+        return prev
+      })
     }
+
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
-  }, [openMenuId])
+  }, []) // Empty dependency array - listener is stable
 
   // formatNextReview is now imported from utils/formatters
 
@@ -429,6 +433,9 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
       if (updatedItem.next_review_at && updatedItem.review_count < GAMIFICATION_CONFIG.MASTERY.reviewsRequired) {
         const topic = topics.find(t => t.id === item.topic_id)
         if (topic && window.electronAPI?.notifications) {
+          // Cancel any existing notifications for this item first
+          window.electronAPI.notifications.cancel()
+
           const delayMs = new Date(updatedItem.next_review_at).getTime() - Date.now()
           if (delayMs > 0) {
             window.electronAPI.notifications.schedule(
@@ -1286,8 +1293,18 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
           onClose={() => setEditingTopic(null)}
           onSave={async (updatedTopic) => {
             try {
+              logger.info('=== Starting topic update ===')
+              logger.info('Update payload:', {
+                id: updatedTopic.id,
+                name: updatedTopic.name,
+                oldMode: editingTopic.learning_mode,
+                newMode: updatedTopic.learning_mode,
+                priority: updatedTopic.priority,
+                modeChanged: updatedTopic.learning_mode !== editingTopic.learning_mode
+              })
+
               // Update the topic
-              const { error: topicError } = await supabase
+              const { data: topicData, error: topicError } = await supabase
                 .from('topics')
                 .update({
                   name: updatedTopic.name,
@@ -1295,34 +1312,77 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                   priority: updatedTopic.priority
                 })
                 .eq('id', updatedTopic.id)
+                .select()
 
               if (topicError) {
-                logger.error('Error updating topic:', topicError)
-                throw topicError
+                logger.error('Topic update failed:', {
+                  error: topicError,
+                  code: topicError.code,
+                  message: topicError.message,
+                  details: topicError.details,
+                  hint: topicError.hint
+                })
+                addToast('error', `Failed to update topic: ${topicError.message}`)
+                return
               }
+
+              if (!topicData || topicData.length === 0) {
+                logger.error('Topic update returned no data')
+                addToast('error', 'Topic update failed: No data returned')
+                return
+              }
+
+              logger.info('Topic updated successfully:', {
+                updatedTopic: topicData[0],
+                verifiedMode: topicData[0].learning_mode
+              })
 
               // If learning mode changed, update all associated learning items
               if (updatedTopic.learning_mode !== editingTopic.learning_mode) {
-                const { error: itemsError } = await supabase
+                logger.info('Learning mode changed, updating all items in topic', {
+                  topicId: updatedTopic.id,
+                  newMode: updatedTopic.learning_mode
+                })
+
+                const { data: itemsData, error: itemsError } = await supabase
                   .from('learning_items')
                   .update({
                     learning_mode: updatedTopic.learning_mode
                   })
                   .eq('topic_id', updatedTopic.id)
-                
+                  .select('id, learning_mode')
+
                 if (itemsError) {
-                  logger.error('Error updating learning items:', itemsError)
-                  throw itemsError
+                  logger.error('Items update failed:', {
+                    error: itemsError,
+                    code: itemsError.code,
+                    message: itemsError.message
+                  })
+                  addToast('error', `Topic updated but failed to update items: ${itemsError.message}`)
+                  // Still close modal and reload since topic was updated
+                  setEditingTopic(null)
+                  window.location.reload()
+                  return
                 }
+
+                logger.info(`Updated ${itemsData?.length || 0} learning items:`, {
+                  count: itemsData?.length,
+                  sampleItem: itemsData?.[0],
+                  allItemsMode: itemsData?.every(item => item.learning_mode === updatedTopic.learning_mode)
+                })
+
+                addToast('success', `Topic and ${itemsData?.length || 0} items updated successfully`)
+              } else {
+                addToast('success', 'Topic updated successfully')
               }
 
-              addToast('success', 'Topic and items updated successfully')
+              logger.info('=== Topic update complete ===')
               setEditingTopic(null)
               // Refresh topics list
               window.location.reload()
             } catch (error) {
-              logger.error('Failed to update:', error)
-              addToast('error', 'Failed to update topic')
+              logger.error('Unexpected error during topic update:', error)
+              addToast('error', `Failed to update topic: ${error instanceof Error ? error.message : 'Unknown error'}`)
             }
           }}
         />
@@ -1363,14 +1423,49 @@ interface EditTopicModalProps {
   onSave: (topic: Topic) => void
 }
 
-const EditTopicModal = React.memo(function EditTopicModal({ topic, onClose, onSave }: EditTopicModalProps) {
+const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditTopicModalProps) {
   const [name, setName] = useState(topic?.name || '')
   const [learningMode, setLearningMode] = useState<LearningMode>(topic?.learning_mode || 'steady')
   const [priority, setPriority] = useState(topic?.priority || 5)
 
+  // Sync state when topic prop changes
+  useEffect(() => {
+    if (topic) {
+      logger.info('EditTopicModal: Syncing topic prop to state', {
+        topicId: topic.id,
+        name: topic.name,
+        mode: topic.learning_mode,
+        priority: topic.priority
+      })
+      setName(topic.name)
+      setLearningMode(topic.learning_mode)
+      setPriority(topic.priority)
+    }
+  }, [topic])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim()) {
+      logger.warn('EditTopicModal: Cannot save - name is empty')
+      return
+    }
+
+    // Validate learning mode
+    if (!LEARNING_MODES[learningMode]) {
+      logger.error('EditTopicModal: Invalid learning mode selected', { learningMode })
+      return
+    }
+
+    logger.info('EditTopicModal: Submitting changes', {
+      topicId: topic.id,
+      oldName: topic.name,
+      newName: name.trim(),
+      oldMode: topic.learning_mode,
+      newMode: learningMode,
+      oldPriority: topic.priority,
+      newPriority: priority,
+      modeChanged: topic.learning_mode !== learningMode
+    })
 
     if (topic) {
       onSave({
@@ -1397,15 +1492,22 @@ const EditTopicModal = React.memo(function EditTopicModal({ topic, onClose, onSa
             <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
               Learning Mode
             </label>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               {Object.entries(LEARNING_MODES).map(([mode, config]) => (
-                <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                   <input
                     type="radio"
                     name="learningMode"
                     value={mode}
                     checked={learningMode === mode}
-                    onChange={(e) => setLearningMode(e.target.value as LearningMode)}
+                    onChange={(e) => {
+                      const newMode = e.target.value as LearningMode
+                      logger.info('EditTopicModal: Learning mode changed', {
+                        from: learningMode,
+                        to: newMode
+                      })
+                      setLearningMode(newMode)
+                    }}
                   />
                   <span className="body">{config.label}</span>
                 </label>
@@ -1439,4 +1541,4 @@ const EditTopicModal = React.memo(function EditTopicModal({ topic, onClose, onSa
       </form>
     </Modal>
   )
-})
+}

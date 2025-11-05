@@ -5,8 +5,11 @@ import { useFocusTimer } from '../../hooks/useFocusTimer'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { GoalReachedModal } from './GoalReachedModal'
 import { BreakCompleteModal } from './BreakCompleteModal'
+import { MaxDurationModal } from './MaxDurationModal'
 import { SessionSummary } from './SessionSummary'
 import { FocusTimerSettings } from './FocusTimerSettings'
+import { BreakActivityModal } from './BreakActivityModal'
+import { BreakActivityTimer } from './BreakActivityTimer'
 import { logger } from '../../utils/logger'
 
 interface SummaryData {
@@ -34,7 +37,11 @@ export function FocusTimer() {
     adherenceColor,
     showGoalReachedModal,
     showBreakCompleteModal,
+    showMaxDurationModal,
     recommendedBreakMinutes,
+    breakActivityModal,
+    activeBreakActivity,
+    breakActivityTimeRemaining,
     startWorking,
     startBreak,
     stopSession,
@@ -42,6 +49,11 @@ export function FocusTimer() {
     setGoalMinutes,
     closeGoalReachedModal,
     closeBreakCompleteModal,
+    closeMaxDurationModal,
+    openBreakActivityModal,
+    closeBreakActivityModal,
+    startBreakActivity,
+    completeBreakActivity,
   } = useFocusTimer(user?.id || '')
 
   if (!user) return null
@@ -318,6 +330,103 @@ export function FocusTimer() {
             </div>
           )}
 
+          {/* Break Suggestion Buttons (only when working) */}
+          {status === 'working' && (
+            <div
+              style={{
+                marginBottom: '1rem',
+                padding: '1rem',
+                backgroundColor: 'var(--color-gray-50)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              <p
+                className="caption"
+                style={{
+                  marginBottom: '0.75rem',
+                  fontWeight: '600',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                Need a quick break?
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <button
+                  onClick={() => openBreakActivityModal('cognitive-overload')}
+                  style={{
+                    padding: '0.75rem',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--color-background)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
+                    e.currentTarget.style.borderColor = 'var(--color-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
+                    e.currentTarget.style.borderColor = 'var(--color-border)'
+                  }}
+                >
+                  📚 Need to Absorb Info?
+                </button>
+                <button
+                  onClick={() => openBreakActivityModal('attention-drift')}
+                  style={{
+                    padding: '0.75rem',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--color-background)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
+                    e.currentTarget.style.borderColor = 'var(--color-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
+                    e.currentTarget.style.borderColor = 'var(--color-border)'
+                  }}
+                >
+                  🎯 Losing Focus?
+                </button>
+                <button
+                  onClick={() => openBreakActivityModal('urge-management')}
+                  style={{
+                    padding: '0.75rem',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--color-background)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
+                    e.currentTarget.style.borderColor = 'var(--color-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
+                    e.currentTarget.style.borderColor = 'var(--color-border)'
+                  }}
+                >
+                  🚫 Want to Give Up?
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
             {status === 'idle' && (
@@ -432,6 +541,23 @@ export function FocusTimer() {
         onClose={closeBreakCompleteModal}
       />
 
+      <MaxDurationModal
+        isOpen={showMaxDurationModal}
+        workMinutes={Math.floor(workTime.minutes)}
+        goalMinutes={goalMinutes}
+        recommendedBreakMinutes={recommendedBreakMinutes}
+        adherencePercentage={adherencePercentage}
+        adherenceColor={adherenceColor}
+        onTakeBreak={() => {
+          startBreak(recommendedBreakMinutes)
+          closeMaxDurationModal()
+        }}
+        onEndSession={() => {
+          handleStopSession()
+          closeMaxDurationModal()
+        }}
+      />
+
       {showSummary && summaryData && (
         <SessionSummary
           isOpen={showSummary}
@@ -449,6 +575,23 @@ export function FocusTimer() {
         onSaveGoal={handleSaveGoal}
         onClose={() => setShowSettings(false)}
       />
+
+      {/* Break Activity Modals */}
+      <BreakActivityModal
+        isOpen={breakActivityModal.isOpen}
+        categoryId={breakActivityModal.categoryId}
+        onSelectActivity={startBreakActivity}
+        onClose={closeBreakActivityModal}
+      />
+
+      {activeBreakActivity && (
+        <BreakActivityTimer
+          activity={activeBreakActivity}
+          timeRemaining={breakActivityTimeRemaining}
+          onComplete={completeBreakActivity}
+          onCancel={completeBreakActivity}
+        />
+      )}
     </>
   )
 }

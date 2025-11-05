@@ -50,7 +50,8 @@ export function FocusTimerSettings({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 9999,
+        zIndex: 10000,
+        pointerEvents: 'auto',
       }}
       onClick={onClose}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
@@ -66,6 +67,9 @@ export function FocusTimerSettings({
           maxWidth: '450px',
           width: '90%',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          position: 'relative',
+          zIndex: 10001,
+          pointerEvents: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
@@ -74,29 +78,13 @@ export function FocusTimerSettings({
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
+            gap: '0.5rem',
             marginBottom: '1.5rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Settings size={24} />
-            <h2 className="h4">Focus Settings</h2>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              border: 'none',
-              background: 'none',
-              cursor: 'pointer',
-              padding: '0.25rem',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            aria-label="Close"
-          >
-            <X size={24} />
-          </button>
+          <Settings size={24} />
+          <h2 className="h4">Focus Settings</h2>
         </div>
 
         {/* Goal Duration */}

@@ -131,12 +131,17 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
     
     const activeTopicIdsForStats = activeTopicsForStats?.map(t => t.id) || []
     const totalTopics = activeTopicsForStats?.length || 0
-    
-    const { count: totalItems } = await supabase
-      .from('learning_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .in('topic_id', activeTopicIdsForStats.length > 0 ? activeTopicIdsForStats : ['00000000-0000-0000-0000-000000000000'])
+
+    // Skip query if no active topics
+    let totalItems = 0
+    if (activeTopicIdsForStats.length > 0) {
+      const { count } = await supabase
+        .from('learning_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .in('topic_id', activeTopicIdsForStats)
+      totalItems = count || 0
+    }
     
     // Get priority breakdown with single query (excluding archived topics)
     const { data: itemsWithTopics } = await supabase

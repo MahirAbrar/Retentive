@@ -13,10 +13,13 @@ export class NotificationService {
   /**
    * Schedule daily study reminder
    */
-  async scheduleDailyReminder(_userId: string, time: string): Promise<boolean> {
+  async scheduleDailyReminder(userId: string, time: string): Promise<boolean> {
     if (!window.electronAPI) return false
-    
+
     try {
+      // Cancel any existing daily reminders first
+      await this.cancelNotification('daily', userId)
+
       window.electronAPI.notifications.schedule('Daily Reminder', `Time to review your items at ${time}`, 0)
       return true
     } catch (error) {
@@ -28,10 +31,13 @@ export class NotificationService {
   /**
    * Schedule streak maintenance alerts
    */
-  async scheduleStreakAlerts(_userId: string): Promise<boolean> {
+  async scheduleStreakAlerts(userId: string): Promise<boolean> {
     if (!window.electronAPI) return false
-    
+
     try {
+      // Cancel any existing streak alerts first
+      await this.cancelNotification('streak', userId)
+
       window.electronAPI.notifications.schedule('Streak Alert', 'Keep your streak alive! Review some items today.', 0)
       return true
     } catch (error) {

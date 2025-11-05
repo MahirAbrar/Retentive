@@ -7,6 +7,8 @@ import {
   type FocusSession,
   type FocusSegment,
 } from '../services/focusTimerService'
+import { logger } from '../utils/logger'
+import type { BreakActivity } from '../services/breakActivities'
 
 type TimerStatus = 'idle' | 'working' | 'break'
 
@@ -22,7 +24,11 @@ interface TimerState {
   currentSegment: FocusSegment | null
   showGoalReachedModal: boolean
   showBreakCompleteModal: boolean
+  showMaxDurationModal: boolean
   recommendedBreakMinutes: number
+  breakActivityModal: { isOpen: boolean; categoryId: string | null }
+  activeBreakActivity: BreakActivity | null
+  breakActivityTimeRemaining: number
 }
 
 export function useFocusTimer(userId: string) {
@@ -38,7 +44,11 @@ export function useFocusTimer(userId: string) {
     currentSegment: null,
     showGoalReachedModal: false,
     showBreakCompleteModal: false,
+    showMaxDurationModal: false,
     recommendedBreakMinutes: 0,
+    breakActivityModal: { isOpen: false, categoryId: null },
+    activeBreakActivity: null,
+    breakActivityTimeRemaining: 0,
   })
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -46,6 +56,13 @@ export function useFocusTimer(userId: string) {
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const syncRetryCount = useRef<number>(0)
   const maxSyncRetries = 3
+  const syncLockRef = useRef<boolean>(false) // Prevent concurrent syncs
+  const breakActivityIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const workPausedForBreakActivityRef = useRef<boolean>(false)
+
+  // Focus timer limits
+  const maxSessionDurationHours = 8 // Absolute maximum session duration (8 hours)
+  const goalMultiplier = 1.5 // Auto-pause when reaching 1.5x the goal
 
   // ================================================
   // TIMER TICK - Updates every second
@@ -69,9 +86,11 @@ export function useFocusTimer(userId: string) {
         }
 
         // Update appropriate timer based on status
-        if (prev.status === 'working') {
+        if (prev.status === 'working' && !prev.activeBreakActivity) {
+          // Only count work time if not doing a break activity
           newState.workSeconds = prev.workSeconds + 1
-        } else if (prev.status === 'break') {
+        } else if (prev.status === 'break' || prev.activeBreakActivity) {
+          // Count break time for regular breaks OR break activities
           newState.breakSeconds = prev.breakSeconds + 1
         }
 
@@ -81,11 +100,31 @@ export function useFocusTimer(userId: string) {
         newState.adherencePercentage = calculateAdherence(workMinutes, breakMinutes)
         newState.adherenceColor = getAdherenceColor(newState.adherencePercentage)
 
+        // Check if 1.5x goal reached (auto-pause for safety)
+        if (
+          prev.status === 'working' &&
+          newState.workSeconds >= prev.goalMinutes * 60 * goalMultiplier &&
+          !prev.showMaxDurationModal
+        ) {
+          newState.showMaxDurationModal = true
+          newState.status = 'idle' // Auto-pause
+          newState.recommendedBreakMinutes = calculateRecommendedBreak(prev.goalMinutes)
+          logger.info('1.5x goal reached, auto-pausing session')
+        }
+
+        // Check absolute maximum session duration (8 hours safety cap)
+        if (newState.sessionSeconds >= maxSessionDurationHours * 3600) {
+          newState.showMaxDurationModal = true
+          newState.status = 'idle' // Force pause
+          logger.warn('Absolute maximum session duration reached (8 hours), force pausing')
+        }
+
         // Check if goal reached (only while working)
         if (
           prev.status === 'working' &&
           newState.workSeconds >= prev.goalMinutes * 60 &&
-          !prev.showGoalReachedModal
+          !prev.showGoalReachedModal &&
+          !prev.showMaxDurationModal // Don't show both modals
         ) {
           newState.showGoalReachedModal = true
           newState.recommendedBreakMinutes = calculateRecommendedBreak(
@@ -103,6 +142,34 @@ export function useFocusTimer(userId: string) {
       }
     }
   }, [state.status, state.goalMinutes, state.showGoalReachedModal])
+
+  // ================================================
+  // HANDLE MAX DURATION AUTO-PAUSE
+  // ================================================
+  useEffect(() => {
+    // When max duration modal shows and we have an active segment, end it
+    if (state.showMaxDurationModal && state.currentSegment && state.status === 'idle') {
+      const endCurrentSegment = async () => {
+        try {
+          const durationMinutes = Math.floor(
+            (Date.now() - segmentStartTimeRef.current) / 60000
+          )
+
+          await focusTimerService.endSegment(
+            state.currentSegment!.id,
+            userId,
+            durationMinutes
+          )
+
+          logger.info('Segment ended due to max duration reached')
+        } catch (error) {
+          logger.error('Error ending segment on max duration:', error)
+        }
+      }
+
+      endCurrentSegment()
+    }
+  }, [state.showMaxDurationModal, state.currentSegment, state.status, userId])
 
   // ================================================
   // LOAD ACTIVE SESSION ON MOUNT
@@ -150,7 +217,7 @@ export function useFocusTimer(userId: string) {
 
             // Check if segment is stale (app was closed for too long)
             if (segmentAge > maxSegmentAge) {
-              console.log('Found stale segment, ending it with reasonable duration')
+              logger.log('Found stale segment, ending it with reasonable duration')
 
               // End the stale segment with a reasonable duration
               const reasonableDuration = activeSegment.segment_type === 'break'
@@ -170,7 +237,7 @@ export function useFocusTimer(userId: string) {
                   breakSeconds += reasonableDuration * 60
                 }
               } catch (error) {
-                console.error('Error ending stale segment:', error)
+                logger.error('Error ending stale segment:', error)
               }
 
               // Don't auto-resume from stale segments
@@ -180,11 +247,15 @@ export function useFocusTimer(userId: string) {
               // Segment is fresh, continue normally
               const segmentElapsed = Math.floor(segmentAge / 1000)
 
+              // Cap segment elapsed to prevent integer overflow (max ~24 days in seconds)
+              const MAX_SEGMENT_SECONDS = 2147483 // Just under PostgreSQL int max
+              const cappedSegmentElapsed = Math.min(segmentElapsed, MAX_SEGMENT_SECONDS)
+
               if (activeSegment.segment_type === 'work') {
-                workSeconds += segmentElapsed
+                workSeconds += cappedSegmentElapsed
                 currentStatus = 'working'
               } else {
-                breakSeconds += segmentElapsed
+                breakSeconds += cappedSegmentElapsed
                 currentStatus = 'break'
               }
 
@@ -213,7 +284,7 @@ export function useFocusTimer(userId: string) {
           }))
         }
       } catch (error) {
-        console.error('Error loading active session:', error)
+        logger.error('Error loading active session:', error)
       }
     }
 
@@ -228,7 +299,7 @@ export function useFocusTimer(userId: string) {
       const event = e as CustomEvent
       // Only reset if it's our session that ended
       if (state.session?.id === event.detail.sessionId) {
-        console.log('Session ended in another tab/component, syncing...')
+        logger.log('Session ended in another tab/component, syncing...')
         resetSession()
       }
     }
@@ -236,7 +307,7 @@ export function useFocusTimer(userId: string) {
     const handleSessionBreak = (e: Event) => {
       const event = e as CustomEvent
       if (state.session?.id === event.detail.sessionId && state.status !== 'break') {
-        console.log('Session switched to break in another tab/component')
+        logger.log('Session switched to break in another tab/component')
         setState(prev => ({ ...prev, status: 'break' }))
       }
     }
@@ -244,7 +315,7 @@ export function useFocusTimer(userId: string) {
     const handleSessionWork = (e: Event) => {
       const event = e as CustomEvent
       if (state.session?.id === event.detail.sessionId && state.status !== 'working') {
-        console.log('Session switched to work in another tab/component')
+        logger.log('Session switched to work in another tab/component')
         setState(prev => ({ ...prev, status: 'working' }))
       }
     }
@@ -275,12 +346,12 @@ export function useFocusTimer(userId: string) {
 
         // If no active session or different session ID, reset
         if (!activeSession || activeSession.id !== state.session?.id || !activeSession.is_active) {
-          console.log('Session no longer active in database, syncing state...')
+          logger.log('Session no longer active in database, syncing state...')
           resetSession()
         }
       } catch (error) {
         // Ignore errors during validation (likely offline)
-        console.debug('Session validation skipped:', error)
+        logger.debug('Session validation skipped:', error)
       }
     }
 
@@ -332,33 +403,44 @@ export function useFocusTimer(userId: string) {
     window.addEventListener('beforeunload', handleBeforeUnload)
 
     // Also handle visibility change (mobile browsers, tab switches)
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.hidden && state.currentSegment && state.status !== 'idle') {
         // Only sync if online
         if (!navigator.onLine) {
-          console.log('Tab hidden but offline - skipping sync')
+          logger.log('Tab hidden but offline - skipping sync')
+          return
+        }
+
+        // Check if already syncing
+        if (syncLockRef.current) {
+          logger.log('Sync already in progress - skipping visibility change sync')
           return
         }
 
         // Update segment duration so far (don't end it)
         if (state.session) {
-          focusTimerService.syncSession(
-            state.session.id,
-            userId,
-            {
-              totalWorkMinutes: Math.floor(state.workSeconds / 60),
-              totalBreakMinutes: Math.floor(state.breakSeconds / 60),
-              adherencePercentage: state.adherencePercentage,
-              currentSegmentType: state.status === 'working' ? 'work' : 'break',
-              currentSegmentId: state.currentSegment.id,
-            }
-          ).catch((error: unknown) => {
+          syncLockRef.current = true
+          try {
+            await focusTimerService.syncSession(
+              state.session.id,
+              userId,
+              {
+                totalWorkMinutes: Math.floor(state.workSeconds / 60),
+                totalBreakMinutes: Math.floor(state.breakSeconds / 60),
+                adherencePercentage: state.adherencePercentage,
+                currentSegmentType: state.status === 'working' ? 'work' : 'break',
+                currentSegmentId: state.currentSegment.id,
+              }
+            )
+          } catch (error: unknown) {
             // Only log network errors once
             const errorMessage = error instanceof Error ? error.message : String(error)
             if (!errorMessage.includes('ERR_INTERNET_DISCONNECTED')) {
-              console.error('Error syncing on visibility change:', error)
+              logger.error('Error syncing on visibility change:', error)
             }
-          })
+          } finally {
+            syncLockRef.current = false
+          }
         }
       }
     }
@@ -391,16 +473,23 @@ export function useFocusTimer(userId: string) {
 
       // Check if online before attempting sync
       if (!navigator.onLine) {
-        console.log('Offline - skipping focus timer sync')
+        logger.log('Offline - skipping focus timer sync')
         return
       }
 
       // Skip if we've exceeded retry limit
       if (syncRetryCount.current >= maxSyncRetries) {
-        console.log('Max sync retries reached, waiting for next interval')
+        logger.log('Max sync retries reached, waiting for next interval')
         return
       }
 
+      // Check if already syncing
+      if (syncLockRef.current) {
+        logger.log('Sync already in progress - skipping periodic sync')
+        return
+      }
+
+      syncLockRef.current = true
       try {
         await focusTimerService.syncSession(
           state.session.id,
@@ -422,11 +511,13 @@ export function useFocusTimer(userId: string) {
             errorMessage.includes('NetworkError') ||
             errorMessage.includes('Failed to fetch')) {
           syncRetryCount.current++
-          console.log(`Focus timer sync failed (attempt ${syncRetryCount.current}/${maxSyncRetries}):`, errorMessage)
+          logger.log(`Focus timer sync failed (attempt ${syncRetryCount.current}/${maxSyncRetries}):`, errorMessage)
         } else {
           // For other errors, log but don't spam
-          console.error('Error syncing session to database:', error)
+          logger.error('Error syncing session to database:', error)
         }
+      } finally {
+        syncLockRef.current = false
       }
     }
 
@@ -444,13 +535,13 @@ export function useFocusTimer(userId: string) {
 
     // Listen for online/offline events
     const handleOnline = () => {
-      console.log('Connection restored - syncing focus timer')
+      logger.log('Connection restored - syncing focus timer')
       syncRetryCount.current = 0
       syncToDatabase()
     }
 
     const handleOffline = () => {
-      console.log('Connection lost - pausing focus timer sync')
+      logger.log('Connection lost - pausing focus timer sync')
       syncRetryCount.current = maxSyncRetries // Prevent retries while offline
     }
 
@@ -520,7 +611,7 @@ export function useFocusTimer(userId: string) {
           }
         }))
       } catch (error) {
-        console.error('Error starting work session:', error)
+        logger.error('Error starting work session:', error)
       }
     },
     [userId, state.session, state.goalMinutes]
@@ -546,7 +637,7 @@ export function useFocusTimer(userId: string) {
 
         // Create break segment
         if (!state.session) {
-          console.error('Cannot start break: no active session')
+          logger.error('Cannot start break: no active session')
           return
         }
         const segment = await focusTimerService.createSegment(
@@ -583,7 +674,7 @@ export function useFocusTimer(userId: string) {
           }, recommendedMinutes * 60 * 1000)
         }
       } catch (error) {
-        console.error('Error starting break:', error)
+        logger.error('Error starting break:', error)
       }
     },
     [userId, state.session, state.currentSegment, state.status]
@@ -635,7 +726,7 @@ export function useFocusTimer(userId: string) {
         adherenceColor: state.adherenceColor,
       }
     } catch (error) {
-      console.error('Error stopping session:', error)
+      logger.error('Error stopping session:', error)
       return null
     }
   }, [
@@ -662,6 +753,9 @@ export function useFocusTimer(userId: string) {
       syncIntervalRef.current = null
     }
 
+    // Reset sync lock
+    syncLockRef.current = false
+
     setState({
       status: 'idle',
       sessionSeconds: 0,
@@ -674,7 +768,11 @@ export function useFocusTimer(userId: string) {
       currentSegment: null,
       showGoalReachedModal: false,
       showBreakCompleteModal: false,
+      showMaxDurationModal: false,
       recommendedBreakMinutes: 0,
+      breakActivityModal: { isOpen: false, categoryId: null },
+      activeBreakActivity: null,
+      breakActivityTimeRemaining: 0,
     })
   }, [])
 
@@ -697,6 +795,92 @@ export function useFocusTimer(userId: string) {
   const closeBreakCompleteModal = useCallback(() => {
     setState((prev) => ({ ...prev, showBreakCompleteModal: false }))
   }, [])
+
+  const closeMaxDurationModal = useCallback(() => {
+    setState((prev) => ({ ...prev, showMaxDurationModal: false }))
+  }, [])
+
+  // ================================================
+  // BREAK ACTIVITY CONTROLS
+  // ================================================
+  const openBreakActivityModal = useCallback((categoryId: string) => {
+    setState((prev) => ({
+      ...prev,
+      breakActivityModal: { isOpen: true, categoryId },
+    }))
+  }, [])
+
+  const closeBreakActivityModal = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      breakActivityModal: { isOpen: false, categoryId: null },
+    }))
+  }, [])
+
+  const startBreakActivity = useCallback((activity: BreakActivity) => {
+    // Pause work timer if working
+    if (state.status === 'working') {
+      workPausedForBreakActivityRef.current = true
+    }
+
+    setState((prev) => ({
+      ...prev,
+      activeBreakActivity: activity,
+      breakActivityTimeRemaining: activity.durationMinutes * 60,
+    }))
+
+    logger.info(`Started break activity: ${activity.name} (${activity.durationMinutes} min)`)
+  }, [state.status])
+
+  const completeBreakActivity = useCallback(() => {
+    if (breakActivityIntervalRef.current) {
+      clearInterval(breakActivityIntervalRef.current)
+      breakActivityIntervalRef.current = null
+    }
+
+    workPausedForBreakActivityRef.current = false
+
+    setState((prev) => ({
+      ...prev,
+      activeBreakActivity: null,
+      breakActivityTimeRemaining: 0,
+    }))
+
+    logger.info('Break activity completed')
+  }, [])
+
+  // ================================================
+  // BREAK ACTIVITY TIMER TICK
+  // ================================================
+  useEffect(() => {
+    if (!state.activeBreakActivity || state.breakActivityTimeRemaining <= 0) {
+      if (breakActivityIntervalRef.current) {
+        clearInterval(breakActivityIntervalRef.current)
+        breakActivityIntervalRef.current = null
+      }
+      return
+    }
+
+    breakActivityIntervalRef.current = setInterval(() => {
+      setState((prev) => {
+        const newTimeRemaining = prev.breakActivityTimeRemaining - 1
+
+        if (newTimeRemaining <= 0) {
+          // Auto-complete when timer ends
+          setTimeout(() => completeBreakActivity(), 100)
+          return { ...prev, breakActivityTimeRemaining: 0 }
+        }
+
+        return { ...prev, breakActivityTimeRemaining: newTimeRemaining }
+      })
+    }, 1000)
+
+    return () => {
+      if (breakActivityIntervalRef.current) {
+        clearInterval(breakActivityIntervalRef.current)
+      }
+    }
+  }, [state.activeBreakActivity, state.breakActivityTimeRemaining, completeBreakActivity])
 
   // ================================================
   // FORMATTED TIME GETTERS
@@ -734,8 +918,12 @@ export function useFocusTimer(userId: string) {
     adherenceColor: state.adherenceColor,
     showGoalReachedModal: state.showGoalReachedModal,
     showBreakCompleteModal: state.showBreakCompleteModal,
+    showMaxDurationModal: state.showMaxDurationModal,
     recommendedBreakMinutes: state.recommendedBreakMinutes,
     session: state.session,
+    breakActivityModal: state.breakActivityModal,
+    activeBreakActivity: state.activeBreakActivity,
+    breakActivityTimeRemaining: state.breakActivityTimeRemaining,
 
     // Actions
     startWorking,
@@ -745,5 +933,10 @@ export function useFocusTimer(userId: string) {
     setGoalMinutes,
     closeGoalReachedModal,
     closeBreakCompleteModal,
+    closeMaxDurationModal,
+    openBreakActivityModal,
+    closeBreakActivityModal,
+    startBreakActivity,
+    completeBreakActivity,
   }
 }
