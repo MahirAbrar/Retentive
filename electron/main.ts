@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell, Menu, ipcMain, Tray, nativeImage } from 'ele
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import crypto from 'crypto';
 import Store from 'electron-store';
 import { NotificationService } from './notificationService.js';
 import { setupConsoleErrorHandler } from './consoleErrorHandler.js';
@@ -15,15 +16,136 @@ const __dirname = path.dirname(__filename);
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// Load environment variables from .env file (not bundled in renderer)
+// This keeps credentials secure and out of the bundled JavaScript
+function loadEnvVariables(): Record<string, string> {
+  const env: Record<string, string> = {};
+
+  try {
+    // Construct expected .env path
+    const expectedEnvPath = path.join(__dirname, '..', '.env');
+
+    // Resolve to canonical path to prevent directory traversal
+    const realEnvPath = fs.realpathSync.native(expectedEnvPath);
+
+    // Get the base directory (project root)
+    const baseDir = fs.realpathSync.native(path.join(__dirname, '..'));
+
+    // Security check: Ensure the resolved path is within the project directory
+    if (!realEnvPath.startsWith(baseDir)) {
+      console.error('Security: .env file path is outside project directory');
+      return env;
+    }
+
+    // Additional check: Ensure we're reading exactly '.env' file
+    if (path.basename(realEnvPath) !== '.env') {
+      console.error('Security: Attempted to read non-.env file');
+      return env;
+    }
+
+    const envContent = fs.readFileSync(realEnvPath, 'utf-8');
+    const lines = envContent.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Skip comments and empty lines
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const equalsIndex = trimmed.indexOf('=');
+      if (equalsIndex > 0) {
+        const key = trimmed.substring(0, equalsIndex).trim();
+        const value = trimmed.substring(equalsIndex + 1).trim();
+
+        // Basic validation: Only accept alphanumeric keys with underscores
+        if (/^[A-Z_][A-Z0-9_]*$/.test(key)) {
+          env[key] = value;
+        }
+      }
+    }
+  } catch (error) {
+    // File doesn't exist or can't be read - this is not critical, just log
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.error('Failed to load .env file:', error);
+    }
+  }
+
+  return env;
+}
+
+const envVars = loadEnvVariables();
+
+/**
+ * Validate external URLs to prevent security vulnerabilities
+ * Only allows https:// and http:// protocols
+ */
+function isValidExternalUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    // Only allow https and http protocols
+    const allowedProtocols = ['https:', 'http:'];
+    if (!allowedProtocols.includes(parsed.protocol)) {
+      return false;
+    }
+
+    // Reject localhost and private IPs in production
+    if (!isDev) {
+      const hostname = parsed.hostname.toLowerCase();
+
+      // Reject localhost
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+        return false;
+      }
+
+      // Reject private IP ranges
+      if (
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.16.') ||
+        hostname.startsWith('172.17.') ||
+        hostname.startsWith('172.18.') ||
+        hostname.startsWith('172.19.') ||
+        hostname.startsWith('172.2') ||
+        hostname.startsWith('172.30.') ||
+        hostname.startsWith('172.31.')
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch {
+    // Invalid URL format
+    return false;
+  }
+}
+
 let mainWindow: BrowserWindow | null = null;
 let notificationService: NotificationService | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 
-// Initialize secure storage with encryption
+// Generate a machine-specific encryption key for secure storage
+function getEncryptionKey(): string {
+  // Use app.getPath before app.whenReady() is safe in Electron
+  const machineId = app.getPath('userData');
+  const appName = app.getName();
+
+  // Create a unique key based on machine-specific data
+  return crypto
+    .createHash('sha256')
+    .update(machineId + appName + 'retentive-secure-storage-v1')
+    .digest('hex');
+}
+
+// Initialize secure storage with machine-specific encryption
 const store = new Store<Record<string, string>>({
   name: 'retentive-secure-storage',
-  encryptionKey: 'retentive-app-secret-key-2024', // In production, use a more secure key
+  encryptionKey: getEncryptionKey(),
   schema: {
     'supabase.auth.token': {
       type: 'string',
@@ -127,8 +249,10 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: !isDev ? false : true,  // Disable in production for file protocol
+      webSecurity: true,  // ALWAYS enable web security
       allowRunningInsecureContent: false,
+      enableRemoteModule: false,
+      nodeIntegrationInWorker: false,
       backgroundThrottling: false,
       // Performance optimizations
       experimentalFeatures: true,
@@ -204,12 +328,28 @@ function createWindow() {
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    // Security: Only allow https:// and http:// URLs
+    if (isValidExternalUrl(url)) {
+      shell.openExternal(url);
+    } else {
+      console.warn('Blocked attempt to open invalid URL:', url);
+    }
     return { action: 'deny' };
   });
 
   // Handle open-external IPC
   ipcMain.on('open-external', (event, url) => {
+    // Security: Validate URL before opening
+    if (typeof url !== 'string' || !url) {
+      console.error('Invalid URL provided to open-external');
+      return;
+    }
+
+    if (!isValidExternalUrl(url)) {
+      console.warn('Blocked attempt to open invalid URL via IPC:', url);
+      return;
+    }
+
     shell.openExternal(url);
   });
 
@@ -347,6 +487,22 @@ ipcMain.handle('secureStorage:clear', async () => {
   }
 });
 
+// IPC handler to get Supabase credentials (not bundled in renderer)
+ipcMain.handle('getSupabaseConfig', async () => {
+  const supabaseUrl = envVars['VITE_SUPABASE_URL'];
+  const supabaseKey = envVars['VITE_SUPABASE_ANON_KEY'];
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase credentials not found in .env file');
+    return null;
+  }
+
+  return {
+    url: supabaseUrl,
+    anonKey: supabaseKey
+  };
+});
+
 // IPC handlers for notifications
 ipcMain.handle('notifications:schedule', async (_, type: string, data: any) => {
   if (!notificationService) return false
@@ -455,14 +611,16 @@ app.whenReady().then(() => {
       app.dock.setIcon(dockIcon);
     }
   }
-  
-  // Initialize notification service with Supabase credentials
-  // Note: In Electron main process, Vite env vars aren't available directly
-  // For now, we'll hardcode them or pass from renderer
-  const supabaseUrl = 'https://tnkvynxyoalhowrkxjio.supabase.co'
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRua3Z5bnh5b2FsaG93cmt4amlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5NDAyNDQsImV4cCI6MjA2OTUxNjI0NH0.gO5--MQRp5SAINjmIAXKO3caQ_E2bwk_-ruSe030ups'
-    
-  notificationService = new NotificationService(supabaseUrl, supabaseKey)
+
+  // Initialize notification service with credentials from .env (secure - not bundled)
+  const supabaseUrl = envVars['VITE_SUPABASE_URL'];
+  const supabaseKey = envVars['VITE_SUPABASE_ANON_KEY'];
+
+  if (supabaseUrl && supabaseKey) {
+    notificationService = new NotificationService(supabaseUrl, supabaseKey);
+  } else {
+    console.warn('Supabase credentials not found in .env - notification service disabled');
+  }
 
   // Initialize database handlers
   // setupDatabaseHandlers();
@@ -496,9 +654,10 @@ app.whenReady().then(() => {
   createWindow();
   createMenu();
   createTray();  // Create system tray
-  
+
+  // Set main window for notification service
   if (mainWindow && notificationService) {
-    notificationService.setMainWindow(mainWindow)
+    notificationService.setMainWindow(mainWindow);
   }
 
   app.on('activate', () => {

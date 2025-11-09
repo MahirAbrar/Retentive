@@ -48,6 +48,9 @@ const PageLoader = () => (
 function App() {
   // Initialize services on app load
   useEffect(() => {
+    // Notification service is initialized in Electron main process
+    // Credentials are loaded from .env directly in main.ts (not bundled)
+
     // Initialize network recovery service (sets up listeners automatically)
     // This ensures auth tokens are refreshed when computer wakes from sleep
     void networkRecovery // Service initializes on import

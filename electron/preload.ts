@@ -11,9 +11,11 @@ const validChannels = {
     'secureStorage:set',
     'secureStorage:remove',
     'secureStorage:clear',
+    'getSupabaseConfig',
     'notifications:schedule',
     'notifications:cancel',
     'notifications:test',
+    'notifications:testDaily',
     // Database operations
     'db:topics:getAll',
     'db:topics:get',
@@ -76,6 +78,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clear: async () => {
       return await ipcRenderer.invoke('secureStorage:clear')
     }
+  },
+  // Get Supabase configuration from main process (not bundled)
+  getSupabaseConfig: async () => {
+    return await ipcRenderer.invoke('getSupabaseConfig')
   },
   // Notification methods
   notifications: {
@@ -201,6 +207,7 @@ type IElectronAPI = {
     remove: (key: string) => Promise<boolean>
     clear: () => Promise<boolean>
   }
+  getSupabaseConfig: () => Promise<{ url: string; anonKey: string } | null>
   notifications: {
     schedule: (type: string, data: any) => Promise<boolean>
     cancel: (type: string, data: string | { itemId: string }) => Promise<boolean>
