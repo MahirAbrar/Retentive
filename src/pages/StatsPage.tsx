@@ -419,10 +419,12 @@ export function StatsPage() {
 
   // Handle session editing
   const handleEditSession = useCallback((session: FocusSessionDisplay) => {
+    if (!user) return
+
     // Convert FocusSessionDisplay to FocusSession for the modal
     const fullSession: FocusSession = {
       id: session.id,
-      user_id: user!.id,
+      user_id: user.id,
       created_at: session.created_at,
       started_at: session.created_at,
       ended_at: session.created_at,

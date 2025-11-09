@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '../ui'
-import { Settings, X } from 'lucide-react'
+import { Settings } from 'lucide-react'
 
 interface FocusTimerSettingsProps {
   isOpen: boolean

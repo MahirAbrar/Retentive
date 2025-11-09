@@ -194,7 +194,7 @@ class NetworkRecoveryService {
           }
         }
       }
-    } catch (error) {
+    } catch {
       // Silently fail session checks
     }
   }

@@ -50,7 +50,7 @@ function App() {
   useEffect(() => {
     // Initialize network recovery service (sets up listeners automatically)
     // This ensures auth tokens are refreshed when computer wakes from sleep
-    networkRecovery // Service initializes on import
+    void networkRecovery // Service initializes on import
 
     // Sync pending operations if online
     if (navigator.onLine) {

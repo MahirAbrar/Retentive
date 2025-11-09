@@ -37,18 +37,17 @@ This file contains important information for Claude to remember across sessions.
 - ✅ Comprehensive stats and analytics dashboard
 - 🔄 Next: Release preparation and documentation
 
-## Key Commands
-- `npm run dev:electron` - Run app in development mode
-- `npm run build` - Build for production
-- `npm run dist` - Package app for distribution
-- `npm run lint` - Run ESLint
-- `npm run typecheck` - Run TypeScript type checking
-- `npm run format` - Format code with Prettier
-- `npm run format:check` - Check code formatting
-
 ## Important User Preferences
 - **DO NOT run `npm run dev` or `npm run dev:electron`** - User manages the dev server themselves
 - User will tell you which port the app is running on if needed
+
+## Testing Protocol
+**IMPORTANT:** When user says "run tests", ONLY run these commands:
+- `npm run lint`
+- `npm run build`
+
+Keep running them repeatedly and fixing ALL errors until both commands pass completely with zero errors.
+Do NOT run other test commands unless explicitly asked.
 
 ## Architecture Decisions
 - Using Supabase for:

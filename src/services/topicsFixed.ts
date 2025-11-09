@@ -11,6 +11,7 @@ export interface TopicsResponse<T> {
 class TopicsService {
   private static instance: TopicsService
   
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
   
   public static getInstance(): TopicsService {

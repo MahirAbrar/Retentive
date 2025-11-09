@@ -16,6 +16,7 @@ export interface ReviewResult {
 export class SpacedRepetitionService {
   private static instance: SpacedRepetitionService
   
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
   
   public static getInstance(): SpacedRepetitionService {

@@ -103,9 +103,12 @@ export class ErrorBoundary extends Component<Props, State> {
                 </details>
               )}
               
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <Button onClick={this.handleReset} variant="primary">
                   Try Again
+                </Button>
+                <Button onClick={() => window.location.reload()} variant="secondary">
+                  Refresh App
                 </Button>
                 <Button onClick={() => window.location.href = '/'} variant="ghost">
                   Go Home

@@ -13,6 +13,7 @@ export interface ReviewResult {
 export class SpacedRepetitionGamifiedService {
   private static instance: SpacedRepetitionGamifiedService
   
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
   
   public static getInstance(): SpacedRepetitionGamifiedService {

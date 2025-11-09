@@ -110,7 +110,7 @@ export function PaywallPage() {
             Science-backed spaced repetition that transforms you into the person everyone thinks has a photographic memory.
           </p>
           <p className="hero-cta">Become the human everyone thinks is superhuman!</p>
-          <p className="social-proof">Join {PAYWALL_STATS.activeUsers} learners who've unlocked their brain's true potential</p>
+          <p className="social-proof">Join {PAYWALL_STATS.activeUsers} learners who&apos;ve unlocked their brain&apos;s true potential</p>
           {trialStatus?.hasUsedTrial && (
             <p className="subtitle trial-ended">Hope you enjoyed your trial! Ready to continue your learning journey?</p>
           )}
@@ -130,7 +130,7 @@ export function PaywallPage() {
         {/* Pricing Cards */}
         <div className="pricing-section">
           <h2 className="section-title">Simple, Transparent Pricing</h2>
-          <p className="section-subtitle">Start with a free trial, upgrade when you're ready</p>
+          <p className="section-subtitle">Start with a free trial, upgrade when you&apos;re ready</p>
 
           <div className="pricing-cards">
             {/* Trial Card */}

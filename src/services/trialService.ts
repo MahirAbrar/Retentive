@@ -13,6 +13,7 @@ export type TrialStatus = {
 export class TrialService {
   private static instance: TrialService
   
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
   
   public static getInstance(): TrialService {

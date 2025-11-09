@@ -712,7 +712,7 @@ export class DataService {
           if (itemsResult.data && itemsResult.data.length > 0) {
             logger.log(`Unarchived ${itemsResult.data.length} non-mastered items for topic ${topicId}`)
           }
-        } catch (_itemError) {
+        } catch {
           // If updating items fails, log it but don't fail the whole operation
           logger.log(`Note: No archived items to restore for topic ${topicId}`)
         }

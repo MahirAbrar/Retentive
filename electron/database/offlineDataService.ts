@@ -337,7 +337,7 @@ export class OfflineDataService {
       })
       
       return true
-    } catch (_error) {
+    } catch {
       // Achievement already unlocked
       return false
     }

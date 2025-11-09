@@ -42,7 +42,8 @@ export function Modal({
 
   useEffect(() => {
     if (isOpen && dialogRef.current) {
-      const focusableElements = dialogRef.current.querySelectorAll(
+      const dialog = dialogRef.current
+      const focusableElements = dialog.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       )
       const firstElement = focusableElements[0] as HTMLElement
@@ -60,11 +61,11 @@ export function Modal({
         }
       }
 
-      dialogRef.current.addEventListener('keydown', handleTabKey)
+      dialog.addEventListener('keydown', handleTabKey)
       firstElement?.focus()
 
       return () => {
-        dialogRef.current?.removeEventListener('keydown', handleTabKey)
+        dialog.removeEventListener('keydown', handleTabKey)
       }
     }
     return undefined

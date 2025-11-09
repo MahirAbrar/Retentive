@@ -35,7 +35,7 @@ export function TopicDetailView() {
 
       setTopic(topicResponse.data)
       setItems(itemsResponse.data || [])
-    } catch (_error) {
+    } catch {
       addToast('error', 'Failed to load topic')
       navigate('/topics')
     } finally {

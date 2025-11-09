@@ -459,7 +459,7 @@ export function setupDatabaseHandlers() {
     try {
       stmt.run(id, userId, achievementId, pointsAwarded)
       return true
-    } catch (_error) {
+    } catch {
       // Achievement already unlocked
       return false
     }

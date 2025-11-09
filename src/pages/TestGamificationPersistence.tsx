@@ -39,6 +39,7 @@ export function TestGamificationPersistence() {
 
   useEffect(() => {
     loadStats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const addPoints = async (points: number) => {

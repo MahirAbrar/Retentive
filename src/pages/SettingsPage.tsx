@@ -52,7 +52,7 @@ export function SettingsPage() {
       }
 
       addToast('success', 'Profile updated successfully')
-    } catch (_error) {
+    } catch {
       setErrors({ profile: 'Failed to update profile' })
       addToast('error', 'Failed to update profile')
     } finally {
@@ -99,7 +99,7 @@ export function SettingsPage() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch (_error) {
+    } catch {
       setErrors({ password: 'Failed to change password' })
       addToast('error', 'Failed to change password')
     } finally {

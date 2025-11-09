@@ -11,10 +11,11 @@ export function FocusSessionIndicator() {
     sessionTime,
     stopSession,
     resetSession,
+    session,
   } = useFocusTimer(user?.id || '')
 
   // Don't show if no active session
-  if (!user || status === 'idle') return null
+  if (!user || !session) return null
 
   const handleStop = async (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent navigation when clicking stop
@@ -53,7 +54,7 @@ export function FocusSessionIndicator() {
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'
       }}
-      aria-label={`Focus session: ${sessionTime.display}, Status: ${status === 'working' ? 'Working' : 'On Break'}. Click to view timer.`}
+      aria-label={`Focus session: ${sessionTime.display}, Status: ${status === 'working' ? 'Working' : status === 'break' ? 'On Break' : 'Paused'}. Click to view timer.`}
     >
       {/* Status Indicator Dot */}
       <span
@@ -62,7 +63,7 @@ export function FocusSessionIndicator() {
           width: '8px',
           height: '8px',
           borderRadius: '50%',
-          backgroundColor: status === 'working' ? 'var(--color-success)' : 'var(--color-warning)',
+          backgroundColor: status === 'working' ? 'var(--color-success)' : status === 'break' ? 'var(--color-warning)' : 'var(--color-gray-400)',
           animation: status === 'working' ? 'pulse 2s infinite' : 'none',
         }}
       />
@@ -84,11 +85,11 @@ export function FocusSessionIndicator() {
       {/* Status Text */}
       <span
         style={{
-          color: status === 'working' ? 'var(--color-success)' : 'var(--color-warning)',
+          color: status === 'working' ? 'var(--color-success)' : status === 'break' ? 'var(--color-warning)' : 'var(--color-text-secondary)',
           fontWeight: '500',
         }}
       >
-        {status === 'working' ? 'Working' : 'Break'}
+        {status === 'working' ? 'Working' : status === 'break' ? 'Break' : 'Paused'}
       </span>
 
       {/* Stop Button */}

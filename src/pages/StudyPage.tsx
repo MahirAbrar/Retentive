@@ -39,7 +39,7 @@ export function StudyPage() {
       }
 
       setItem(data)
-    } catch (_error) {
+    } catch {
       addToast('error', 'Failed to load item')
       navigate('/topics')
     } finally {

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Card, CardHeader, CardContent, Badge } from '../ui'
-import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Timer, TrendingUp, Clock, Coffee } from 'lucide-react'
 import { focusTimerService, getAdherenceColor } from '../../services/focusTimerService'
 import { useAuth } from '../../hooks/useAuthFixed'
@@ -233,11 +233,13 @@ export function FocusAdherenceStats({ userId }: FocusAdherenceStatsProps) {
         aggregated.set(key, { adherence: [], work: 0, break: 0, count: 0 })
       }
 
-      const data = aggregated.get(key)!
-      data.adherence.push(session.adherence_percentage || 0)
-      data.work += session.total_work_minutes
-      data.break += session.total_break_minutes
-      data.count += 1
+      const data = aggregated.get(key)
+      if (data) {
+        data.adherence.push(session.adherence_percentage || 0)
+        data.work += session.total_work_minutes
+        data.break += session.total_break_minutes
+        data.count += 1
+      }
     })
 
     // Convert to array and calculate averages

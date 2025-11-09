@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "dev:electron": "cross-env NODE_ENV=development vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "build:electron": "vite build",
     "preview": "vite preview",
     "start": "electron .",

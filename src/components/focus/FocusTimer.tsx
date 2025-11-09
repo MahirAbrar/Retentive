@@ -10,6 +10,7 @@ import { SessionSummary } from './SessionSummary'
 import { FocusTimerSettings } from './FocusTimerSettings'
 import { BreakActivityModal } from './BreakActivityModal'
 import { BreakActivityTimer } from './BreakActivityTimer'
+import { SessionRecoveryModal } from './SessionRecoveryModal'
 import { logger } from '../../utils/logger'
 
 interface SummaryData {
@@ -27,6 +28,7 @@ export function FocusTimer() {
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null)
 
   const {
+    loading,
     status,
     sessionTime,
     workTime,
@@ -38,6 +40,7 @@ export function FocusTimer() {
     showGoalReachedModal,
     showBreakCompleteModal,
     showMaxDurationModal,
+    showSessionRecoveryModal,
     recommendedBreakMinutes,
     breakActivityModal,
     activeBreakActivity,
@@ -50,6 +53,8 @@ export function FocusTimer() {
     closeGoalReachedModal,
     closeBreakCompleteModal,
     closeMaxDurationModal,
+    resumeSession,
+    discardSession,
     openBreakActivityModal,
     closeBreakActivityModal,
     startBreakActivity,
@@ -160,10 +165,16 @@ export function FocusTimer() {
           </button>
         </CardHeader>
         <CardContent>
-          {/* Status Badge */}
-          <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-            {getStatusBadge()}
-          </div>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <p className="body text-secondary">Loading session...</p>
+            </div>
+          ) : (
+            <>
+              {/* Status Badge */}
+              <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+                {getStatusBadge()}
+              </div>
 
           {/* Main Timer Display */}
           <div
@@ -257,9 +268,18 @@ export function FocusTimer() {
                   }}
                 />
               </div>
-              <p className="caption text-secondary" style={{ marginTop: '0.25rem', textAlign: 'right' }}>
-                {Math.round(goalProgress)}% of goal
-              </p>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginTop: '0.25rem'
+              }}>
+                <p className="caption text-secondary">
+                  Total: {sessionTime.display}
+                </p>
+                <p className="caption text-secondary">
+                  {Math.round(goalProgress)}% of goal
+                </p>
+              </div>
             </div>
           )}
 
@@ -517,6 +537,8 @@ export function FocusTimer() {
               </>
             )}
           </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -592,6 +614,17 @@ export function FocusTimer() {
           onCancel={completeBreakActivity}
         />
       )}
+
+      {/* Session Recovery Modal */}
+      <SessionRecoveryModal
+        isOpen={showSessionRecoveryModal}
+        workMinutes={Math.floor(workTime.minutes)}
+        breakMinutes={Math.floor(breakTime.minutes)}
+        adherencePercentage={adherencePercentage}
+        adherenceColor={adherenceColor}
+        onResume={resumeSession}
+        onDiscard={discardSession}
+      />
     </>
   )
 }
