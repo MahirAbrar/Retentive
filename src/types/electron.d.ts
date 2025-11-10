@@ -52,6 +52,14 @@ declare global {
         isPackaged: () => Promise<boolean>
         getPath: (name: string) => Promise<string>
       }
+      getSupabaseConfig: () => Promise<{ url: string; anonKey: string } | null>
+      updates: {
+        onAvailable: (callback: (info: any) => void) => void
+        onDownloadProgress: (callback: (progress: any) => void) => void
+        onDownloaded: (callback: (info: any) => void) => void
+        download: () => Promise<{ success: boolean; error?: string }>
+        install: () => Promise<{ success: boolean; error?: string }>
+      }
       database: {
         topics: {
           create: (topic: any) => Promise<any>

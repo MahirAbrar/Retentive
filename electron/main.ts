@@ -1,4 +1,5 @@
 import { app, BrowserWindow, shell, Menu, ipcMain, Tray, nativeImage } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -74,6 +75,11 @@ function loadEnvVariables(): Record<string, string> {
 
 const envVars = loadEnvVariables();
 
+// Supabase credentials - These are public-facing (anon key), protected by RLS
+// Safe to bundle in the app as they're already exposed in the frontend code
+const SUPABASE_URL = envVars['VITE_SUPABASE_URL'] || 'https://tnkvynxyoalhowrkxjio.supabase.co';
+const SUPABASE_ANON_KEY = envVars['VITE_SUPABASE_ANON_KEY'] || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRua3Z5bnh5b2FsaG93cmt4amlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5NDAyNDQsImV4cCI6MjA2OTUxNjI0NH0.gO5--MQRp5SAINjmIAXKO3caQ_E2bwk_-ruSe030ups';
+
 /**
  * Validate external URLs to prevent security vulnerabilities
  * Only allows https:// and http:// protocols
@@ -143,15 +149,43 @@ function getEncryptionKey(): string {
 }
 
 // Initialize secure storage with machine-specific encryption
-const store = new Store<Record<string, string>>({
-  name: 'retentive-secure-storage',
-  encryptionKey: getEncryptionKey(),
-  schema: {
-    'supabase.auth.token': {
-      type: 'string',
+// Handle corrupted store data gracefully
+let store: Store<Record<string, string>>;
+try {
+  store = new Store<Record<string, string>>({
+    name: 'retentive-secure-storage',
+    encryptionKey: getEncryptionKey(),
+    schema: {
+      'supabase.auth.token': {
+        type: 'string',
+      },
     },
-  },
-});
+  });
+} catch (error) {
+  console.error('Failed to load encrypted store, creating new one:', error);
+  // If store is corrupted (e.g., wrong encryption key), clear it and recreate
+  try {
+    const storePath = path.join(
+      app.getPath('userData'),
+      'retentive-secure-storage.json'
+    );
+    if (fs.existsSync(storePath)) {
+      fs.unlinkSync(storePath);
+    }
+  } catch (cleanupError) {
+    console.error('Failed to cleanup corrupted store:', cleanupError);
+  }
+  // Create new store
+  store = new Store<Record<string, string>>({
+    name: 'retentive-secure-storage',
+    encryptionKey: getEncryptionKey(),
+    schema: {
+      'supabase.auth.token': {
+        type: 'string',
+      },
+    },
+  });
+}
 
 function createTray() {
   // Use the logo.png for tray icon
@@ -489,18 +523,40 @@ ipcMain.handle('secureStorage:clear', async () => {
 
 // IPC handler to get Supabase credentials (not bundled in renderer)
 ipcMain.handle('getSupabaseConfig', async () => {
-  const supabaseUrl = envVars['VITE_SUPABASE_URL'];
-  const supabaseKey = envVars['VITE_SUPABASE_ANON_KEY'];
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('Supabase credentials not found in .env file');
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error('Supabase credentials not configured');
+    console.error('SUPABASE_URL:', SUPABASE_URL ? 'present' : 'missing');
+    console.error('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? 'present' : 'missing');
     return null;
   }
 
   return {
-    url: supabaseUrl,
-    anonKey: supabaseKey
+    url: SUPABASE_URL,
+    anonKey: SUPABASE_ANON_KEY
   };
+});
+
+// IPC handlers for auto-updater
+ipcMain.handle('update:download', async () => {
+  if (!isDev) {
+    try {
+      await autoUpdater.downloadUpdate();
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to download update:', error);
+      return { success: false, error: String(error) };
+    }
+  }
+  return { success: false, error: 'Auto-update not available in development' };
+});
+
+ipcMain.handle('update:install', async () => {
+  if (!isDev) {
+    // This will quit the app and install the update
+    autoUpdater.quitAndInstall();
+    return { success: true };
+  }
+  return { success: false, error: 'Auto-update not available in development' };
 });
 
 // IPC handlers for notifications
@@ -658,6 +714,53 @@ app.whenReady().then(() => {
   // Set main window for notification service
   if (mainWindow && notificationService) {
     notificationService.setMainWindow(mainWindow);
+  }
+
+  // Auto-updater configuration
+  // Only check for updates in production builds
+  if (!isDev) {
+    autoUpdater.logger = console;
+    autoUpdater.autoDownload = false; // Don't auto-download, ask user first
+
+    // Check for updates on startup
+    autoUpdater.checkForUpdates();
+
+    // Check for updates every hour
+    setInterval(() => {
+      autoUpdater.checkForUpdates();
+    }, 60 * 60 * 1000);
+
+    // Auto-updater event handlers
+    autoUpdater.on('update-available', (info) => {
+      console.log('Update available:', info);
+      // Show notification to user
+      if (mainWindow) {
+        mainWindow.webContents.send('update-available', info);
+      }
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+      console.log('Update not available:', info);
+    });
+
+    autoUpdater.on('error', (err) => {
+      console.error('Auto-updater error:', err);
+    });
+
+    autoUpdater.on('download-progress', (progressObj) => {
+      console.log('Download progress:', progressObj);
+      if (mainWindow) {
+        mainWindow.webContents.send('download-progress', progressObj);
+      }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('Update downloaded:', info);
+      // Notify user that update is ready to install
+      if (mainWindow) {
+        mainWindow.webContents.send('update-downloaded', info);
+      }
+    });
   }
 
   app.on('activate', () => {

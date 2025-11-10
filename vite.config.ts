@@ -27,9 +27,13 @@ export default defineConfig({
               },
             },
             rollupOptions: {
-              external: ['electron', 'better-sqlite3'],
+              external: ['electron', 'better-sqlite3', 'electron-updater'],
               input: {
                 main: 'electron/main.ts',
+              },
+              output: {
+                format: 'cjs',
+                entryFileNames: '[name].js',
               },
             },
           },

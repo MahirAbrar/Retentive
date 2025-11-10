@@ -2,16 +2,18 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 const validChannels = {
   send: ['toMain', 'app:quit', 'app:minimize', 'app:maximize'],
-  receive: ['fromMain', 'app:update-available', 'app:update-downloaded', 'navigate', 'sync:status'],
+  receive: ['fromMain', 'app:update-available', 'app:update-downloaded', 'navigate', 'sync:status', 'update-available', 'update-downloaded', 'download-progress'],
   invoke: [
-    'dialog:openFile', 
-    'dialog:saveFile', 
+    'dialog:openFile',
+    'dialog:saveFile',
     'app:version',
     'secureStorage:get',
     'secureStorage:set',
     'secureStorage:remove',
     'secureStorage:clear',
     'getSupabaseConfig',
+    'update:download',
+    'update:install',
     'notifications:schedule',
     'notifications:cancel',
     'notifications:test',
@@ -82,6 +84,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Get Supabase configuration from main process (not bundled)
   getSupabaseConfig: async () => {
     return await ipcRenderer.invoke('getSupabaseConfig')
+  },
+  // Auto-update methods
+  updates: {
+    onAvailable: (callback: (info: any) => void) => {
+      ipcRenderer.on('update-available', (_event, info) => callback(info))
+    },
+    onDownloadProgress: (callback: (progress: any) => void) => {
+      ipcRenderer.on('download-progress', (_event, progress) => callback(progress))
+    },
+    onDownloaded: (callback: (info: any) => void) => {
+      ipcRenderer.on('update-downloaded', (_event, info) => callback(info))
+    },
+    download: async () => {
+      return await ipcRenderer.invoke('update:download')
+    },
+    install: async () => {
+      return await ipcRenderer.invoke('update:install')
+    }
   },
   // Notification methods
   notifications: {
@@ -208,6 +228,13 @@ type IElectronAPI = {
     clear: () => Promise<boolean>
   }
   getSupabaseConfig: () => Promise<{ url: string; anonKey: string } | null>
+  updates: {
+    onAvailable: (callback: (info: any) => void) => void
+    onDownloadProgress: (callback: (progress: any) => void) => void
+    onDownloaded: (callback: (info: any) => void) => void
+    download: () => Promise<{ success: boolean; error?: string }>
+    install: () => Promise<{ success: boolean; error?: string }>
+  }
   notifications: {
     schedule: (type: string, data: any) => Promise<boolean>
     cancel: (type: string, data: string | { itemId: string }) => Promise<boolean>

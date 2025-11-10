@@ -78,22 +78,54 @@ export async function getSupabase(): Promise<SupabaseClient> {
   return initializeSupabase()
 }
 
-// Export a property that will be initialized lazily
+// Export a lazy-initializing proxy that auto-initializes on first access
 // This maintains backward compatibility with existing code
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
+    // If not initialized, start initialization and return a pending wrapper
     if (!supabaseInstance) {
-      throw new Error(
-        'Supabase client not initialized. Use `await getSupabase()` or ensure the client is initialized before use.'
-      )
+      // Trigger initialization (returns promise but we don't await)
+      if (!initializationPromise) {
+        initializeSupabase().catch(err => {
+          console.error('Failed to initialize Supabase client:', err)
+        })
+      }
+
+      // Return a function/object that will work with common operations
+      // For methods like onAuthStateChange, return a dummy function that queues the call
+      if (typeof prop === 'string' && prop === 'auth') {
+        return new Proxy({}, {
+          get(_authTarget, authProp) {
+            if (authProp === 'onAuthStateChange') {
+              // Return a function that will set up the listener once ready
+              return (callback: any) => {
+                initializeSupabase().then((client) => {
+                  client.auth.onAuthStateChange(callback)
+                }).catch(err => {
+                  console.error('Failed to set up auth state change listener:', err)
+                })
+                // Return a dummy subscription
+                return { data: { subscription: { unsubscribe: () => {} } } }
+              }
+            }
+            if (authProp === 'getSession') {
+              return async () => {
+                const client = await initializeSupabase()
+                return client.auth.getSession()
+              }
+            }
+            // For other auth methods, wait for initialization
+            return async (...args: any[]) => {
+              const client = await initializeSupabase()
+              return (client.auth as any)[authProp](...args)
+            }
+          }
+        })
+      }
+
+      // For other properties, wait for initialization
+      return (supabaseInstance as any)?.[prop]
     }
     return (supabaseInstance as any)[prop]
   }
 })
-
-// Initialize immediately if in Electron (don't block module loading)
-if (typeof window !== 'undefined' && window.electronAPI) {
-  initializeSupabase().catch(err => {
-    console.error('Failed to initialize Supabase client:', err)
-  })
-}

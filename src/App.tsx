@@ -1,5 +1,5 @@
 import './App.css'
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { ToastProvider } from './components/ui'
 import { AuthProvider } from './hooks/useAuthFixed'
@@ -16,6 +16,7 @@ import { WebDisclaimer } from './components/WebDisclaimer'
 import { TrialBanner } from './components/TrialBanner'
 import { AccessGuard } from './components/AccessGuard'
 import { clearAuthCache } from './utils/clearAuthCache'
+import { getSupabase } from './services/supabase'
 
 // Lazy load all pages for code splitting
 const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -46,6 +47,21 @@ const PageLoader = () => (
 )
 
 function App() {
+  const [supabaseReady, setSupabaseReady] = useState(false)
+
+  // Initialize Supabase BEFORE rendering AuthProvider
+  useEffect(() => {
+    getSupabase()
+      .then(() => {
+        setSupabaseReady(true)
+      })
+      .catch((error) => {
+        console.error('Failed to initialize Supabase:', error)
+        // Still set ready to true to show error in UI
+        setSupabaseReady(true)
+      })
+  }, [])
+
   // Initialize services on app load
   useEffect(() => {
     // Notification service is initialized in Electron main process
@@ -70,6 +86,11 @@ function App() {
       networkRecovery.cleanup()
     }
   }, [])
+
+  // Wait for Supabase to initialize before rendering AuthProvider
+  if (!supabaseReady) {
+    return <PageLoader />
+  }
   
   // Check if running in Electron
   // In development, Electron loads from localhost but has electronAPI

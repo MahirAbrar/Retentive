@@ -81,24 +81,26 @@ export class ErrorBoundary extends Component<Props, State> {
             </CardHeader>
             <CardContent>
               <p className="body" style={{ marginBottom: '1rem' }}>
-                We&rsquo;re sorry, but something unexpected happened. The error has been logged and we&rsquo;ll look into it.
+                We&rsquo;re sorry, but something unexpected happened.
               </p>
-              
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details style={{ marginBottom: '1rem' }}>
-                  <summary style={{ cursor: 'pointer', marginBottom: '0.5rem' }}>
-                    <span className="body-small text-secondary">Error details (development only)</span>
+
+              {this.state.error && (
+                <details open style={{ marginBottom: '1rem' }}>
+                  <summary style={{ cursor: 'pointer', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                    <span className="body-small">Error details</span>
                   </summary>
-                  <pre style={{ 
-                    backgroundColor: 'var(--color-gray-100)', 
+                  <pre style={{
+                    backgroundColor: 'var(--color-gray-100)',
                     padding: '1rem',
                     borderRadius: 'var(--radius-sm)',
                     overflow: 'auto',
                     fontSize: 'var(--text-xs)',
-                    fontFamily: 'monospace'
+                    fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
                   }}>
-                    {this.state.error.toString()}
-                    {this.state.errorInfo && this.state.errorInfo.componentStack}
+                    <strong>Error:</strong> {this.state.error.toString()}
+                    {this.state.errorInfo && `\n\nComponent Stack:${this.state.errorInfo.componentStack}`}
                   </pre>
                 </details>
               )}

@@ -5,7 +5,7 @@
   "description": "A clean, Swiss design-inspired spaced repetition learning app",
   "author": "Your Name",
   "main": "dist-electron/main.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "dev": "vite",
     "dev:electron": "cross-env NODE_ENV=development vite",
@@ -72,6 +72,11 @@
     "appId": "com.retentive.app",
     "productName": "Retentive",
     "icon": "logo.png",
+    "publish": {
+      "provider": "github",
+      "owner": "MahirAbrar",
+      "repo": "Retentive"
+    },
     "directories": {
       "output": "release",
       "buildResources": "build"
