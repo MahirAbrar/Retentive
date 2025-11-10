@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { Moon, Sun } from 'lucide-react'
 import { Button, Input, Card, CardHeader, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
+import { useTheme } from '../contexts/ThemeContext'
 import { validateEmail, validatePassword } from '../utils/validation'
 
 export function LoginPage() {
-  const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  
-  const { user, signIn, signUp } = useAuth()
+
+  const { user, signIn } = useAuth()
   const { addToast } = useToast()
+  const { theme, toggleTheme } = useTheme()
 
   if (user) {
     return <Navigate to="/" replace />
@@ -31,43 +32,26 @@ export function LoginPage() {
       newErrors.password = passwordValidation.errors[0]
     }
 
-    if (isSignUp && password !== confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match'
-    }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) return
 
     setLoading(true)
     setErrors({})
 
     try {
-      const { error } = isSignUp 
-        ? await signUp(email, password)
-        : await signIn(email, password)
+      const { error } = await signIn(email, password)
 
       if (error) {
         // Provide user-friendly error messages
         let userMessage = error.message
-        
-        if (error.message.includes('Database error saving new user')) {
-          userMessage = 'Account created successfully! Please try logging in with your new credentials.'
-          // Try to sign them in automatically
-          setTimeout(async () => {
-            const { error: signInError } = await signIn(email, password)
-            if (!signInError) {
-              addToast('success', 'Welcome! Your 14-day free trial has started.')
-            }
-          }, 1000)
-        } else if (error.message.includes('User already registered')) {
-          userMessage = 'This email is already registered. Please sign in instead.'
-        } else if (error.message.includes('Invalid email')) {
+
+        if (error.message.includes('Invalid email')) {
           userMessage = 'Please enter a valid email address.'
         } else if (error.message.includes('Password should be at least')) {
           userMessage = 'Password must be at least 6 characters long.'
@@ -76,24 +60,11 @@ export function LoginPage() {
         } else if (error.message.includes('Email not confirmed')) {
           userMessage = 'Please check your email and confirm your account first.'
         }
-        
+
         setErrors({ general: userMessage })
         addToast('error', userMessage)
       } else {
-        if (isSignUp) {
-          // Calculate trial end date (14 days from now)
-          const trialEndDate = new Date()
-          trialEndDate.setDate(trialEndDate.getDate() + 14)
-          const formattedDate = trialEndDate.toLocaleDateString('en-US', { 
-            month: 'long', 
-            day: 'numeric', 
-            year: 'numeric' 
-          })
-          
-          addToast('success', `Welcome! Your 14-day free trial has started and will end on ${formattedDate}. Enjoy full access to all features!`)
-        } else {
-          addToast('success', 'Welcome back!')
-        }
+        addToast('success', 'Welcome back!')
       }
     } finally {
       setLoading(false)
@@ -101,96 +72,188 @@ export function LoginPage() {
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
-      alignItems: 'center', 
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem'
+      padding: '2rem',
+      animation: 'fadeIn 0.4s ease-out'
     }}>
-      <Card variant="bordered" style={{ width: '100%', maxWidth: '400px' }}>
-        <CardHeader>
-          <h1 className="h3" style={{ textAlign: 'center' }}>
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 768px) {
+          .login-container { padding: 1rem !important; }
+          .login-card { max-width: 100% !important; margin: 0 1rem; }
+          .login-card-content { padding: 1.5rem !important; }
+        }
+      `}</style>
+
+      <Card variant="bordered" className="login-card" style={{
+        width: '100%',
+        maxWidth: '440px',
+        position: 'relative'
+      }}>
+        <CardHeader style={{
+          position: 'relative',
+          paddingBottom: '1.5rem'
+        }}>
+          {/* Dark Mode Toggle - Inside Card Header */}
+          <button
+            onClick={toggleTheme}
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              right: '1rem',
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease',
+              color: 'var(--color-text-primary)',
+              zIndex: 10
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--color-surface-hover)'
+              e.currentTarget.style.transform = 'translateY(-1px) scale(1.05)'
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--color-surface)'
+              e.currentTarget.style.transform = 'translateY(0) scale(1)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+
+          {/* Brand Wordmark */}
+          <div style={{
+            textAlign: 'center',
+            marginBottom: '0.5rem'
+          }}>
+            <p style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: '1.5rem',
+              color: 'var(--color-text-secondary)',
+              margin: 0,
+              fontWeight: 400,
+              letterSpacing: '-0.01em'
+            }}>
+              Retentive
+            </p>
+          </div>
+
+          {/* Main Heading */}
+          <h1 style={{
+            textAlign: 'center',
+            fontSize: '2rem',
+            fontWeight: 600,
+            lineHeight: 1.2,
+            letterSpacing: '-0.02em',
+            color: 'var(--color-text-primary)',
+            margin: 0,
+            marginTop: '0.5rem'
+          }}>
+            Welcome Back
           </h1>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={errors.email}
-              placeholder="you@example.com"
-              required
-            />
-
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={errors.password}
-              placeholder="••••••••"
-              required
-            />
-
-            {isSignUp && (
+        <CardContent className="login-card-content">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginBottom: '1.25rem' }}>
               <Input
-                label="Confirm Password"
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={errors.email}
+                placeholder="you@example.com"
+                required
+                fullWidth
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <Input
+                label="Password"
                 type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                error={errors.confirmPassword}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={errors.password}
                 placeholder="••••••••"
                 required
+                fullWidth
               />
-            )}
+            </div>
 
             {errors.general && (
-              <p className="body-small text-error">{errors.general}</p>
+              <p className="body-small text-error" style={{ marginBottom: '1.25rem' }}>
+                {errors.general}
+              </p>
             )}
 
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              loading={loading}
-              disabled={loading}
-            >
-              {isSignUp ? 'Sign Up' : 'Sign In'}
-            </Button>
+            <div style={{ marginTop: '1.75rem', marginBottom: '1rem' }}>
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                loading={loading}
+                disabled={loading}
+                style={{
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.transform = 'translateY(-1px)'
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = ''
+                }}
+              >
+                Sign In
+              </Button>
+            </div>
 
-            {!isSignUp && (
-              <Link to="/reset-password" style={{ textAlign: 'center' }}>
-                <span className="body-small text-info">Forgot password?</span>
-              </Link>
-            )}
+            <Link to="/reset-password" style={{
+              textAlign: 'center',
+              display: 'block',
+              marginBottom: '1rem'
+            }}>
+              <span className="body-small text-info">Forgot password?</span>
+            </Link>
 
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-gray-200)' }} />
+            <hr style={{
+              border: 'none',
+              borderTop: '1px solid var(--color-gray-200)',
+              margin: '1.5rem 0'
+            }} />
 
             <p className="body-small text-center text-secondary">
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+              Don&apos;t have an account?
               {' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignUp(!isSignUp)
-                  setErrors({})
-                  setPassword('')
-                  setConfirmPassword('')
-                }}
+              <a
+                href="https://retentive-learning-app.vercel.app/auth/register"
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
-                  background: 'none',
-                  border: 'none',
                   color: 'var(--color-info)',
-                  cursor: 'pointer',
                   textDecoration: 'underline',
                 }}
               >
-                {isSignUp ? 'Sign In' : 'Sign Up'}
-              </button>
+                Sign Up
+              </a>
             </p>
           </form>
         </CardContent>

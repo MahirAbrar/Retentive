@@ -143,9 +143,11 @@ export function HeaderFixed() {
               </Button>
             </>
           ) : (
-            <Link to="/login">
-              <Button variant="primary" size="small">Sign In</Button>
-            </Link>
+            location.pathname !== '/login' && (
+              <Link to="/login">
+                <Button variant="primary" size="small">Sign In</Button>
+              </Link>
+            )
           )}
         </div>
       </div>

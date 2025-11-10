@@ -297,7 +297,17 @@ function createWindow() {
       disableDialogs: false,
       disableHtmlFullscreenWindowResize: true
     },
-    titleBarStyle: 'hiddenInset',
+    // Platform-specific titlebar styles
+    ...(process.platform === 'darwin' ? {
+      titleBarStyle: 'hiddenInset'
+    } : process.platform === 'win32' ? {
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {
+        color: '#fffef9',
+        symbolColor: '#1a1a1a',
+        height: 40
+      }
+    } : {}),
     backgroundColor: '#fffef9', // Cream background from our theme
     show: false
   });

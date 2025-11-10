@@ -88,7 +88,6 @@ export const PRICING = {
     features: [
       'Unlimited topics & subtopics',
       'Advanced statistics',
-      'Mobile & desktop sync',
       'Offline mode',
       'Export your data',
       'Cancel anytime'
@@ -107,7 +106,6 @@ export const PRICING = {
       'Save 20% ($4/month)',
       'Unlimited topics & subtopics',
       'Advanced statistics',
-      'Mobile & desktop sync',
       'Offline mode',
       'Export your data'
     ]
@@ -125,7 +123,6 @@ export const PRICING = {
       'Best value - 50% off ($2.50/month)',
       'Unlimited topics & subtopics',
       'Advanced statistics',
-      'Mobile & desktop sync',
       'Offline mode',
       'Export your data'
     ]
@@ -138,7 +135,6 @@ export const PRICING = {
       'Full access to all features',
       'Unlimited topics & subtopics',
       'Advanced statistics',
-      'Mobile & desktop sync',
       'Offline mode',
       'Export your data'
     ]
