@@ -7,6 +7,8 @@ import {
   type FocusSession,
   type FocusSegment,
 } from '../services/focusTimerService'
+import { gamificationService } from '../services/gamificationService'
+import { focusSessionQueue } from '../services/focusSessionQueue'
 import { logger } from '../utils/logger'
 import type { BreakActivity } from '../services/breakActivities'
 
@@ -31,6 +33,7 @@ interface TimerState {
   breakActivityModal: { isOpen: boolean; categoryId: string | null }
   activeBreakActivity: BreakActivity | null
   breakActivityTimeRemaining: number
+  isDiscarding: boolean // Flag to prevent race conditions during discard
 }
 
 export function useFocusTimer(userId: string) {
@@ -53,16 +56,16 @@ export function useFocusTimer(userId: string) {
     breakActivityModal: { isOpen: false, categoryId: null },
     activeBreakActivity: null,
     breakActivityTimeRemaining: 0,
+    isDiscarding: false,
   })
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const segmentStartTimeRef = useRef<number>(0)
-  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const syncRetryCount = useRef<number>(0)
-  const maxSyncRetries = 3
   const syncLockRef = useRef<boolean>(false) // Prevent concurrent syncs
   const breakActivityIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const workPausedForBreakActivityRef = useRef<boolean>(false)
+  const stateRef = useRef(state) // Ref to access current state without triggering re-renders
+  stateRef.current = state
 
   // Focus timer limits
   const maxSessionDurationHours = 8 // Absolute maximum session duration (8 hours)
@@ -105,15 +108,16 @@ export function useFocusTimer(userId: string) {
         newState.adherenceColor = getAdherenceColor(newState.adherencePercentage)
 
         // Check if 1.5x goal reached (auto-pause for safety)
+        // Uses sessionSeconds (wall-clock time) not workSeconds
         if (
           prev.status === 'working' &&
-          newState.workSeconds >= prev.goalMinutes * 60 * goalMultiplier &&
+          newState.sessionSeconds >= prev.goalMinutes * 60 * goalMultiplier &&
           !prev.showMaxDurationModal
         ) {
           newState.showMaxDurationModal = true
           newState.status = 'idle' // Auto-pause
           newState.recommendedBreakMinutes = calculateRecommendedBreak(prev.goalMinutes)
-          logger.info('1.5x goal reached, auto-pausing session')
+          logger.info('1.5x session duration reached, auto-pausing session')
         }
 
         // Check absolute maximum session duration (8 hours safety cap)
@@ -123,10 +127,12 @@ export function useFocusTimer(userId: string) {
           logger.warn('Absolute maximum session duration reached (8 hours), force pausing')
         }
 
-        // Check if goal reached (only while working)
+        // Check if session goal reached (based on wall-clock time, not just work time)
+        // Session ends when total time (work + break) reaches goal
         if (
-          prev.status === 'working' &&
-          newState.workSeconds >= prev.goalMinutes * 60 &&
+          prev.status !== 'idle' &&
+          prev.goalMinutes > 0 && // Guard against 0 or invalid goal minutes
+          newState.sessionSeconds >= prev.goalMinutes * 60 &&
           !prev.showGoalReachedModal &&
           !prev.showMaxDurationModal // Don't show both modals
         ) {
@@ -134,6 +140,15 @@ export function useFocusTimer(userId: string) {
           newState.recommendedBreakMinutes = calculateRecommendedBreak(
             prev.goalMinutes
           )
+
+          // Dispatch global event for notifications (toast + system notification)
+          window.dispatchEvent(new CustomEvent('focus-goal-reached', {
+            detail: {
+              goalMinutes: prev.goalMinutes,
+              workMinutes: Math.floor(newState.workSeconds / 60),
+              breakMinutes: Math.floor(newState.breakSeconds / 60),
+            }
+          }))
         }
 
         return newState
@@ -186,6 +201,30 @@ export function useFocusTimer(userId: string) {
     const loadActiveSession = async () => {
       try {
         const session = await focusTimerService.getActiveSession(userId)
+
+        // Check if this session was recently discarded (prevents race condition)
+        if (session) {
+          const discardedData = localStorage.getItem('focus-session-discarded')
+          if (discardedData) {
+            try {
+              const { sessionId, timestamp } = JSON.parse(discardedData)
+              const isRecent = Date.now() - timestamp < 10000 // Within 10 seconds
+              if (sessionId === session.id && isRecent) {
+                // Clear the discarded flag after checking
+                localStorage.removeItem('focus-session-discarded')
+                setState((prev) => ({
+                  ...prev,
+                  loading: false,
+                  showSessionRecoveryModal: false,
+                }))
+                return
+              }
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+
         if (session) {
           // Get active segment to determine current status
           const activeSegment = await focusTimerService.getActiveSegment(session.id, userId)
@@ -277,7 +316,38 @@ export function useFocusTimer(userId: string) {
 
           // Determine if we should show recovery modal
           // Only show modal for truly stale sessions (segment was old and ended)
-          const shouldShowRecoveryModal = validActiveSegment === null && currentStatus === 'idle'
+          const isStaleSession = validActiveSegment === null && currentStatus === 'idle'
+
+          // Auto-end sessions that are stale AND have no meaningful work (not worth recovering)
+          // Also auto-end if goal_minutes is 0 or invalid
+          const hasNoMeaningfulWork = workSeconds < 60 // Less than 1 minute of work
+          const hasInvalidGoal = !session.goal_minutes || session.goal_minutes <= 0
+          const shouldAutoEnd = isStaleSession && (hasNoMeaningfulWork || hasInvalidGoal)
+
+          if (shouldAutoEnd) {
+            logger.log('Auto-ending stale session with no meaningful work or invalid goal')
+            try {
+              await focusTimerService.endSession(session.id, userId, {
+                totalWorkMinutes: Math.floor(workSeconds / 60),
+                totalBreakMinutes: Math.floor(breakSeconds / 60),
+                adherencePercentage: adherence,
+              })
+            } catch (endError) {
+              logger.error('Error auto-ending stale session:', endError)
+            }
+            // Reset state as if no session exists
+            setState((prev) => ({
+              ...prev,
+              loading: false,
+              showGoalReachedModal: false,
+              showBreakCompleteModal: false,
+              showMaxDurationModal: false,
+              showSessionRecoveryModal: false,
+            }))
+            return
+          }
+
+          const shouldShowRecoveryModal = isStaleSession
 
           // Restore session state with calculated values
           setState((prev) => ({
@@ -295,8 +365,15 @@ export function useFocusTimer(userId: string) {
             showSessionRecoveryModal: shouldShowRecoveryModal, // Only show modal for stale sessions
           }))
         } else {
-          // No active session found, stop loading
-          setState((prev) => ({ ...prev, loading: false }))
+          // No active session found, reset all state including modals
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            showGoalReachedModal: false,
+            showBreakCompleteModal: false,
+            showMaxDurationModal: false,
+            showSessionRecoveryModal: false,
+          }))
         }
       } catch (error) {
         logger.error('Error loading active session:', error)
@@ -306,6 +383,47 @@ export function useFocusTimer(userId: string) {
     }
 
     loadActiveSession()
+  }, [userId])
+
+  // ================================================
+  // SYNC PENDING COMPLETIONS ON RECONNECT
+  // ================================================
+  useEffect(() => {
+    if (!userId) return
+
+    const processPendingCompletions = async () => {
+      if (!focusSessionQueue.hasPending()) return
+
+      logger.log('Processing pending session completions...')
+      const processed = await focusSessionQueue.processQueue(
+        async (sessionId, queuedUserId, finalStats) => {
+          // Only process if it's this user's session
+          if (queuedUserId !== userId) return
+          await focusTimerService.endSession(sessionId, queuedUserId, finalStats)
+        }
+      )
+
+      if (processed > 0) {
+        logger.log(`Synced ${processed} pending session completion(s)`)
+      }
+    }
+
+    // Process on mount if online
+    if (navigator.onLine) {
+      processPendingCompletions()
+    }
+
+    // Process when coming back online
+    const handleOnline = () => {
+      logger.log('Back online, checking for pending completions')
+      processPendingCompletions()
+    }
+
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+    }
   }, [userId])
 
   // ================================================
@@ -351,110 +469,52 @@ export function useFocusTimer(userId: string) {
 
   // ================================================
   // PERIODIC SESSION VALIDATION (Fallback)
+  // Only runs when there's an active session to save energy
   // ================================================
   useEffect(() => {
-    // Skip only if no user
-    if (!userId) return
+    // Skip if no user OR no active session - saves energy when idle
+    if (!userId || !state.session) return
+
+    // Skip validation when page is hidden to save energy
+    const isPageVisible = () => !document.hidden
 
     const validateSession = async () => {
+      // Skip if page is hidden
+      if (!isPageVisible()) return
+
       try {
         // Check if session is still active in database
         const activeSession = await focusTimerService.getActiveSession(userId)
 
-        // CASE 1: No session in state, but one exists in database (new session created elsewhere)
-        if (!state.session && activeSession) {
-          logger.log('Detected new session from database, loading without recovery modal...')
-
-          const activeSegment = await focusTimerService.getActiveSegment(activeSession.id, userId)
-
-          // Get all segments to calculate times
-          const segments = await focusTimerService.getSessionSegments(activeSession.id, userId)
-
-          let workSeconds = 0
-          let breakSeconds = 0
-
-          segments.forEach(segment => {
-            if (segment.ended_at && segment.duration_minutes) {
-              if (segment.segment_type === 'work') {
-                workSeconds += segment.duration_minutes * 60
-              } else {
-                breakSeconds += segment.duration_minutes * 60
-              }
-            }
-          })
-
-          // Add active segment time if exists
-          let currentStatus: 'idle' | 'working' | 'break' = 'idle'
-          if (activeSegment && !activeSegment.ended_at) {
-            const segmentAge = Date.now() - new Date(activeSegment.started_at).getTime()
-            const segmentElapsed = Math.floor(segmentAge / 1000)
-
-            if (activeSegment.segment_type === 'work') {
-              workSeconds += segmentElapsed
-              currentStatus = 'working'
-            } else {
-              breakSeconds += segmentElapsed
-              currentStatus = 'break'
-            }
-
-            segmentStartTimeRef.current = new Date(activeSegment.started_at).getTime()
-          }
-
-          const sessionStarted = new Date(activeSession.started_at)
-          const totalElapsed = Math.floor((Date.now() - sessionStarted.getTime()) / 1000)
-          const workMinutes = workSeconds / 60
-          const breakMinutes = breakSeconds / 60
-          const adherence = calculateAdherence(workMinutes, breakMinutes)
-
-          // Load session directly without recovery modal (it's a fresh detection)
-          setState((prev) => ({
-            ...prev,
-            session: activeSession,
-            currentSegment: activeSegment,
-            goalMinutes: activeSession.goal_minutes,
-            sessionSeconds: totalElapsed,
-            workSeconds,
-            breakSeconds,
-            adherencePercentage: adherence,
-            adherenceColor: getAdherenceColor(adherence),
-            status: currentStatus,
-            showSessionRecoveryModal: false, // Don't show modal for fresh detection
-          }))
-
-          return
-        }
-
-        // CASE 2: Have a session, but it no longer exists or is inactive in database
-        if (state.session && (!activeSession || activeSession.id !== state.session.id || !activeSession.is_active)) {
+        // CASE 1: Have a session, but it no longer exists or is inactive in database
+        if (!activeSession || activeSession.id !== state.session?.id || !activeSession.is_active) {
           logger.log('Session no longer active in database, syncing state...')
           resetSession()
           return
         }
 
-        // CASE 3: Both have session, sync status based on active segment
-        if (state.session && activeSession) {
-          const activeSegment = await focusTimerService.getActiveSegment(activeSession.id, userId)
+        // CASE 2: Both have session, sync status based on active segment
+        const activeSegment = await focusTimerService.getActiveSegment(activeSession.id, userId)
 
-          if (activeSegment && !activeSegment.ended_at) {
-            // There's an active segment, sync status
-            const expectedStatus = activeSegment.segment_type === 'work' ? 'working' : 'break'
-            if (state.status !== expectedStatus) {
-              logger.log(`Syncing status from database: ${state.status} → ${expectedStatus}`)
-              setState(prev => ({
-                ...prev,
-                status: expectedStatus,
-                currentSegment: activeSegment
-              }))
-            }
-          } else if (state.status !== 'idle') {
-            // No active segment, should be idle
-            logger.log('No active segment in database, setting status to idle')
+        if (activeSegment && !activeSegment.ended_at) {
+          // There's an active segment, sync status
+          const expectedStatus = activeSegment.segment_type === 'work' ? 'working' : 'break'
+          if (state.status !== expectedStatus) {
+            logger.log(`Syncing status from database: ${state.status} → ${expectedStatus}`)
             setState(prev => ({
               ...prev,
-              status: 'idle',
-              currentSegment: null
+              status: expectedStatus,
+              currentSegment: activeSegment
             }))
           }
+        } else if (state.status !== 'idle') {
+          // No active segment, should be idle
+          logger.log('No active segment in database, setting status to idle')
+          setState(prev => ({
+            ...prev,
+            status: 'idle',
+            currentSegment: null
+          }))
         }
       } catch (error) {
         // Ignore errors during validation (likely offline)
@@ -462,13 +522,24 @@ export function useFocusTimer(userId: string) {
       }
     }
 
-    // Check every 5 seconds
-    const interval = setInterval(validateSession, 5000)
+    // Check every 15 seconds (increased from 5s to save energy)
+    const interval = setInterval(validateSession, 15000)
+
+    // Handle visibility change - validate when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        validateSession()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     // Also validate immediately
     validateSession()
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.session?.id, state.status, userId])
 
@@ -489,65 +560,47 @@ export function useFocusTimer(userId: string) {
           userId,
           durationMinutes
         )
-
-        // For Electron, we might need to delay close slightly
-        if (window.electronAPI) {
-          e.preventDefault()
-          e.returnValue = ''
-
-          // End segment then allow close
-          focusTimerService.quickEndSegment(
-            state.currentSegment.id,
-            userId,
-            durationMinutes
-          ).finally(() => {
-            window.close()
-          })
-        }
       }
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
 
-    // Also handle visibility change (mobile browsers, tab switches)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [state.currentSegment, state.status, userId])
+
+  // ================================================
+  // HANDLE VISIBILITY CHANGE - Sync when tab is hidden
+  // ================================================
+  useEffect(() => {
+    // Only set up listener if we have an active session
+    if (!state.session || state.status === 'idle') return
+
     const handleVisibilityChange = async () => {
-      if (document.hidden && state.currentSegment && state.status !== 'idle') {
-        // Only sync if online
-        if (!navigator.onLine) {
-          logger.log('Tab hidden but offline - skipping sync')
-          return
-        }
+      const currentState = stateRef.current
+      if (!document.hidden || !currentState.currentSegment || currentState.status === 'idle') return
+      if (!navigator.onLine || syncLockRef.current) return
 
-        // Check if already syncing
-        if (syncLockRef.current) {
-          logger.log('Sync already in progress - skipping visibility change sync')
-          return
-        }
-
-        // Update segment duration so far (don't end it)
-        if (state.session) {
-          syncLockRef.current = true
-          try {
-            await focusTimerService.syncSession(
-              state.session.id,
-              userId,
-              {
-                totalWorkMinutes: Math.floor(state.workSeconds / 60),
-                totalBreakMinutes: Math.floor(state.breakSeconds / 60),
-                adherencePercentage: state.adherencePercentage,
-                currentSegmentType: state.status === 'working' ? 'work' : 'break',
-                currentSegmentId: state.currentSegment.id,
-              }
-            )
-          } catch (error: unknown) {
-            // Only log network errors once
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            if (!errorMessage.includes('ERR_INTERNET_DISCONNECTED')) {
-              logger.error('Error syncing on visibility change:', error)
+      // Sync current progress when tab becomes hidden
+      if (currentState.session) {
+        syncLockRef.current = true
+        try {
+          await focusTimerService.syncSession(
+            currentState.session.id,
+            userId,
+            {
+              totalWorkMinutes: Math.floor(currentState.workSeconds / 60),
+              totalBreakMinutes: Math.floor(currentState.breakSeconds / 60),
+              adherencePercentage: currentState.adherencePercentage,
+              currentSegmentType: currentState.status === 'working' ? 'work' : 'break',
+              currentSegmentId: currentState.currentSegment.id,
             }
-          } finally {
-            syncLockRef.current = false
-          }
+          )
+        } catch {
+          // Silently ignore sync errors on visibility change
+        } finally {
+          syncLockRef.current = false
         }
       }
     }
@@ -555,128 +608,18 @@ export function useFocusTimer(userId: string) {
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [state.currentSegment, state.status, state.session, state.workSeconds, state.breakSeconds, state.adherencePercentage, userId])
+  }, [state.session?.id, state.status, userId])
 
   // ================================================
-  // PERIODIC DATABASE SYNC - Every 30 seconds
+  // DATABASE WRITES - Only on important state changes, not periodic
   // ================================================
-  useEffect(() => {
-    // Only sync if we have an active session and it's running
-    if (!state.session || state.status === 'idle') {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current)
-        syncIntervalRef.current = null
-      }
-      syncRetryCount.current = 0 // Reset retry count when idle
-      return
-    }
-
-    // Sync function with online check and retry logic
-    const syncToDatabase = async () => {
-      if (!state.session || state.status === 'idle') return
-
-      // Check if online before attempting sync
-      if (!navigator.onLine) {
-        logger.log('Offline - skipping focus timer sync')
-        return
-      }
-
-      // Skip if we've exceeded retry limit
-      if (syncRetryCount.current >= maxSyncRetries) {
-        logger.log('Max sync retries reached, waiting for next interval')
-        return
-      }
-
-      // Check if already syncing
-      if (syncLockRef.current) {
-        logger.log('Sync already in progress - skipping periodic sync')
-        return
-      }
-
-      syncLockRef.current = true
-      try {
-        await focusTimerService.syncSession(
-          state.session.id,
-          userId,
-          {
-            totalWorkMinutes: Math.floor(state.workSeconds / 60),
-            totalBreakMinutes: Math.floor(state.breakSeconds / 60),
-            adherencePercentage: state.adherencePercentage,
-            currentSegmentType: state.status === 'working' ? 'work' : state.status === 'break' ? 'break' : null,
-            currentSegmentId: state.currentSegment?.id || null,
-          }
-        )
-        // Reset retry count on success
-        syncRetryCount.current = 0
-      } catch (error: unknown) {
-        // Only log and count retries for network errors
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        if (errorMessage.includes('ERR_INTERNET_DISCONNECTED') ||
-            errorMessage.includes('NetworkError') ||
-            errorMessage.includes('Failed to fetch')) {
-          syncRetryCount.current++
-          logger.log(`Focus timer sync failed (attempt ${syncRetryCount.current}/${maxSyncRetries}):`, errorMessage)
-        } else {
-          // For other errors, log but don't spam
-          logger.error('Error syncing session to database:', error)
-        }
-      } finally {
-        syncLockRef.current = false
-      }
-    }
-
-    // Sync immediately on status change (if online)
-    if (navigator.onLine) {
-      syncToDatabase()
-    }
-
-    // Set up periodic sync every 30 seconds
-    syncIntervalRef.current = setInterval(() => {
-      // Reset retry count on each interval
-      syncRetryCount.current = 0
-      syncToDatabase()
-    }, 30000)
-
-    // Listen for online/offline events
-    const handleOnline = () => {
-      logger.log('Connection restored - syncing focus timer')
-      syncRetryCount.current = 0
-      syncToDatabase()
-    }
-
-    const handleOffline = () => {
-      logger.log('Connection lost - pausing focus timer sync')
-      syncRetryCount.current = maxSyncRetries // Prevent retries while offline
-    }
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-
-      if (syncIntervalRef.current) {
-        // Final sync before cleanup (if online)
-        if (navigator.onLine) {
-          syncToDatabase()
-        }
-        clearInterval(syncIntervalRef.current)
-        syncIntervalRef.current = null
-      }
-    }
-  }, [
-    state.session,
-    state.status,
-    state.workSeconds,
-    state.breakSeconds,
-    state.adherencePercentage,
-    state.currentSegment,
-    userId,
-  ])
+  // Writes are expensive, so we only sync:
+  // 1. When visibility changes (tab hidden) - safety backup
+  // 2. When session ends (stopSession)
+  // 3. When segments change (startWorking, startBreak)
+  // The periodic sync has been removed to reduce unnecessary writes.
 
   // ================================================
   // START WORKING
@@ -791,6 +734,22 @@ export function useFocusTimer(userId: string) {
   // STOP SESSION
   // ================================================
   const stopSession = useCallback(async () => {
+    const workMinutes = Math.floor(state.workSeconds / 60)
+    const breakMinutes = Math.floor(state.breakSeconds / 60)
+
+    // Helper to check if error is network-related
+    const isNetworkError = (error: unknown): boolean => {
+      if (error instanceof Error) {
+        const msg = error.message.toLowerCase()
+        return msg.includes('fetch') ||
+               msg.includes('network') ||
+               msg.includes('offline') ||
+               msg.includes('err_internet_disconnected') ||
+               msg.includes('failed to fetch')
+      }
+      return !navigator.onLine
+    }
+
     try {
       // End current segment
       if (state.currentSegment) {
@@ -804,16 +763,39 @@ export function useFocusTimer(userId: string) {
         )
       }
 
+      // Calculate and award points with penalty
+      const pointsResult = await gamificationService.awardFocusSessionPoints(
+        userId,
+        workMinutes,
+        state.adherencePercentage
+      )
+
       // End session
       if (state.session) {
-        const workMinutes = Math.floor(state.workSeconds / 60)
-        const breakMinutes = Math.floor(state.breakSeconds / 60)
-
-        await focusTimerService.endSession(state.session.id, userId, {
+        const finalStats = {
           totalWorkMinutes: workMinutes,
           totalBreakMinutes: breakMinutes,
           adherencePercentage: state.adherencePercentage,
-        })
+          isIncomplete: pointsResult.isIncomplete,
+          pointsEarned: pointsResult.netPoints,
+          pointsPenalty: pointsResult.penalty,
+        }
+
+        try {
+          await focusTimerService.endSession(state.session.id, userId, finalStats)
+        } catch (endError) {
+          // If network error, queue for later
+          if (isNetworkError(endError)) {
+            logger.log('Network error ending session, queuing for later sync')
+            focusSessionQueue.enqueue({
+              sessionId: state.session.id,
+              userId,
+              finalStats,
+            })
+          } else {
+            throw endError
+          }
+        }
 
         // Broadcast session ended event for other timer instances
         window.dispatchEvent(new CustomEvent('focus-session-ended', {
@@ -824,15 +806,50 @@ export function useFocusTimer(userId: string) {
         }))
       }
 
-      // Return final stats for summary modal
+      // Return final stats for summary modal (including points info)
       return {
         sessionMinutes: Math.floor(state.sessionSeconds / 60),
-        workMinutes: Math.floor(state.workSeconds / 60),
-        breakMinutes: Math.floor(state.breakSeconds / 60),
+        workMinutes,
+        breakMinutes,
         adherencePercentage: state.adherencePercentage,
         adherenceColor: state.adherenceColor,
+        // Points breakdown
+        basePoints: pointsResult.basePoints,
+        pointsPenalty: pointsResult.penalty,
+        netPoints: pointsResult.netPoints,
+        penaltyRate: pointsResult.penaltyRate,
+        isIncomplete: pointsResult.isIncomplete,
       }
     } catch (error) {
+      // If network error during the entire flow, still return stats
+      // so user sees the summary (data queued for sync)
+      if (isNetworkError(error) && state.session) {
+        logger.log('Network error during session stop, queuing completion')
+        focusSessionQueue.enqueue({
+          sessionId: state.session.id,
+          userId,
+          finalStats: {
+            totalWorkMinutes: workMinutes,
+            totalBreakMinutes: breakMinutes,
+            adherencePercentage: state.adherencePercentage,
+          },
+        })
+
+        // Return basic stats even if network failed
+        return {
+          sessionMinutes: Math.floor(state.sessionSeconds / 60),
+          workMinutes,
+          breakMinutes,
+          adherencePercentage: state.adherencePercentage,
+          adherenceColor: state.adherenceColor,
+          basePoints: 0,
+          pointsPenalty: 0,
+          netPoints: 0,
+          penaltyRate: 0,
+          isIncomplete: false,
+        }
+      }
+
       logger.error('Error stopping session:', error)
       return null
     }
@@ -854,10 +871,6 @@ export function useFocusTimer(userId: string) {
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
-    }
-    if (syncIntervalRef.current) {
-      clearInterval(syncIntervalRef.current)
-      syncIntervalRef.current = null
     }
 
     // Reset sync lock
@@ -882,6 +895,7 @@ export function useFocusTimer(userId: string) {
       breakActivityModal: { isOpen: false, categoryId: null },
       activeBreakActivity: null,
       breakActivityTimeRemaining: 0,
+      isDiscarding: false,
     })
   }, [])
 
@@ -929,19 +943,40 @@ export function useFocusTimer(userId: string) {
   }, [state.currentSegment])
 
   const discardSession = useCallback(async () => {
+    // Set discarding flag immediately to prevent race conditions
+    setState(prev => ({ ...prev, isDiscarding: true, showSessionRecoveryModal: false }))
+
     // End the session and reset
     try {
       if (state.session) {
+        logger.log('Discarding session:', state.session.id)
         const workMinutes = Math.floor(state.workSeconds / 60)
         const breakMinutes = Math.floor(state.breakSeconds / 60)
 
-        await focusTimerService.endSession(state.session.id, userId, {
+        const endedSession = await focusTimerService.endSession(state.session.id, userId, {
           totalWorkMinutes: workMinutes,
           totalBreakMinutes: breakMinutes,
           adherencePercentage: state.adherencePercentage,
         })
 
-        logger.info('Session discarded from recovery modal')
+        logger.log('Session discarded successfully')
+
+        // Store discarded session ID to prevent race conditions with other instances
+        // This will be checked by loadActiveSession in other hook instances
+        localStorage.setItem('focus-session-discarded', JSON.stringify({
+          sessionId: state.session.id,
+          timestamp: Date.now()
+        }))
+
+        // Broadcast session ended event for other timer instances
+        window.dispatchEvent(new CustomEvent('focus-session-ended', {
+          detail: {
+            sessionId: state.session.id,
+            userId
+          }
+        }))
+      } else {
+        logger.warn('No session to discard')
       }
     } catch (error) {
       logger.error('Error discarding session:', error)
@@ -1054,7 +1089,11 @@ export function useFocusTimer(userId: string) {
   const sessionTime = getFormattedTime(state.sessionSeconds)
   const workTime = getFormattedTime(state.workSeconds)
   const breakTime = getFormattedTime(state.breakSeconds)
-  const goalProgress = (state.workSeconds / (state.goalMinutes * 60)) * 100
+  // Progress based on total session time (wall-clock), not just work time
+  const goalProgress = (state.sessionSeconds / (state.goalMinutes * 60)) * 100
+  // Calculate remaining time in the session
+  const remainingSeconds = Math.max(0, (state.goalMinutes * 60) - state.sessionSeconds)
+  const remainingTime = getFormattedTime(remainingSeconds)
 
   return {
     // State
@@ -1063,6 +1102,7 @@ export function useFocusTimer(userId: string) {
     sessionTime,
     workTime,
     breakTime,
+    remainingTime, // Time remaining in the session (countdown)
     goalMinutes: state.goalMinutes,
     goalProgress: Math.min(goalProgress, 100),
     adherencePercentage: state.adherencePercentage,

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { AchievementNotificationContainer } from '../components/gamification/AchievementNotification'
 
@@ -21,11 +21,16 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
     setAchievements([])
   }, [])
   
+  // Memoize context value to prevent unnecessary re-renders of consumers
+  const contextValue = useMemo(() => ({
+    showAchievements
+  }), [showAchievements])
+
   return (
-    <AchievementContext.Provider value={{ showAchievements }}>
+    <AchievementContext.Provider value={contextValue}>
       {children}
-      <AchievementNotificationContainer 
-        achievements={achievements} 
+      <AchievementNotificationContainer
+        achievements={achievements}
         onClear={clearAchievements}
       />
     </AchievementContext.Provider>

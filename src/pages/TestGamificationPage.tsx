@@ -26,7 +26,6 @@ export function TestGamificationPage() {
         .insert({
           user_id: user.id,
           learning_item_id: '00000000-0000-0000-0000-000000000000', // Dummy ID for testing
-          difficulty: 'good',
           reviewed_at: reviewDate.toISOString(),
           next_review_at: new Date().toISOString(),
           interval_days: 1,

@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from 'react'
-import { Card, CardHeader, CardContent, Badge } from '../ui'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { Card, CardHeader, CardContent, Badge, Button } from '../ui'
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { Timer, TrendingUp, Clock, Coffee } from 'lucide-react'
-import { focusTimerService, getAdherenceColor } from '../../services/focusTimerService'
+import { Timer, TrendingUp, Clock, Coffee, ChevronLeft, ChevronRight } from 'lucide-react'
+import { focusTimerService, getAdherenceColor, type FocusSession, type SessionTimeFilter } from '../../services/focusTimerService'
 import { useAuth } from '../../hooks/useAuthFixed'
 
 interface FocusAdherenceStatsProps {
@@ -27,12 +27,20 @@ export function FocusAdherenceStats({ userId }: FocusAdherenceStatsProps) {
     totalFocusTime: 0,
   })
   const [recentSessions, setRecentSessions] = useState<SessionData[]>([])
-  const [allSessions, setAllSessions] = useState<any[]>([])
+  const [allSessions, setAllSessions] = useState<FocusSession[]>([])
   const [loading, setLoading] = useState(true)
-  const [timeRange, setTimeRange] = useState<'week' | '7days' | 'month' | 'year'>('week')
+  const [timeRange, setTimeRange] = useState<SessionTimeFilter>('week')
   const [trendView, setTrendView] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [statsTimeRange, setStatsTimeRange] = useState<'today' | 'week' | 'lastweek' | 'month' | 'year'>('month')
   const [isPaidUser, setIsPaidUser] = useState(false)
+
+  // Pagination state for Session Details
+  const [paginatedSessions, setPaginatedSessions] = useState<FocusSession[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [hasNextPage, setHasNextPage] = useState(false)
+  const [hasPreviousPage, setHasPreviousPage] = useState(false)
+  const [cursorHistory, setCursorHistory] = useState<string[]>([])
+  const [paginationError, setPaginationError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -91,38 +99,90 @@ export function FocusAdherenceStats({ userId }: FocusAdherenceStatsProps) {
     checkSubscription()
   }, [user])
 
-  // Filter sessions based on time range - client-side only, no refetch!
+  // Load paginated sessions for Session Details section
+  const loadPaginatedSessions = useCallback(async (
+    cursor: string | null = null,
+    direction: 'forward' | 'backward' = 'forward'
+  ) => {
+    if (!userId) return
+
+    setSessionsLoading(true)
+    setPaginationError(null)
+
+    try {
+      const result = await focusTimerService.getPaginatedSessions(userId, {
+        limit: 10,
+        cursor: cursor || undefined,
+        direction,
+        timeFilter: timeRange
+      })
+
+      setPaginatedSessions(result.sessions)
+      setHasNextPage(result.hasNextPage)
+      setHasPreviousPage(result.hasPreviousPage)
+
+      // Track cursor history for backward navigation
+      if (direction === 'forward' && cursor) {
+        setCursorHistory(prev => [...prev, cursor])
+      } else if (direction === 'backward') {
+        setCursorHistory(prev => prev.slice(0, -1))
+      }
+    } catch (error) {
+      console.error('Error loading paginated sessions:', error)
+      setPaginationError('Failed to load sessions')
+    } finally {
+      setSessionsLoading(false)
+    }
+  }, [userId, timeRange])
+
+  // Reset pagination when time filter changes
+  useEffect(() => {
+    setCursorHistory([])
+    loadPaginatedSessions(null, 'forward')
+  }, [timeRange, loadPaginatedSessions])
+
+  // Pagination handlers
+  const handleNextPage = useCallback(() => {
+    const lastSession = paginatedSessions[paginatedSessions.length - 1]
+    if (lastSession) {
+      loadPaginatedSessions(lastSession.created_at, 'forward')
+    }
+  }, [paginatedSessions, loadPaginatedSessions])
+
+  const handlePreviousPage = useCallback(() => {
+    const previousCursor = cursorHistory[cursorHistory.length - 1] || null
+    // For previous, we need to go back to the start of the previous page
+    // We'll fetch with backward direction from the first item of current page
+    const firstSession = paginatedSessions[0]
+    if (firstSession) {
+      loadPaginatedSessions(firstSession.created_at, 'backward')
+    }
+  }, [paginatedSessions, cursorHistory, loadPaginatedSessions])
+
+  // Filter sessions based on time range - for charts/trends (uses allSessions)
   const filteredSessions = useMemo(() => {
     const now = new Date()
     return allSessions.filter(s => {
       const sessionDate = new Date(s.created_at)
 
       if (timeRange === 'week') {
-        // This Week: from start of current week (Sunday) to now
         const startOfWeek = new Date(now)
-        startOfWeek.setDate(now.getDate() - now.getDay()) // Go to Sunday
+        startOfWeek.setDate(now.getDate() - now.getDay())
         startOfWeek.setHours(0, 0, 0, 0)
         return sessionDate >= startOfWeek
       }
 
       if (timeRange === '7days') {
-        // Last 7 Days: previous 7 days from today
         const diffDays = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24))
         return diffDays <= 7
       }
 
       if (timeRange === 'month') {
-        // This Month: from start of current month to now
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
         return sessionDate >= startOfMonth
       }
 
-      if (timeRange === 'year') {
-        // Last Year: previous 365 days
-        const diffDays = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24))
-        return diffDays <= 365
-      }
-
+      // 'all' - no filter
       return true
     })
   }, [allSessions, timeRange])
@@ -765,31 +825,24 @@ export function FocusAdherenceStats({ userId }: FocusAdherenceStatsProps) {
                     )}
                   </button>
                   <button
-                    onClick={() => {
-                      if (isPaidUser) {
-                        setTimeRange('year')
-                      }
-                    }}
-                    disabled={!isPaidUser}
+                    onClick={() => setTimeRange('all')}
                     style={{
                       padding: '0.5rem 0.75rem',
                       border: '1px solid var(--color-border)',
                       borderRadius: 'var(--radius-sm)',
-                      backgroundColor: timeRange === 'year' ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: timeRange === 'year' ? 'white' : 'var(--color-text)',
-                      cursor: isPaidUser ? 'pointer' : 'not-allowed',
+                      backgroundColor: timeRange === 'all' ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: timeRange === 'all' ? 'white' : 'var(--color-text)',
+                      cursor: 'pointer',
                       fontSize: '0.875rem',
-                      fontWeight: timeRange === 'year' ? '600' : '400',
-                      opacity: isPaidUser ? 1 : 0.5,
+                      fontWeight: timeRange === 'all' ? '600' : '400',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       gap: '0.25rem'
                     }}
-                    title={!isPaidUser ? 'Yearly view is only available for paid users' : ''}
                   >
-                    <span>Last Year {!isPaidUser && '🔒'}</span>
-                    {timeRange === 'year' && isPaidUser && (
+                    <span>All Time</span>
+                    {timeRange === 'all' && (
                       <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
                         Avg: {averageAdherence}%
                       </span>
@@ -799,24 +852,41 @@ export function FocusAdherenceStats({ userId }: FocusAdherenceStatsProps) {
               </div>
             </CardHeader>
             <CardContent>
-              <div style={{ display: 'grid', gap: '0.75rem', maxHeight: '400px', overflowY: 'auto' }}>
-                {filteredSessions.length === 0 ? (
+              {/* Session List with Pagination */}
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {sessionsLoading ? (
+                  <div style={{ textAlign: 'center', padding: '2rem' }}>
+                    <p className="body-small text-secondary">Loading sessions...</p>
+                  </div>
+                ) : paginationError ? (
+                  <div style={{ textAlign: 'center', padding: '2rem' }}>
+                    <p className="body-small text-secondary">{paginationError}</p>
+                    <Button
+                      variant="ghost"
+                      size="small"
+                      onClick={() => loadPaginatedSessions(null, 'forward')}
+                      style={{ marginTop: '0.5rem' }}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : paginatedSessions.length === 0 ? (
                   <p className="body-small text-secondary">No sessions found for this time range</p>
                 ) : (
-                  filteredSessions.map((session) => {
-                        const adherenceColor = getAdherenceColor(session.adherence_percentage || 0)
-                        return (
-                          <div
-                            key={session.id}
-                            style={{
-                              padding: '0.75rem',
-                              backgroundColor: 'var(--color-gray-50)',
-                              borderLeft: `4px solid ${adherenceColor.color}`,
-                              borderRadius: 'var(--radius-sm)',
-                              display: 'grid',
-                              gap: '0.5rem'
-                            }}
-                          >
+                  paginatedSessions.map((session) => {
+                    const adherenceColor = getAdherenceColor(session.adherence_percentage || 0)
+                    return (
+                      <div
+                        key={session.id}
+                        style={{
+                          padding: '0.75rem',
+                          backgroundColor: 'var(--color-gray-50)',
+                          borderLeft: `4px solid ${adherenceColor.color}`,
+                          borderRadius: 'var(--radius-sm)',
+                          display: 'grid',
+                          gap: '0.5rem'
+                        }}
+                      >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span className="body-small" style={{ fontWeight: '600' }}>
                                 {new Date(session.created_at).toLocaleDateString('en', {
@@ -851,11 +921,45 @@ export function FocusAdherenceStats({ userId }: FocusAdherenceStatsProps) {
                                 </span>
                               </div>
                             </div>
-                          </div>
-                        )
-                      })
-                  )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Pagination Controls */}
+              {paginatedSessions.length > 0 && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  marginTop: '1rem',
+                  paddingTop: '1rem',
+                  borderTop: '1px solid var(--color-border)'
+                }}>
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onClick={handlePreviousPage}
+                    disabled={!hasPreviousPage || sessionsLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    <ChevronLeft size={16} />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onClick={handleNextPage}
+                    disabled={!hasNextPage || sessionsLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    Next
+                    <ChevronRight size={16} />
+                  </Button>
                 </div>
+              )}
             </CardContent>
           </Card>
         </div>

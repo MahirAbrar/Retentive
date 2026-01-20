@@ -14,25 +14,6 @@ export const LEARNING_MODES: Record<string, { label: string; description: string
     return acc
   }, {} as Record<string, { label: string; description: string }>)
 
-export const PRIORITY_LEVELS = {
-  MIN: 1,
-  DEFAULT: 5,
-  MAX: 10,
-} as const
-
-export const PRIORITY_LABELS: Record<number, string> = {
-  1: 'Very Low',
-  2: 'Low',
-  3: 'Low',
-  4: 'Medium-Low',
-  5: 'Medium',
-  6: 'Medium',
-  7: 'Medium-High',
-  8: 'High',
-  9: 'High',
-  10: 'Critical',
-}
-
 export const BASE_INTERVALS = {
   ultracram: {
     again: 0.0007, // ~1 minute (1/1440 of a day)
@@ -46,13 +27,13 @@ export const BASE_INTERVALS = {
     good: 0.0021, // ~3 minutes
     easy: 0.0035, // ~5 minutes
   },
-  extended: {
+  steady: {
     again: 0.0007, // ~1 minute
     hard: 0.0021, // ~3 minutes
     good: 0.0035, // ~5 minutes
     easy: 0.007, // ~10 minutes
   },
-  steady: {
+  extended: {
     again: 0.0007, // ~1 minute
     hard: 0.0021, // ~3 minutes
     good: 0.0035, // ~5 minutes
@@ -71,19 +52,6 @@ export const EASE_FACTOR = {
   MIN: 1.3,
   DEFAULT: 2.5,
   MAX: 2.5,
-} as const
-
-export const PRIORITY_INTERVAL_MODIFIER = {
-  1: 1.5, // Very Low: 50% longer intervals
-  2: 1.3,
-  3: 1.2,
-  4: 1.1,
-  5: 1.0, // Medium: Standard intervals
-  6: 1.0,
-  7: 0.9,
-  8: 0.8, // High: 20% shorter intervals
-  9: 0.7,
-  10: 0.6, // Critical: 40% shorter intervals
 } as const
 
 export const DEFAULT_USER_SETTINGS = {

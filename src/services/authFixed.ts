@@ -87,15 +87,6 @@ export class AuthService {
             
             // Initialize gamification stats for the user
             await gamificationService.getUserStats(user.id)
-            
-            // If in Electron, save user data locally
-            if (window.electronAPI) {
-              await window.electronAPI.database.user.upsert({
-                id: user.id,
-                email: user.email,
-                display_name: user.email // Use email as display name since User type doesn't have display_name
-              })
-            }
           }
         }
         break
@@ -309,12 +300,10 @@ export class AuthService {
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
-      
+
       // Clear secure storage on logout
-      if (window.electronAPI?.secureStorage) {
-        await secureStorage.clear()
-      }
-      
+      await secureStorage.clear()
+
       // Clear cached session data
       localStorageCache.remove('current_user')
       localStorageCache.remove('current_session')

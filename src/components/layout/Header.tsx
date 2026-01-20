@@ -18,7 +18,7 @@ export function Header() {
     <header className={styles.header}>
       <div className={styles.container}>
         <Link to="/" className={styles.logo}>
-          <h1 className="h4">Retentive</h1>
+          <img src="/logo.png" alt="Retentive" className={styles.logoImage} />
         </Link>
 
         <nav className={styles.nav}>

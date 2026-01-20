@@ -82,14 +82,8 @@ export function PaywallPage() {
       )
       
       if (result.url) {
-        // Open marketing website in new tab or redirect
-        if (window.electronAPI) {
-          // In Electron, open in external browser
-          window.electronAPI.openExternal(result.url)
-        } else {
-          // In web, redirect to marketing site
-          window.location.href = result.url
-        }
+        // Redirect to Stripe checkout
+        window.location.href = result.url
       } else {
         addToast('error', result.error || 'Failed to create checkout URL')
       }

@@ -3,7 +3,6 @@ import {
   BASE_INTERVALS,
   EASE_FACTOR_DELTA,
   EASE_FACTOR,
-  PRIORITY_INTERVAL_MODIFIER,
 } from '@/constants/learning'
 import { GAMIFICATION_CONFIG } from '@/config/gamification'
 
@@ -123,8 +122,6 @@ export class SpacedRepetitionService {
     easeFactor: number
   ): number {
     const mode = item.learning_mode
-    const priority = item.priority
-    const priorityModifier = PRIORITY_INTERVAL_MODIFIER[priority as keyof typeof PRIORITY_INTERVAL_MODIFIER] || 1
 
     // Use fixed intervals from gamification config
     const modeConfig = GAMIFICATION_CONFIG.LEARNING_MODES[mode]
@@ -150,16 +147,13 @@ export class SpacedRepetitionService {
         intervalDays *= 1.2 // 20% longer for easy
       }
 
-      // Apply priority modifier
-      intervalDays *= priorityModifier
-
       return intervalDays
     }
 
     // Fallback to old calculation if config not found
     // First review or "Again" response
     if (item.review_count === 0 || difficulty === 'again') {
-      return BASE_INTERVALS[mode][difficulty] * priorityModifier
+      return BASE_INTERVALS[mode][difficulty]
     }
 
     // Calculate base interval
@@ -185,16 +179,13 @@ export class SpacedRepetitionService {
       }
     }
 
-    // Apply priority modifier
-    const finalInterval = baseInterval * priorityModifier
-
     // Apply mode-specific caps
     if (mode === 'cram') {
       // Cram mode caps at 7 days
-      return Math.min(finalInterval, 7)
+      return Math.min(baseInterval, 7)
     } else {
       // Steady mode has no cap
-      return finalInterval
+      return baseInterval
     }
   }
 
@@ -213,14 +204,10 @@ export class SpacedRepetitionService {
       const reviewDate = new Date(item.next_review_at)
       return reviewDate <= now
     }).sort((a, b) => {
-      // Sort by priority (descending) then by due date (ascending)
-      if (a.priority !== b.priority) {
-        return b.priority - a.priority
-      }
-      
+      // Sort by due date (ascending)
       if (!a.next_review_at) return -1
       if (!b.next_review_at) return 1
-      
+
       return new Date(a.next_review_at).getTime() - new Date(b.next_review_at).getTime()
     })
   }

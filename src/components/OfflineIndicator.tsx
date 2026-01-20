@@ -1,26 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { useVisibilityAwareInterval } from '../hooks/useVisibilityAwareInterval'
 import { syncService } from '../services/syncService'
 
 export function OfflineIndicator() {
-  const isOnline = useOnlineStatus()
+  const { isOnline } = useOnlineStatus()
   const [isSyncing, setIsSyncing] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
-  
+
   useEffect(() => {
     const unsubscribe = syncService.onSyncStatusChange((syncing) => {
       setIsSyncing(syncing)
-    })
-    
-    const interval = setInterval(() => {
+      // Update pending count when sync status changes
       setPendingCount(syncService.getPendingOperationsCount())
-    }, 1000)
-    
+    })
+
+    // Initial count
+    setPendingCount(syncService.getPendingOperationsCount())
+
     return () => {
       unsubscribe()
-      clearInterval(interval)
     }
   }, [])
+
+  // Check pending count every 10 seconds, but pause when window is hidden (saves energy)
+  useVisibilityAwareInterval(() => {
+    setPendingCount(syncService.getPendingOperationsCount())
+  }, 10000)
 
   if (isOnline && !isSyncing && pendingCount === 0) return null
 

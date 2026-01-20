@@ -7,7 +7,7 @@ export function SyncStatus() {
 
   const handleSync = async () => {
     if (!isOnline || isSyncing) return
-    
+
     try {
       const result = await sync()
       if (result.failed > 0) {
@@ -18,15 +18,10 @@ export function SyncStatus() {
     }
   }
 
-  if (!window.electronAPI) {
-    // Not in Electron, don't show sync status
-    return null
-  }
-
   return (
     <div className={styles.syncStatus}>
       <div className={styles.statusIndicator}>
-        <span 
+        <span
           className={`${styles.dot} ${isOnline ? styles.online : styles.offline}`}
           title={isOnline ? 'Online' : 'Offline'}
         />
@@ -34,15 +29,15 @@ export function SyncStatus() {
           {isSyncing ? 'Syncing...' : isOnline ? 'Online' : 'Offline'}
         </span>
       </div>
-      
+
       {syncStatus.pendingOperations > 0 && (
         <div className={styles.pendingCount}>
           {syncStatus.pendingOperations} pending
         </div>
       )}
-      
+
       {isOnline && !isSyncing && syncStatus.pendingOperations > 0 && (
-        <button 
+        <button
           className={styles.syncButton}
           onClick={handleSync}
           title="Sync now"

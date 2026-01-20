@@ -4,14 +4,13 @@ import { Button, Input, Card, CardHeader, CardContent, useToast } from '@/compon
 import { dataService } from '@/services/dataService'
 import { useUser } from '@/hooks/useAuth'
 import { validateTopicName, parseSubtopics } from '@/utils/validation'
-import { LEARNING_MODES, PRIORITY_LEVELS } from '@/constants/learning'
+import { LEARNING_MODES } from '@/constants/learning'
 import type { LearningMode } from '@/types/database'
 import styles from './TopicForm.module.css'
 
 export function TopicForm() {
   const [name, setName] = useState('')
   const [learningMode, setLearningMode] = useState<LearningMode>('steady')
-  const [priority, setPriority] = useState<number>(PRIORITY_LEVELS.DEFAULT)
   const [subtopics, setSubtopics] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -49,7 +48,6 @@ export function TopicForm() {
         user_id: user.id,
         name,
         learning_mode: learningMode,
-        priority,
       })
 
       if (topicError || !topic) {
@@ -62,7 +60,6 @@ export function TopicForm() {
         topic_id: topic.id,
         user_id: user.id,
         content,
-        priority,
         learning_mode: learningMode,
         last_reviewed_at: null,
         next_review_at: null,
@@ -121,26 +118,6 @@ export function TopicForm() {
                   </div>
                 </label>
               ))}
-            </div>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="priority" className={styles.label}>
-              Priority Level: {priority}
-            </label>
-            <input
-              type="range"
-              id="priority"
-              min={PRIORITY_LEVELS.MIN}
-              max={PRIORITY_LEVELS.MAX}
-              value={priority}
-              onChange={(e) => setPriority(Number(e.target.value))}
-              className={styles.slider}
-            />
-            <div className={styles.sliderLabels}>
-              <span className="caption">Low</span>
-              <span className="caption">Medium</span>
-              <span className="caption">High</span>
             </div>
           </div>
 

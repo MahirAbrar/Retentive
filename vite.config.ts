@@ -1,63 +1,94 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import electron from 'vite-plugin-electron/simple'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    electron({
-      main: {
-        entry: 'electron/main.ts',
-        onstart(options) {
-          // Start Electron when Vite dev server is ready
-          if (process.env.NODE_ENV === 'development') {
-            options.startup()
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'logo.png', 'icons/*.png'],
+      manifest: {
+        name: 'Retentive - Spaced Repetition Learning',
+        short_name: 'Retentive',
+        description: 'A clean, Swiss design-inspired spaced repetition learning app',
+        theme_color: '#fffef9',
+        background_color: '#fffef9',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
+        icons: [
+          {
+            src: 'icons/icon-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'icons/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: 'icons/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
-        },
-        vite: {
-          build: {
-            outDir: 'dist-electron',
-            minify: 'terser',
-            terserOptions: {
-              compress: {
-                drop_console: true,
-                drop_debugger: true,
-              },
-            },
-            rollupOptions: {
-              external: ['electron', 'better-sqlite3', 'electron-updater'],
-              input: {
-                main: 'electron/main.ts',
-              },
-              output: {
-                format: 'cjs',
-                entryFileNames: '[name].js',
-              },
-            },
-          },
-        },
+        ]
       },
-      preload: {
-        input: 'electron/preload.ts',
-        vite: {
-          build: {
-            outDir: 'dist-electron',
-            minify: 'terser',
-            rollupOptions: {
-              output: {
-                format: 'cjs',
-                entryFileNames: '[name].js',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365
               },
-            },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           },
-        },
-      },
-      renderer: process.env.NODE_ENV === 'test' ? undefined : {},
-    }),
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gstatic-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-cache',
+              networkTimeoutSeconds: 10,
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
+      }
+    })
   ],
-  base: process.env.IS_DEV !== 'true' ? './' : '/',
+  base: '/',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -69,31 +100,21 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
       },
       output: {
-        // Optimize chunk naming for caching
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]',
-        // Fix React bundling issue
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-charts': ['recharts'],
         },
       },
-      // Optimize tree-shaking
-      treeshake: {
-        preset: 'recommended',
-        moduleSideEffects: false,
-      },
     },
-    // Optimize CSS
     cssCodeSplit: true,
     cssMinify: true,
-    // Preload optimization
     modulePreload: {
       polyfill: true,
     },
-    // Performance optimizations
     reportCompressedSize: false,
   },
   resolve: {
@@ -106,22 +127,16 @@ export default defineConfig({
       '@styles': path.resolve(__dirname, './src/styles'),
       '@assets': path.resolve(__dirname, './src/assets'),
     },
+    dedupe: ['react', 'react-dom'],
   },
-
-  // Optimize dependencies
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js'],
-    exclude: ['electron'],
     esbuildOptions: {
       target: 'esnext',
     },
   },
-  // Performance optimizations
   esbuild: {
     legalComments: 'none',
     target: 'esnext',
-    minifyIdentifiers: true,
-    minifySyntax: true,
-    minifyWhitespace: true,
   },
 })

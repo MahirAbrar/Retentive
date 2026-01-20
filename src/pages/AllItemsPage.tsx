@@ -99,7 +99,6 @@ export function AllItemsPage() {
         .insert({
           user_id: user.id,
           learning_item_id: item.id,
-          difficulty: 'good',
           reviewed_at: reviewedAt.toISOString(),
           next_review_at: updatedItem.next_review_at,
           interval_days: reviewResult.intervalDays,

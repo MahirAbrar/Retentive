@@ -4,7 +4,7 @@ import { Button, Card, CardContent, useToast, Pagination, PaginationInfo } from 
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
 import { usePagination } from '../hooks/usePagination'
-import { LEARNING_MODES, PRIORITY_LABELS } from '../constants/learning'
+import { LEARNING_MODES } from '../constants/learning'
 import type { Topic, LearningItem } from '../types/database'
 
 export function TopicDetailView() {
@@ -117,11 +117,7 @@ export function TopicDetailView() {
         <h1 className="h2" style={{ marginTop: '1rem' }}>{topic.name}</h1>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
           <span className="body-small text-secondary">
-            {LEARNING_MODES[topic.learning_mode].label}
-          </span>
-          <span className="body-small text-secondary">•</span>
-          <span className="body-small text-secondary">
-            Priority: {PRIORITY_LABELS[topic.priority]}
+            {LEARNING_MODES[topic.learning_mode]?.label || 'Steady'}
           </span>
           <span className="body-small text-secondary">•</span>
           <span className="body-small text-secondary">

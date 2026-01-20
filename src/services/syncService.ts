@@ -8,7 +8,10 @@ class SyncService {
   private static instance: SyncService
   private isSyncing = false
   private syncCallbacks = new Set<(syncing: boolean) => void>()
-  
+  private onlineHandler: (() => void) | null = null
+  private offlineHandler: (() => void) | null = null
+  private focusHandler: (() => void) | null = null
+
   private constructor() {
     this.setupListeners()
   }
@@ -21,22 +24,43 @@ class SyncService {
   }
 
   private setupListeners() {
-    // Listen for online/offline events
-    window.addEventListener('online', () => {
+    // Create bound handlers so they can be removed later
+    this.onlineHandler = () => {
       logger.log('Connection restored, syncing...')
       this.syncPendingOperations()
-    })
-    
-    window.addEventListener('offline', () => {
+    }
+
+    this.offlineHandler = () => {
       logger.log('Connection lost, operations will be queued')
-    })
-    
-    // Check and sync on page load/focus
-    window.addEventListener('focus', () => {
+    }
+
+    this.focusHandler = () => {
       if (navigator.onLine && offlineQueue.hasPendingOperations()) {
         this.syncPendingOperations()
       }
-    })
+    }
+
+    // Listen for online/offline events
+    window.addEventListener('online', this.onlineHandler)
+    window.addEventListener('offline', this.offlineHandler)
+    window.addEventListener('focus', this.focusHandler)
+  }
+
+  /**
+   * Cleanup method to remove event listeners.
+   * Should be called when the app is shutting down.
+   */
+  public cleanup() {
+    if (this.onlineHandler) {
+      window.removeEventListener('online', this.onlineHandler)
+    }
+    if (this.offlineHandler) {
+      window.removeEventListener('offline', this.offlineHandler)
+    }
+    if (this.focusHandler) {
+      window.removeEventListener('focus', this.focusHandler)
+    }
+    this.syncCallbacks.clear()
   }
 
   async syncPendingOperations(): Promise<{ success: number; failed: number }> {

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { Button, Card, CardHeader, CardContent, Badge, Skeleton } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
-import type { Priority } from '../types/database'
 import {
   Target,
   Clock,
@@ -15,22 +14,19 @@ import {
   BrainCircuit,
 } from 'lucide-react'
 import { LEARNING_MODE_EXAMPLES } from '../utils/learningScience'
-import { FocusTimer } from '../components/focus/FocusTimer'
 
-// Lazy load heavy component for better initial load performance
+// Lazy load heavy components for better initial load performance
 const GamificationDashboard = lazy(() =>
   import('../components/gamification/GamificationDashboard').then((m) => ({
     default: m.GamificationDashboard,
   }))
 )
 
-interface PriorityStats {
-  priority: Priority
-  label: string
-  total: number
-  due: number
-  percentage: number
-}
+const FocusTimer = lazy(() =>
+  import('../components/focus/FocusTimer').then((m) => ({
+    default: m.FocusTimer,
+  }))
+)
 
 export function HomePage() {
   const { user } = useAuth()
@@ -41,7 +37,6 @@ export function HomePage() {
     dueToday: 0,
     upcoming: 0,
     mastered: 0,
-    priorityBreakdown: [] as PriorityStats[],
     totalItems: 0,
     totalTopics: 0,
     streakDays: 0,
@@ -271,7 +266,11 @@ export function HomePage() {
         )}
 
         {/* Focus Timer */}
-        {user && <FocusTimer />}
+        {user && (
+          <Suspense fallback={<Skeleton style={{ height: '200px', borderRadius: '8px' }} />}>
+            <FocusTimer />
+          </Suspense>
+        )}
 
         {/* Gamification Dashboard */}
         {user && (
@@ -409,50 +408,6 @@ export function HomePage() {
                   </CardContent>
                 </Card>
 
-                <Card variant="bordered">
-                  <CardHeader>
-                    <h3 className="h4">Priority Breakdown</h3>
-                  </CardHeader>
-                  <CardContent>
-                    <div style={{ display: 'grid', gap: '0.75rem' }}>
-                      {stats.priorityBreakdown.map((priority) => (
-                        <div
-                          key={priority.priority}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '0.5rem',
-                            backgroundColor: 'var(--color-gray-50)',
-                            borderRadius: 'var(--radius-sm)',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Badge
-                              variant={
-                                priority.priority >= 4
-                                  ? 'error'
-                                  : priority.priority === 3
-                                    ? 'warning'
-                                    : priority.priority === 2
-                                      ? 'info'
-                                      : 'ghost'
-                              }
-                            >
-                              {priority.label}
-                            </Badge>
-                            <span className="body-small text-secondary">
-                              {priority.due} of {priority.total} due
-                            </span>
-                          </div>
-                          <span className="body-small" style={{ fontWeight: '600' }}>
-                            {priority.percentage}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
               </>
             )}
           </div>
@@ -1095,11 +1050,11 @@ export function HomePage() {
                       </Link>
                     </>
                   ) : (
-                    <Link to="/login">
+                    <a href="https://retentive-learning-app.vercel.app/" target="_blank" rel="noopener noreferrer">
                       <Button variant="primary" size="large">
                         Get Started
                       </Button>
-                    </Link>
+                    </a>
                   )}
                 </div>
               </div>

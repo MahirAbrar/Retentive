@@ -51,31 +51,6 @@ export const GAMIFICATION_CONFIG = {
       }
     },
     
-    extended: {
-      name: "Extended Mode",
-      description: "Background knowledge, general interest",
-
-      // Exact intervals in hours
-      intervals: [
-        72,      // Review 1: 3 days
-        168,     // Review 2: 7 days (1 week)
-        336,     // Review 3: 14 days (2 weeks)
-        720,     // Review 4: 30 days (~1 month)
-        1440,    // Review 5: 60 days (2 months) (mastered)
-      ],
-
-      // Review windows (hours before/after due time)
-      windowBefore: 12,     // Can review 12 hours early
-      windowAfter: 24,      // 24 hour grace period
-
-      // Points for reviewing in different windows
-      pointsMultiplier: {
-        onTime: 1.8,        // Within 12 hours of due time
-        inWindow: 1.4,      // Within the window
-        late: 0.85,         // Outside window
-      }
-    },
-    
     steady: {
       name: "Steady Mode",
       description: "Regular coursework, professional development",
@@ -98,6 +73,31 @@ export const GAMIFICATION_CONFIG = {
         onTime: 2.0,        // Within 2 hours of due time
         inWindow: 1.2,      // Within the window
         late: 0.7,          // Outside window
+      }
+    },
+
+    extended: {
+      name: "Extended Mode",
+      description: "Background knowledge, general interest",
+
+      // Exact intervals in hours
+      intervals: [
+        72,      // Review 1: 3 days
+        168,     // Review 2: 7 days (1 week)
+        336,     // Review 3: 14 days (2 weeks)
+        720,     // Review 4: 30 days (~1 month)
+        1440,    // Review 5: 60 days (2 months) (mastered)
+      ],
+
+      // Review windows (hours before/after due time)
+      windowBefore: 12,     // Can review 12 hours early
+      windowAfter: 24,      // 24 hour grace period
+
+      // Points for reviewing in different windows
+      pointsMultiplier: {
+        onTime: 1.8,        // Within 12 hours of due time
+        inWindow: 1.4,      // Within the window
+        late: 0.85,         // Outside window
       }
     },
     

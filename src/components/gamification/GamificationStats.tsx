@@ -1,7 +1,8 @@
 import { logger } from '../../utils/logger'
-import { useEffect, useState, memo } from 'react'
+import { useEffect, useState, memo, useCallback } from 'react'
 import { gamificationService } from '../../services/gamificationService'
 import { useAuth } from '../../hooks/useAuthFixed'
+import { useVisibilityAwareInterval } from '../../hooks/useVisibilityAwareInterval'
 import { LevelProgress } from './LevelProgress'
 import { StreakIndicator } from './StreakIndicator'
 import { Gem } from 'lucide-react'
@@ -16,28 +17,29 @@ export const GamificationStats = memo(function GamificationStats() {
   })
   const [loading, setLoading] = useState(true)
 
+  const loadStats = useCallback(async () => {
+    if (!user) return
+    try {
+      const userStats = await gamificationService.getUserStats(user.id)
+      if (userStats) {
+        setStats({
+          totalPoints: userStats.totalPoints,
+          currentLevel: userStats.currentLevel,
+          currentStreak: userStats.currentStreak
+        })
+      }
+    } catch (error) {
+      logger.error('Error loading gamification stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
+
   useEffect(() => {
     if (!user) return
 
-    const loadStats = async () => {
-      try {
-        const userStats = await gamificationService.getUserStats(user.id)
-        if (userStats) {
-          setStats({
-            totalPoints: userStats.totalPoints,
-            currentLevel: userStats.currentLevel,
-            currentStreak: userStats.currentStreak
-          })
-        }
-      } catch (error) {
-        logger.error('Error loading gamification stats:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     loadStats()
-    
+
     // Listen for stats updates
     const unsubscribe = gamificationService.addUpdateListener((updatedStats) => {
       if (updatedStats.userId === user.id) {
@@ -48,14 +50,14 @@ export const GamificationStats = memo(function GamificationStats() {
         })
       }
     })
-    
-    // Refresh stats every 30 seconds
-    const interval = setInterval(loadStats, 30000)
+
     return () => {
-      clearInterval(interval)
       unsubscribe()
     }
-  }, [user])
+  }, [user, loadStats])
+
+  // Refresh stats every 60 seconds, but pause when window is hidden (saves energy)
+  useVisibilityAwareInterval(loadStats, 60000)
 
   if (!user || loading) return null
 

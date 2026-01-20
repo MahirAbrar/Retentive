@@ -45,7 +45,7 @@ export function SubscriptionStatus() {
   }, [user, loadStatus])
 
   const handleUpgrade = () => {
-    navigate('/paywall')
+    window.open('https://retentive-learning-app.vercel.app/', '_blank')
   }
 
 
@@ -239,13 +239,16 @@ export function SubscriptionStatus() {
           </div>
 
           <div className="subscription-footer">
+            <p className="body-small text-secondary" style={{ marginBottom: '0.5rem' }}>
+              Subscription management is handled on our external website.
+            </p>
             <p className="body-small text-secondary">
               Questions about billing?{' '}
-              <a 
-                href="mailto:support@retentive-app.com?subject=Billing Question" 
+              <a
+                href="mailto:mahirabrar.au@gmail.com?subject=Retentive Billing Question"
                 className="link"
               >
-                Contact support
+                Contact us
               </a>
             </p>
           </div>

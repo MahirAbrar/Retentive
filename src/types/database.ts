@@ -1,6 +1,6 @@
 export type LearningMode = 'ultracram' | 'cram' | 'extended' | 'steady'
 export type ReviewDifficulty = 'again' | 'hard' | 'good' | 'easy'
-export type Priority = 1 | 2 | 3 | 4 | 5
+export type TimingZone = 'perfect' | 'inWindow' | 'late' | 'earlyAllowed' | 'notYetDue'
 export type MasteryStatus = 'active' | 'mastered' | 'archived' | 'maintenance' | 'repeat'
 export type ArchiveStatus = 'active' | 'archived'
 export type SubscriptionType = 'monthly' | 'yearly' | null
@@ -35,7 +35,6 @@ export interface Topic {
   user_id: string
   name: string
   learning_mode: LearningMode
-  priority: number
   archive_status?: ArchiveStatus
   archive_date?: string | null
   created_at: string
@@ -47,7 +46,6 @@ export interface LearningItem {
   topic_id: string
   user_id: string
   content: string
-  priority: number
   learning_mode: LearningMode
   review_count: number
   last_reviewed_at: string | null
@@ -58,6 +56,7 @@ export interface LearningItem {
   mastery_date?: string | null
   archive_date?: string | null
   maintenance_interval_days?: number | null
+  prestige_count?: number
   created_at: string
   updated_at: string
 }
@@ -66,10 +65,11 @@ export interface ReviewSession {
   id: string
   user_id: string
   learning_item_id: string
-  difficulty: ReviewDifficulty
   reviewed_at: string
   next_review_at: string
   interval_days: number
+  timing_zone?: TimingZone
+  timing_bonus?: number
 }
 
 export interface UserSettings {

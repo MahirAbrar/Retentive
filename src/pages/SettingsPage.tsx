@@ -5,7 +5,6 @@ import { Button, Card, CardHeader, CardContent, Input, useToast, Modal } from '.
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import { DataManagement } from '../components/settings/DataManagement'
-import { NotificationSettings } from '../components/settings/NotificationSettings'
 import { SubscriptionStatus } from '../components/settings/SubscriptionStatus'
 import { useTheme } from '../contexts/ThemeContext'
 import { gamificationService } from '../services/gamificationService'
@@ -473,9 +472,6 @@ export function SettingsPage() {
 
         {/* Subscription */}
         <SubscriptionStatus />
-
-        {/* Notifications */}
-        <NotificationSettings />
 
         {/* Data Management */}
         <DataManagement />

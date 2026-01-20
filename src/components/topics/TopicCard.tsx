@@ -1,7 +1,35 @@
-import React, { memo, useCallback, useMemo } from 'react'
+import React, { memo, useCallback, useMemo, useState } from 'react'
 import { Card, CardHeader, CardContent, Button, Badge } from '../ui'
-import type { Topic } from '../../types/database'
-import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
+import type { Topic, LearningMode } from '../../types/database'
+import { LEARNING_MODES } from '../../constants/learning'
+
+// Mode guidance for tooltips
+const MODE_TOOLTIP: Record<LearningMode, {
+  schedule: string
+  session: string
+  chunk: string
+}> = {
+  ultracram: {
+    schedule: '30s → 2h → 1d → 3d',
+    session: '15-20 min',
+    chunk: '~50-75 words'
+  },
+  cram: {
+    schedule: '2h → 1d → 3d → 7d',
+    session: '25-30 min',
+    chunk: '~50-75 words'
+  },
+  steady: {
+    schedule: '1d → 3d → 7d → 14d',
+    session: '25-30 min',
+    chunk: '~75-125 words'
+  },
+  extended: {
+    schedule: '3d → 7d → 14d → 30d',
+    session: '30-45 min',
+    chunk: '~100-150 words'
+  }
+}
 
 interface TopicCardProps {
   topic: Topic
@@ -26,6 +54,8 @@ export const TopicCard = memo(function TopicCard({
   onDelete,
   children
 }: TopicCardProps) {
+  const [showModeTooltip, setShowModeTooltip] = useState(false)
+
   const handleToggle = useCallback(() => {
     onToggleExpand(topic.id)
   }, [onToggleExpand, topic.id])
@@ -66,13 +96,43 @@ export const TopicCard = memo(function TopicCard({
       <CardHeader>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 className="h4">{topic.name}</h3>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <Badge variant={modeBadgeVariant}>
-              {LEARNING_MODES[topic.learning_mode].label}
+          <div
+            style={{ position: 'relative' }}
+            onMouseEnter={() => setShowModeTooltip(true)}
+            onMouseLeave={() => setShowModeTooltip(false)}
+          >
+            <Badge variant={modeBadgeVariant} style={{ cursor: 'help' }}>
+              {LEARNING_MODES[topic.learning_mode]?.label || 'Steady'}
             </Badge>
-            <Badge variant="ghost">
-              {PRIORITY_LABELS[topic.priority]}
-            </Badge>
+            {showModeTooltip && MODE_TOOLTIP[topic.learning_mode] && (
+              <div style={{
+                position: 'absolute',
+                right: 0,
+                top: '100%',
+                marginTop: '0.5rem',
+                padding: '0.75rem',
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                zIndex: 20,
+                minWidth: '180px',
+                whiteSpace: 'nowrap'
+              }}>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <p className="caption text-secondary">Review schedule</p>
+                  <p className="body-small" style={{ fontWeight: '500' }}>{MODE_TOOLTIP[topic.learning_mode].schedule}</p>
+                </div>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <p className="caption text-secondary">Session length</p>
+                  <p className="body-small" style={{ fontWeight: '500' }}>{MODE_TOOLTIP[topic.learning_mode].session}</p>
+                </div>
+                <div>
+                  <p className="caption text-secondary">Content per item</p>
+                  <p className="body-small" style={{ fontWeight: '500' }}>{MODE_TOOLTIP[topic.learning_mode].chunk}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CardHeader>

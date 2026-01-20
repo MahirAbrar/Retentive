@@ -15,8 +15,36 @@ import {
   Package,
   Settings
 } from 'lucide-react'
-import { LEARNING_MODES, PRIORITY_LABELS } from '../../constants/learning'
+import { LEARNING_MODES } from '../../constants/learning'
 import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
+
+// Mode guidance for tooltips
+const MODE_TOOLTIP: Record<LearningMode, {
+  schedule: string
+  session: string
+  chunk: string
+}> = {
+  ultracram: {
+    schedule: '30s → 2h → 1d → 3d',
+    session: '15-20 min',
+    chunk: '~50-75 words'
+  },
+  cram: {
+    schedule: '2h → 1d → 3d → 7d',
+    session: '25-30 min',
+    chunk: '~50-75 words'
+  },
+  steady: {
+    schedule: '1d → 3d → 7d → 14d',
+    session: '25-30 min',
+    chunk: '~75-125 words'
+  },
+  extended: {
+    schedule: '3d → 7d → 14d → 30d',
+    session: '30-45 min',
+    chunk: '~100-150 words'
+  }
+}
 import { formatNextReview } from '../../utils/formatters'
 import { getModeRecommendation } from '../../utils/learningScience'
 // import { TopicCard } from './TopicCard' // Will integrate later
@@ -58,6 +86,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
   const [masteryDialogItem, setMasteryDialogItem] = useState<LearningItem | null>(null)
   const [showArchiveSuggestions, setShowArchiveSuggestions] = useState<Set<string>>(new Set())
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
+  const [modeTooltipId, setModeTooltipId] = useState<string | null>(null)
   const { addToast } = useToast()
   const { user } = useAuth()
   const { showAchievements } = useAchievements()
@@ -290,8 +319,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
         topic_id: topicId,
         user_id: user.id,
         content: newItemContent.trim(),
-        priority: topic.priority, // Inherit priority from topic
-        learning_mode: topic.learning_mode, // Inherit learning mode from topic
+        learning_mode: topic.learning_mode,
         review_count: 0,
         ease_factor: 2.5,
         interval_days: 0
@@ -347,12 +375,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
     
     const item = deleteItemConfirm.item
     try {
-      // Cancel any scheduled notification for this item
-      if (window.electronAPI?.notifications) {
-        window.electronAPI.notifications.cancel()
-      }
-      
-      const { error } = await supabase
+const { error } = await supabase
         .from('learning_items')
         .delete()
         .eq('id', item.id)
@@ -424,31 +447,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
         ease_factor: reviewResult.easeFactor
       }
       
-      // Cancel any existing notification for this item (in case it was reviewed early)
-      if (window.electronAPI?.notifications) {
-        window.electronAPI.notifications.cancel()
-      }
-      
-      // Schedule notification for next review if not mastered
-      if (updatedItem.next_review_at && updatedItem.review_count < GAMIFICATION_CONFIG.MASTERY.reviewsRequired) {
-        const topic = topics.find(t => t.id === item.topic_id)
-        if (topic && window.electronAPI?.notifications) {
-          // Cancel any existing notifications for this item first
-          window.electronAPI.notifications.cancel()
-
-          const delayMs = new Date(updatedItem.next_review_at).getTime() - Date.now()
-          if (delayMs > 0) {
-            window.electronAPI.notifications.schedule(
-              'Review Due',
-              `Review item from ${topic.name}: ${item.content.substring(0, 50)}...`,
-              delayMs
-            )
-          }
-          logger.log(`Scheduled notification for item ${item.id} at ${updatedItem.next_review_at}`)
-        }
-      }
-      
-      // Update maintenance interval if this is a maintenance item
+// Update maintenance interval if this is a maintenance item
       const updateData: any = {
         review_count: updatedItem.review_count,
         last_reviewed_at: updatedItem.last_reviewed_at,
@@ -475,7 +474,6 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
         .insert({
           user_id: user.id,
           learning_item_id: item.id,
-          difficulty: 'good',
           reviewed_at: reviewedAt.toISOString(),
           next_review_at: updatedItem.next_review_at,
           interval_days: reviewResult.intervalDays,
@@ -745,13 +743,46 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
               <CardHeader>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 className="h4">{topic.name}</h3>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <Badge variant={topic.learning_mode === 'cram' ? 'warning' : 'info'}>
-                    {LEARNING_MODES[topic.learning_mode].label}
+                <div
+                  style={{ position: 'relative' }}
+                  onMouseEnter={() => setModeTooltipId(topic.id)}
+                  onMouseLeave={() => setModeTooltipId(null)}
+                >
+                  <Badge
+                    variant={topic.learning_mode === 'cram' || topic.learning_mode === 'ultracram' ? 'warning' : 'info'}
+                    style={{ cursor: 'help' }}
+                  >
+                    {LEARNING_MODES[topic.learning_mode]?.label || 'Steady'}
                   </Badge>
-                  <Badge variant="ghost">
-                    {PRIORITY_LABELS[topic.priority]}
-                  </Badge>
+                  {modeTooltipId === topic.id && MODE_TOOLTIP[topic.learning_mode] && (
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '100%',
+                      marginTop: '0.5rem',
+                      padding: '0.75rem',
+                      backgroundColor: 'var(--color-surface)',
+                      border: '1px solid var(--color-gray-200)',
+                      borderRadius: 'var(--radius-sm)',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      zIndex: 20,
+                      minWidth: '180px',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <p className="caption text-secondary">Review schedule</p>
+                        <p className="body-small" style={{ fontWeight: '500' }}>{MODE_TOOLTIP[topic.learning_mode].schedule}</p>
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <p className="caption text-secondary">Session length</p>
+                        <p className="body-small" style={{ fontWeight: '500' }}>{MODE_TOOLTIP[topic.learning_mode].session}</p>
+                      </div>
+                      <div>
+                        <p className="caption text-secondary">Content per item</p>
+                        <p className="body-small" style={{ fontWeight: '500' }}>{MODE_TOOLTIP[topic.learning_mode].chunk}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -1299,7 +1330,6 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                 name: updatedTopic.name,
                 oldMode: editingTopic.learning_mode,
                 newMode: updatedTopic.learning_mode,
-                priority: updatedTopic.priority,
                 modeChanged: updatedTopic.learning_mode !== editingTopic.learning_mode
               })
 
@@ -1308,8 +1338,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchiv
                 .from('topics')
                 .update({
                   name: updatedTopic.name,
-                  learning_mode: updatedTopic.learning_mode,
-                  priority: updatedTopic.priority
+                  learning_mode: updatedTopic.learning_mode
                 })
                 .eq('id', updatedTopic.id)
                 .select()
@@ -1426,7 +1455,6 @@ interface EditTopicModalProps {
 const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditTopicModalProps) {
   const [name, setName] = useState(topic?.name || '')
   const [learningMode, setLearningMode] = useState<LearningMode>(topic?.learning_mode || 'steady')
-  const [priority, setPriority] = useState(topic?.priority || 5)
 
   // Sync state when topic prop changes
   useEffect(() => {
@@ -1434,12 +1462,10 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
       logger.info('EditTopicModal: Syncing topic prop to state', {
         topicId: topic.id,
         name: topic.name,
-        mode: topic.learning_mode,
-        priority: topic.priority
+        mode: topic.learning_mode
       })
       setName(topic.name)
       setLearningMode(topic.learning_mode)
-      setPriority(topic.priority)
     }
   }, [topic])
 
@@ -1462,8 +1488,6 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
       newName: name.trim(),
       oldMode: topic.learning_mode,
       newMode: learningMode,
-      oldPriority: topic.priority,
-      newPriority: priority,
       modeChanged: topic.learning_mode !== learningMode
     })
 
@@ -1471,8 +1495,7 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
       onSave({
         ...topic,
         name: name.trim(),
-        learning_mode: learningMode,
-        priority
+        learning_mode: learningMode
       })
     }
   }
@@ -1513,20 +1536,6 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
                 </label>
               ))}
             </div>
-          </div>
-
-          <div>
-            <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
-              Priority: {priority} - {PRIORITY_LABELS[priority]}
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="10"
-              value={priority}
-              onChange={(e) => setPriority(Number(e.target.value))}
-              style={{ width: '100%' }}
-            />
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>

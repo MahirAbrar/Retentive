@@ -146,28 +146,9 @@ export class SupabaseService {
   }
 
   private startConnectionMonitoring() {
-    // Ping Supabase every 30 seconds to check connection
-    this.pingInterval = setInterval(async () => {
-      try {
-        // Simple query to check connection
-        const { error } = await supabase
-          .from('topics')
-          .select('id')
-          .limit(1)
-          .single()
-
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-          throw error
-        }
-
-        // Connection successful
-        this.updateConnectionStatus(true)
-      } catch (error) {
-        // Connection failed
-        this.updateConnectionStatus(false)
-        this.handleConnectionError(error)
-      }
-    }, 30000) // 30 seconds
+    // Removed periodic polling - browser online/offline events are sufficient and more energy efficient
+    // The setupBrowserConnectionListeners() handles connection state changes instantly
+    // If needed in the future, can add visibility-aware polling here
   }
 
   private setupBrowserConnectionListeners() {

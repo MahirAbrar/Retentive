@@ -1,5 +1,5 @@
 import './App.css'
-import { useEffect, useState, lazy, Suspense } from 'react'
+import React, { useEffect, useState, lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { ToastProvider } from './components/ui'
 import { AuthProvider } from './hooks/useAuthFixed'
@@ -10,9 +10,9 @@ import { networkRecovery } from './services/networkRecovery'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineIndicator } from './components/OfflineIndicator'
+import { FocusGoalNotifier } from './components/FocusGoalNotifier'
 import { OfflineDisclaimer } from './components/OfflineDisclaimer'
 import { HeaderFixed } from './components/layout/HeaderFixed'
-import { WebDisclaimer } from './components/WebDisclaimer'
 import { TrialBanner } from './components/TrialBanner'
 import { AccessGuard } from './components/AccessGuard'
 import { clearAuthCache } from './utils/clearAuthCache'
@@ -36,11 +36,11 @@ const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess').then(m => ({ 
 
 // Loading fallback component
 const PageLoader = () => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    minHeight: '50vh' 
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '50vh'
   }}>
     <div className="body">Loading...</div>
   </div>
@@ -64,11 +64,8 @@ function App() {
 
   // Initialize services on app load
   useEffect(() => {
-    // Notification service is initialized in Electron main process
-    // Credentials are loaded from .env directly in main.ts (not bundled)
-
     // Initialize network recovery service (sets up listeners automatically)
-    // This ensures auth tokens are refreshed when computer wakes from sleep
+    // This ensures auth tokens are refreshed when coming back online
     void networkRecovery // Service initializes on import
 
     // Sync pending operations if online
@@ -91,14 +88,6 @@ function App() {
   if (!supabaseReady) {
     return <PageLoader />
   }
-  
-  // Check if running in Electron
-  // In development, Electron loads from localhost but has electronAPI
-  // In production, it uses file:// protocol
-  // Check for Electron user agent or electronAPI availability
-  // const isElectron = !!window.electronAPI || 
-  //                    window.navigator.userAgent.includes('Electron') ||
-  //                    window.location.protocol === 'file:'
 
   return (
     <ErrorBoundary>
@@ -107,8 +96,8 @@ function App() {
           <ToastProvider>
             <AuthProvider>
               <AchievementProvider>
+                <FocusGoalNotifier />
                 <div style={{ minHeight: '100vh' }}>
-                  <WebDisclaimer />
                   <OfflineDisclaimer />
                   <HeaderFixed />
                   <TrialBanner />
@@ -126,7 +115,6 @@ function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/auth/callback" element={<ResetPasswordPage />} />
-                  {/* <Route path="/components" element={<ComponentShowcase />} /> */}
                   <Route
                     path="/topics"
                     element={

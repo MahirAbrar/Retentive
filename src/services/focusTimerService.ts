@@ -16,6 +16,9 @@ export interface FocusSession {
   adherence_percentage: number | null
   productivity_percentage: number | null
   is_active: boolean
+  is_incomplete?: boolean
+  points_earned?: number
+  points_penalty?: number
   created_at: string
   updated_at: string
   last_updated_at?: string | null
@@ -56,6 +59,16 @@ export interface SessionStats {
   bestAdherence: number
   totalFocusTime: number
 }
+
+export interface PaginatedSessionsResult {
+  sessions: FocusSession[]
+  hasNextPage: boolean
+  hasPreviousPage: boolean
+  nextCursor: string | null
+  previousCursor: string | null
+}
+
+export type SessionTimeFilter = 'week' | '7days' | 'month' | 'all'
 
 // ================================================
 // UTILITY FUNCTIONS
@@ -156,18 +169,8 @@ class FocusTimerService {
 
     if (error) throw error
 
-    if (session) {
-      // Get calculated elapsed times from database function
-      const { data: elapsed, error: elapsedError } = await supabase
-        .rpc('calculate_session_elapsed_time', { session_id: session.id })
-        .single()
-
-      if (!elapsedError && elapsed) {
-        // Update session with calculated values
-        session.total_work_minutes = Math.floor(elapsed.work_seconds / 60)
-        session.total_break_minutes = Math.floor(elapsed.break_seconds / 60)
-      }
-    }
+    // Note: Elapsed time calculation is done in useFocusTimer.loadActiveSession
+    // by iterating through segments, so we don't need an RPC call here
 
     return session
   }
@@ -294,18 +297,23 @@ class FocusTimerService {
       totalWorkMinutes: number
       totalBreakMinutes: number
       adherencePercentage: number
+      isIncomplete?: boolean
+      pointsEarned?: number
+      pointsPenalty?: number
     }
   ): Promise<FocusSession> {
+    // Only include columns that exist in the database
+    const updateData: Record<string, unknown> = {
+      ended_at: new Date().toISOString(),
+      is_active: false,
+      total_work_minutes: finalStats.totalWorkMinutes,
+      total_break_minutes: finalStats.totalBreakMinutes,
+      adherence_percentage: finalStats.adherencePercentage,
+    }
+
     const { data, error } = await supabase
       .from('focus_sessions')
-      .update({
-        ended_at: new Date().toISOString(),
-        is_active: false,
-        total_work_minutes: finalStats.totalWorkMinutes,
-        total_break_minutes: finalStats.totalBreakMinutes,
-        adherence_percentage: finalStats.adherencePercentage,
-        productivity_percentage: finalStats.adherencePercentage, // Same for now
-      })
+      .update(updateData)
       .eq('id', sessionId)
       .eq('user_id', userId)
       .select()
@@ -353,6 +361,107 @@ class FocusTimerService {
 
     if (error) throw error
     return data || []
+  }
+
+  /**
+   * Get paginated sessions with cursor-based pagination
+   * Supports time filtering and bidirectional navigation
+   */
+  async getPaginatedSessions(
+    userId: string,
+    options: {
+      limit?: number
+      cursor?: string
+      direction?: 'forward' | 'backward'
+      timeFilter?: SessionTimeFilter
+    } = {}
+  ): Promise<PaginatedSessionsResult> {
+    const {
+      limit = 10,
+      cursor,
+      direction = 'forward',
+      timeFilter = 'all'
+    } = options
+
+    // Calculate time filter boundary
+    const now = new Date()
+    let startDate: Date | null = null
+
+    if (timeFilter === 'week') {
+      // Start of current week (Sunday)
+      startDate = new Date(now)
+      startDate.setDate(now.getDate() - now.getDay())
+      startDate.setHours(0, 0, 0, 0)
+    } else if (timeFilter === '7days') {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    } else if (timeFilter === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+    }
+
+    // Build query
+    let query = supabase
+      .from('focus_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', false)
+
+    // Apply time filter
+    if (startDate) {
+      query = query.gte('created_at', startDate.toISOString())
+    }
+
+    // Apply cursor for pagination
+    if (cursor) {
+      if (direction === 'forward') {
+        // Going to older sessions (next page)
+        query = query.lt('created_at', cursor)
+      } else {
+        // Going to newer sessions (previous page)
+        query = query.gt('created_at', cursor)
+      }
+    }
+
+    // Order and limit
+    // For backward direction, we need ascending order to get the right records,
+    // then reverse the results to maintain newest-first display
+    query = query
+      .order('created_at', { ascending: direction === 'backward' })
+      .limit(limit + 1) // Fetch one extra to check if there are more
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    let sessions = data || []
+
+    // Determine if there are more pages
+    const hasMore = sessions.length > limit
+
+    // Trim the extra record used for checking
+    if (hasMore) {
+      sessions = sessions.slice(0, limit)
+    }
+
+    // For backward direction, reverse to maintain newest-first order
+    if (direction === 'backward') {
+      sessions = sessions.reverse()
+    }
+
+    // Determine pagination state
+    const hasNextPage = direction === 'forward' ? hasMore : cursor !== undefined
+    const hasPreviousPage = direction === 'forward' ? cursor !== undefined : hasMore
+
+    // Get cursors for navigation
+    const firstSession = sessions[0]
+    const lastSession = sessions[sessions.length - 1]
+
+    return {
+      sessions,
+      hasNextPage,
+      hasPreviousPage,
+      nextCursor: lastSession?.created_at || null,
+      previousCursor: firstSession?.created_at || null,
+    }
   }
 
   // ================================================

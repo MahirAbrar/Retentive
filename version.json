@@ -1,7 +1,0 @@
-{
-  "version": "1.0.0",
-  "releaseDate": "2024-09-30",
-  "downloadUrl": "https://yourwebsite.com/downloads/Retentive-1.0.0-arm64.dmg",
-  "releaseNotes": "🚀 Major v1.0.0 Release\n\n✨ NEW: Focus Timer & Productivity Tracker\n- Real-time work/break timer with live adherence tracking\n- Goal setting with Pomodoro-based auto-break recommendations\n- Color-coded adherence percentage (Green/Yellow/Red)\n- Session summaries with detailed statistics\n- Complete session history in Stats page\n- Secure database storage with Row Level Security\n\n📊 Adherence System:\n- Green (95-100%): Excellent focus\n- Light Green (80-94%): Good focus\n- Yellow (70-79%): Moderate\n- Red (<60%): Needs improvement\n\n⏰ Smart Break Calculation:\n- 25min work → 5min break\n- 50min work → 10min break\n- 90min work → 18min break\n\nPlus all v0.1.1 features:\n- Professional UI with Lucide icons\n- Comprehensive learning science content\n- 4 spaced repetition modes\n- Gamification system\n- Desktop notifications\n- Offline mode with sync",
-  "minVersion": "0.1.0"
-}

@@ -41,19 +41,6 @@ export interface SubscriptionHistory {
   created_at: string;
 }
 
-export interface PaymentMethod {
-  id: string;
-  user_id: string;
-  stripe_payment_method_id: string;
-  card_brand: string | null;
-  card_last4: string | null;
-  card_exp_month: number | null;
-  card_exp_year: number | null;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface PromotionalCode {
   id: string;
   code: string;

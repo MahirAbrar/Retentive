@@ -95,7 +95,6 @@ export function StudyPage() {
         .insert({
           user_id: user.id,
           learning_item_id: item.id,
-          difficulty,
           reviewed_at: reviewedAt.toISOString(),
           next_review_at: updatedItem.next_review_at,
           interval_days: reviewResult.intervalDays,

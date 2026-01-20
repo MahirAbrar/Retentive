@@ -31,16 +31,6 @@ export const formatNextReview = (dateString: string | null): string => {
   return date.toLocaleDateString()
 }
 
-export const formatDifficulty = (difficulty: string): string => {
-  const colors = {
-    again: 'var(--color-error)',
-    hard: 'var(--color-warning)',
-    good: 'var(--color-success)',
-    easy: 'var(--color-info)'
-  }
-  return colors[difficulty as keyof typeof colors] || 'var(--color-gray-600)'
-}
-
 export const formatDate = (dateString: string): string => {
   const date = new Date(dateString)
   const now = new Date()

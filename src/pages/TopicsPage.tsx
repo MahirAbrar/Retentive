@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, useToast, Input, Pagination, PaginationInfo } from '../components/ui'
-import { TopicList } from '../components/topics/TopicList'
+import { Button, useToast, Input, Pagination, PaginationInfo, Loading } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
+
+// Lazy load TopicList - it's a large component (~50KB)
+const TopicList = lazy(() => import('../components/topics/TopicList').then(m => ({ default: m.TopicList })))
 import { topicsService } from '../services/topicsFixed'
 import { dataService } from '../services/dataService'
 import { usePagination } from '../hooks/usePagination'
@@ -478,14 +480,16 @@ export function TopicsPage() {
         )}
       </div>
 
-      <TopicList 
-        topics={currentItems} 
-        onDelete={handleDelete}
-        onArchive={handleArchive}
-        onUnarchive={handleUnarchive}
-        isArchived={activeTab === 'archived'}
-        loading={loading}
-      />
+      <Suspense fallback={<Loading text="Loading topics..." />}>
+        <TopicList
+          topics={currentItems}
+          onDelete={handleDelete}
+          onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
+          isArchived={activeTab === 'archived'}
+          loading={loading}
+        />
+      </Suspense>
       
       {/* Pagination Controls */}
       {filteredTopics.length > 0 && (

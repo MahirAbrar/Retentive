@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { gamificationService } from '../../services/gamificationService'
 import { logger } from '../../utils/logger'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { useAchievements } from '../../hooks/useAchievements'
+import { useVisibilityAwareInterval } from '../../hooks/useVisibilityAwareInterval'
 import { LevelProgress } from './LevelProgress'
 import { Card, Button, useToast } from '../ui'
 import styles from './GamificationDashboard.module.css'
@@ -36,8 +37,6 @@ export function GamificationDashboard() {
   const [checkingAchievements, setCheckingAchievements] = useState(false)
   const [perfectTimingCount, setPerfectTimingCount] = useState(0)
   const [sessionReviewCount, setSessionReviewCount] = useState(0)
-  const [lastActivity, setLastActivity] = useState(Date.now())
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -77,7 +76,7 @@ export function GamificationDashboard() {
     if (!user) return
 
     loadStats()
-    
+
     // Listen for stats updates (same as navbar)
     const unsubscribe = gamificationService.addUpdateListener((updatedStats) => {
       if (updatedStats.userId === user.id) {
@@ -90,38 +89,30 @@ export function GamificationDashboard() {
           todayPoints: updatedStats.todayPoints,
           achievements: updatedStats.achievements
         })
-        setLastActivity(Date.now()) // Update activity timestamp
       }
     })
-    
-    // Intelligent polling - reduce frequency when inactive
-    const setupPolling = () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
-      }
-      
-      const timeSinceActivity = Date.now() - lastActivity
-      const pollInterval = timeSinceActivity > 5 * 60 * 1000 ? 60000 : 30000 // 1 min if inactive, 30s if active
-      
-      pollIntervalRef.current = setInterval(() => {
-        const currentTimeSinceActivity = Date.now() - lastActivity
-        if (currentTimeSinceActivity < 10 * 60 * 1000) { // Only poll if active in last 10 min
-          loadStats()
-        }
-      }, pollInterval)
-    }
-    
-    setupPolling()
-    const activityInterval = setInterval(setupPolling, 60000) // Re-evaluate polling every minute
-    
+
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
-      }
-      clearInterval(activityInterval)
       unsubscribe()
     }
-  }, [user, loadStats, lastActivity])
+  }, [user, loadStats])
+
+  // Refresh stats every 60 seconds, but pause when window is hidden (saves energy)
+  useVisibilityAwareInterval(loadStats, 60000)
+
+  // Memoize achievements array to prevent recalculation on every render
+  // Must be before early return to follow Rules of Hooks
+  const achievements: AchievementDisplay[] = useMemo(() =>
+    Object.values(GAMIFICATION_CONFIG.ACHIEVEMENTS).map(achievement => ({
+      id: achievement.id,
+      name: achievement.name,
+      description: achievement.description,
+      icon: achievement.icon,
+      unlocked: stats.achievements.includes(achievement.id)
+    })), [stats.achievements])
+
+  const streakBonus = useMemo(() =>
+    gamificationService.getStreakBonus(stats.currentStreak), [stats.currentStreak])
 
   if (!user || loading) {
     return (
@@ -130,16 +121,6 @@ export function GamificationDashboard() {
       </Card>
     )
   }
-
-  const achievements: AchievementDisplay[] = Object.values(GAMIFICATION_CONFIG.ACHIEVEMENTS).map(achievement => ({
-    id: achievement.id,
-    name: achievement.name,
-    description: achievement.description,
-    icon: achievement.icon,
-    unlocked: stats.achievements.includes(achievement.id)
-  }))
-
-  const streakBonus = gamificationService.getStreakBonus(stats.currentStreak)
 
   const handleCheckAchievements = async () => {
     if (!user) return

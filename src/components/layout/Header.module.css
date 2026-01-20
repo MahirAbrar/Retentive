@@ -30,6 +30,11 @@
   margin: 0;
 }
 
+.logoImage {
+  height: 40px;
+  width: auto;
+}
+
 .nav {
   display: flex;
   align-items: center;

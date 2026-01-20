@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { Button, Card, CardContent, CardHeader } from '../ui'
-import { Play, Pause, Square, Settings as SettingsIcon, Clock, Coffee } from 'lucide-react'
+import { Play, Pause, Square, Settings as SettingsIcon, Clock, Coffee, Info } from 'lucide-react'
+
+// Session length recommendations by learning mode
+const SESSION_GUIDE = [
+  { mode: 'Ultra-Cram / Cram', duration: '15-30 min', description: 'Short, intense sessions' },
+  { mode: 'Steady', duration: '25-30 min', description: 'Balanced focus sessions' },
+  { mode: 'Extended', duration: '30-45 min', description: 'Deep learning sessions' },
+]
 import { useFocusTimer } from '../../hooks/useFocusTimer'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { GoalReachedModal } from './GoalReachedModal'
@@ -11,6 +18,7 @@ import { FocusTimerSettings } from './FocusTimerSettings'
 import { BreakActivityModal } from './BreakActivityModal'
 import { BreakActivityTimer } from './BreakActivityTimer'
 import { SessionRecoveryModal } from './SessionRecoveryModal'
+import { SessionStartModal } from './SessionStartModal'
 import { logger } from '../../utils/logger'
 
 interface SummaryData {
@@ -19,6 +27,12 @@ interface SummaryData {
   breakMinutes: number
   adherencePercentage: number
   adherenceColor: { color: string; status: string; emoji: string }
+  // Points breakdown
+  basePoints?: number
+  pointsPenalty?: number
+  netPoints?: number
+  penaltyRate?: number
+  isIncomplete?: boolean
 }
 
 export function FocusTimer() {
@@ -26,6 +40,7 @@ export function FocusTimer() {
   const [showSettings, setShowSettings] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null)
+  const [showStartConfirmModal, setShowStartConfirmModal] = useState(false)
 
   const {
     loading,
@@ -33,6 +48,7 @@ export function FocusTimer() {
     sessionTime,
     workTime,
     breakTime,
+    remainingTime,
     goalMinutes,
     goalProgress,
     adherencePercentage,
@@ -202,8 +218,11 @@ export function FocusTimer() {
                     marginBottom: '1rem',
                   }}
                 >
-                  {sessionTime.display}
+                  {remainingTime.display}
                 </div>
+                <p className="caption text-secondary" style={{ marginTop: '-0.5rem', marginBottom: '0.5rem' }}>
+                  remaining
+                </p>
 
                 {/* Current Activity Status - No timer, just status */}
                 <div style={{
@@ -248,6 +267,32 @@ export function FocusTimer() {
             )}
           </div>
 
+          {/* Session Length Guide (only in idle state) */}
+          {status === 'idle' && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '0.75rem',
+              backgroundColor: 'var(--color-info-light)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--color-info)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <Info size={14} color="var(--color-info)" />
+                <span className="caption" style={{ fontWeight: '600', color: 'var(--color-info)' }}>
+                  Recommended session for 100% adherence
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {SESSION_GUIDE.map((guide) => (
+                  <div key={guide.mode} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="caption text-secondary">{guide.mode}</span>
+                    <span className="caption" style={{ fontWeight: '500' }}>{guide.duration}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Progress Bar (only when working) */}
           {status === 'working' && (
             <div style={{ marginBottom: '1.5rem' }}>
@@ -274,10 +319,10 @@ export function FocusTimer() {
                 marginTop: '0.25rem'
               }}>
                 <p className="caption text-secondary">
-                  Total: {sessionTime.display}
+                  Elapsed: {sessionTime.display}
                 </p>
                 <p className="caption text-secondary">
-                  {Math.round(goalProgress)}% of goal
+                  {Math.round(goalProgress)}% complete
                 </p>
               </div>
             </div>
@@ -453,7 +498,7 @@ export function FocusTimer() {
               <Button
                 variant="primary"
                 size="large"
-                onClick={() => startWorking()}
+                onClick={() => setShowStartConfirmModal(true)}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -588,6 +633,11 @@ export function FocusTimer() {
           adherencePercentage={summaryData.adherencePercentage}
           adherenceColor={summaryData.adherenceColor}
           onClose={handleCloseSummary}
+          basePoints={summaryData.basePoints}
+          pointsPenalty={summaryData.pointsPenalty}
+          netPoints={summaryData.netPoints}
+          penaltyRate={summaryData.penaltyRate}
+          isIncomplete={summaryData.isIncomplete}
         />
       )}
 
@@ -624,6 +674,17 @@ export function FocusTimer() {
         adherenceColor={adherenceColor}
         onResume={resumeSession}
         onDiscard={discardSession}
+      />
+
+      {/* Session Start Confirmation Modal */}
+      <SessionStartModal
+        isOpen={showStartConfirmModal}
+        goalMinutes={goalMinutes}
+        onConfirm={() => {
+          setShowStartConfirmModal(false)
+          startWorking()
+        }}
+        onCancel={() => setShowStartConfirmModal(false)}
       />
     </>
   )

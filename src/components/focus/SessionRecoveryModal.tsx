@@ -126,7 +126,10 @@ export function SessionRecoveryModal({
           <Button
             variant="primary"
             size="large"
-            onClick={onResume}
+            onClick={(e) => {
+              e.stopPropagation()
+              onResume()
+            }}
             style={{ width: '100%' }}
           >
             Resume Session
@@ -134,7 +137,10 @@ export function SessionRecoveryModal({
           <Button
             variant="ghost"
             size="small"
-            onClick={onDiscard}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDiscard()
+            }}
             style={{ width: '100%' }}
           >
             Discard & Start Fresh

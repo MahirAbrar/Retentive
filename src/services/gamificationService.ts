@@ -781,6 +781,143 @@ export class GamificationService {
     this.clearUserStats(userId)
     return this.getUserStats(userId)
   }
+
+  /**
+   * Calculate points penalty based on adherence percentage.
+   * Lower adherence = higher penalty.
+   *
+   * @param adherencePercentage - The session adherence percentage (0-100)
+   * @param basePoints - The base points earned from the session
+   * @returns Object with penalty amount and whether session is considered incomplete
+   */
+  calculateAdherencePenalty(
+    adherencePercentage: number,
+    basePoints: number
+  ): { penalty: number; isIncomplete: boolean; penaltyRate: number } {
+    // 80%+ adherence = no penalty, session complete
+    if (adherencePercentage >= 80) {
+      return { penalty: 0, isIncomplete: false, penaltyRate: 0 }
+    }
+
+    // 60-79% adherence = 25% penalty
+    if (adherencePercentage >= 60) {
+      const penalty = Math.floor(basePoints * 0.25)
+      return { penalty, isIncomplete: false, penaltyRate: 0.25 }
+    }
+
+    // 40-59% adherence = 50% penalty, session incomplete
+    if (adherencePercentage >= 40) {
+      const penalty = Math.floor(basePoints * 0.5)
+      return { penalty, isIncomplete: true, penaltyRate: 0.5 }
+    }
+
+    // Below 40% = 75% penalty, session incomplete
+    const penalty = Math.floor(basePoints * 0.75)
+    return { penalty, isIncomplete: true, penaltyRate: 0.75 }
+  }
+
+  /**
+   * Award points for a focus session with adherence penalty applied
+   *
+   * @param userId - The user ID
+   * @param workMinutes - Total work minutes in the session
+   * @param adherencePercentage - The session adherence percentage
+   * @returns Object with points breakdown
+   */
+  async awardFocusSessionPoints(
+    userId: string,
+    workMinutes: number,
+    adherencePercentage: number
+  ): Promise<{
+    basePoints: number
+    penalty: number
+    netPoints: number
+    isIncomplete: boolean
+    penaltyRate: number
+  }> {
+    // Base points: 2 points per minute of work
+    const basePoints = workMinutes * 2
+
+    // Calculate penalty
+    const { penalty, isIncomplete, penaltyRate } = this.calculateAdherencePenalty(
+      adherencePercentage,
+      basePoints
+    )
+
+    // Net points (minimum 0)
+    const netPoints = Math.max(0, basePoints - penalty)
+
+    // Update user points if there are points to award
+    if (netPoints > 0) {
+      try {
+        const stats = await this.getUserStats(userId)
+        if (stats) {
+          stats.totalPoints += netPoints
+          stats.todayPoints += netPoints
+          stats.currentLevel = this.calculateLevel(stats.totalPoints)
+
+          // Save to database
+          await supabase
+            .from('user_gamification_stats')
+            .update({
+              total_points: stats.totalPoints,
+              current_level: stats.currentLevel,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId)
+
+          // Update daily stats
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const todayStr = today.toISOString().split('T')[0]
+
+          const { data: existingDaily } = await supabase
+            .from('daily_stats')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('date', todayStr)
+            .maybeSingle()
+
+          if (existingDaily) {
+            await supabase
+              .from('daily_stats')
+              .update({
+                points_earned: existingDaily.points_earned + netPoints
+              })
+              .eq('user_id', userId)
+              .eq('date', todayStr)
+          } else {
+            await supabase
+              .from('daily_stats')
+              .insert({
+                user_id: userId,
+                date: todayStr,
+                points_earned: netPoints,
+                reviews_completed: 0,
+                perfect_timing_count: 0,
+                items_mastered: 0
+              })
+          }
+
+          // Clear cache
+          cacheService.delete(`gamification:${userId}`)
+
+          // Notify listeners
+          this.notifyListeners(stats)
+        }
+      } catch (error) {
+        logger.error('Error awarding focus session points:', error)
+      }
+    }
+
+    return {
+      basePoints,
+      penalty,
+      netPoints,
+      isIncomplete,
+      penaltyRate
+    }
+  }
 }
 
 export const gamificationService = GamificationService.getInstance()

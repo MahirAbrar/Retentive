@@ -4,13 +4,13 @@ This file contains important information for Claude to remember across sessions.
 
 ## Project Context
 - Building a Swiss design-inspired spaced repetition learning app
-- Using Vite + React + TypeScript + Electron + Supabase
+- Using Vite + React + TypeScript + Supabase as a Progressive Web App (PWA)
 - Following the detailed plan in todolist.md
 
 ## Important Files
 - `todolist.md` - Master development plan with all phases
 - `human-todo.md` - Tasks requiring manual intervention
-- `.env` - Environment variables (Supabase credentials)
+- `.env` - Environment variables (Supabase credentials with VITE_ prefix)
 - `.env.example` - Template for environment setup
 
 ## Development Workflow
@@ -23,22 +23,22 @@ This file contains important information for Claude to remember across sessions.
    - `npm run lint`
    - `npm run typecheck`
 
-## Current Status (Last Updated: Phase 10 - Mastery System Complete)
-- ✅ Core app infrastructure (Vite, React, TypeScript, Electron, Supabase)
-- ✅ Complete authentication system with offline support
+## Current Status (Last Updated: PWA Migration Complete)
+- ✅ Core app infrastructure (Vite, React, TypeScript, Supabase)
+- ✅ Complete authentication system
 - ✅ Full CRUD operations for topics and learning items
 - ✅ Spaced repetition algorithm with multiple learning modes
 - ✅ Swiss design system with dark mode support
 - ✅ Gamification system (points, levels, achievements, streaks)
-- ✅ Notification system with desktop reminders
-- ✅ Offline mode with sync capabilities
+- ✅ Web Notification API integration
+- ✅ PWA with offline caching via Workbox
 - ✅ Advanced mastery system (archive/maintenance/repeat options)
 - ✅ Real-time updates and data synchronization
 - ✅ Comprehensive stats and analytics dashboard
-- 🔄 Next: Release preparation and documentation
+- ✅ Migrated from Electron to PWA
 
 ## Important User Preferences
-- **DO NOT run `npm run dev` or `npm run dev:electron`** - User manages the dev server themselves
+- **DO NOT run `npm run dev`** - User manages the dev server themselves
 - User will tell you which port the app is running on if needed
 
 ## Testing Protocol
@@ -50,11 +50,16 @@ Keep running them repeatedly and fixing ALL errors until both commands pass comp
 Do NOT run other test commands unless explicitly asked.
 
 ## Architecture Decisions
+- **PWA Architecture**: Progressive Web App with service worker caching
 - Using Supabase for:
   - Authentication (email/password)
   - Real-time database
   - Row Level Security
   - Future AI integrations via Edge Functions
+- Using vite-plugin-pwa for:
+  - Service worker generation (Workbox)
+  - App manifest
+  - Offline caching
 - Following Swiss design principles:
   - Clean, minimal UI
   - Focus on typography
@@ -70,7 +75,7 @@ Do NOT run other test commands unless explicitly asked.
 - **Naming**: PascalCase (components), camelCase (functions/methods)
 - **Imports**: External → internal → relative
 - **CSS**: CSS Modules, design tokens via CSS variables
-- **Security**: Input validation, sanitization, secure storage
+- **Security**: Input validation, sanitization
 
 ### Key Patterns
 - Services use getInstance() singleton pattern
@@ -85,3 +90,13 @@ Do NOT run other test commands unless explicitly asked.
 - Fix all errors and warnings
 - Test critical user flows
 - Update CLAUDE.md if architecture changes
+
+## Deployment
+Deploy to any static hosting with HTTPS:
+- Vercel (recommended)
+- Netlify
+- Cloudflare Pages
+
+Environment variables needed:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`

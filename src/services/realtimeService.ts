@@ -27,7 +27,10 @@ export class RealtimeService {
   private channels: Map<string, RealtimeChannel> = new Map()
   private presenceChannel: RealtimeChannel | null = null
   private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map()
-  
+  private subscriptionLocks: Set<string> = new Set() // Prevent race conditions
+  private reconnectAttempts: Map<string, number> = new Map() // Track retry attempts
+  private static readonly MAX_RECONNECT_ATTEMPTS = 5
+
   private constructor() {
     this.setupConnectionHandling()
   }
@@ -57,9 +60,16 @@ export class RealtimeService {
     handlers: RealtimeChangeHandler<Topic>
   ): () => void {
     const channelName = `topics:${userId}`
-    
+
+    // Prevent race conditions - skip if subscription is in progress
+    if (this.subscriptionLocks.has(channelName)) {
+      logger.log(`Subscription to ${channelName} already in progress, skipping`)
+      return () => this.unsubscribeFromChannel(channelName)
+    }
+
     // Unsubscribe from existing channel if any
     this.unsubscribeFromChannel(channelName)
+    this.subscriptionLocks.add(channelName)
 
     const channel = supabase
       .channel(channelName)
@@ -76,8 +86,10 @@ export class RealtimeService {
         }
       )
       .subscribe((status) => {
+        this.subscriptionLocks.delete(channelName)
         if (status === 'SUBSCRIBED') {
           logger.log(`Subscribed to topics for user ${userId}`)
+          this.reconnectAttempts.delete(channelName) // Reset on success
         } else if (status === 'CHANNEL_ERROR') {
           handlers.onError?.(new Error('Failed to subscribe to topics'))
           this.scheduleReconnect(channelName, () => {
@@ -350,16 +362,31 @@ export class RealtimeService {
   }
 
   private scheduleReconnect(channelName: string, reconnectFn: () => void, delay: number = 5000) {
+    // Check retry limit to prevent infinite loops
+    const attempts = this.reconnectAttempts.get(channelName) || 0
+    if (attempts >= RealtimeService.MAX_RECONNECT_ATTEMPTS) {
+      logger.warn(`Max reconnect attempts (${RealtimeService.MAX_RECONNECT_ATTEMPTS}) reached for ${channelName}, giving up`)
+      this.reconnectAttempts.delete(channelName)
+      return
+    }
+
+    // Increment attempt counter
+    this.reconnectAttempts.set(channelName, attempts + 1)
+
     // Clear existing timeout if any
     const existingTimeout = this.reconnectTimeouts.get(channelName)
     if (existingTimeout) {
       clearTimeout(existingTimeout)
     }
 
+    // Use exponential backoff
+    const backoffDelay = delay * Math.pow(2, attempts)
+    logger.log(`Scheduling reconnect for ${channelName} in ${backoffDelay}ms (attempt ${attempts + 1}/${RealtimeService.MAX_RECONNECT_ATTEMPTS})`)
+
     const timeout = setTimeout(() => {
       this.reconnectTimeouts.delete(channelName)
       reconnectFn()
-    }, delay)
+    }, backoffDelay)
 
     this.reconnectTimeouts.set(channelName, timeout)
   }

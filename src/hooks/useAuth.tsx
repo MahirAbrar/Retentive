@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authService } from '@/services/authFixed'
 import type { User } from '@/types/database'
@@ -37,39 +37,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { user, error } = await authService.signIn({ email, password })
     if (user) {
       setUser(user)
       navigate('/')
     }
     return { error }
-  }
+  }, [navigate])
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     const { user, error } = await authService.signUp({ email, password })
     if (user) {
       setUser(user)
     }
     return { error }
-  }
+  }, [])
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await authService.signOut()
     setUser(null)
     navigate('/login')
-  }
+  }, [navigate])
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     return authService.resetPassword(email)
-  }
+  }, [])
+
+  // Memoize context value to prevent unnecessary re-renders of consumers
+  const contextValue = useMemo(() => ({
+    user,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    resetPassword
+  }), [user, loading, signIn, signUp, signOut, resetPassword])
 
   if (loading) {
     return <Loading fullScreen text="Loading..." />
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   )

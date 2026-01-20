@@ -41,5 +41,5 @@
       "@assets/*": ["./src/assets/*"]
     }
   },
-  "include": ["src", "electron/preload.ts"]
+  "include": ["src"]
 }

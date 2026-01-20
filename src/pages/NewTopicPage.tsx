@@ -4,27 +4,60 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Input, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
-import { LEARNING_MODES, PRIORITY_LABELS } from '../constants/learning'
+import { LEARNING_MODES } from '../constants/learning'
 import type { LearningMode } from '../types/database'
 import { sanitizeInput } from '../utils/sanitize'
 import { useAutoSave } from '../hooks/useAutoSave'
 import { cacheService } from '../services/cacheService'
+import { Clock, Layers, BookOpen } from 'lucide-react'
+
+// Guidance for each learning mode
+const MODE_GUIDANCE: Record<LearningMode, {
+  intervals: string
+  sessionLength: string
+  contentLength: string
+  example: string
+}> = {
+  ultracram: {
+    intervals: '30s → 2h → 1d → 3d',
+    sessionLength: '15-20 min, then break',
+    contentLength: '~50-75 words',
+    example: 'ATP definition: page 42\nKrebs cycle: diagram 3.1\nMitosis phases: bullet points'
+  },
+  cram: {
+    intervals: '2h → 1d → 3d → 7d',
+    sessionLength: '25-30 min, then break',
+    contentLength: '~50-75 words',
+    example: 'REST API basics: section 2.1\nHTTP methods: notes p.15\nStatus codes: summary table'
+  },
+  steady: {
+    intervals: '1d → 3d → 7d → 14d',
+    sessionLength: '25-30 min, then break',
+    contentLength: '~75-125 words',
+    example: 'Growth Hormone: paragraphs 1-3\nPhotosynthesis: light reactions section\nReact Hooks: useEffect basics + examples'
+  },
+  extended: {
+    intervals: '3d → 7d → 14d → 30d',
+    sessionLength: '30-45 min, then break',
+    contentLength: '~100-150 words',
+    example: 'Compound interest: chapter 4, worked examples\nNeural networks: architecture + backprop notes\nDesign patterns: singleton with code samples'
+  }
+}
 
 export function NewTopicPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { addToast } = useToast()
-  
+
   const [topicName, setTopicName] = useState('')
   const [learningMode, setLearningMode] = useState<LearningMode>('steady')
-  const [priority, setPriority] = useState(5)
   const [subtopics, setSubtopics] = useState('')
   const [upcomingDate, setUpcomingDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  
+
   // Auto-save draft to localStorage
-  const formData = { topicName, learningMode, priority, subtopics, upcomingDate }
+  const formData = { topicName, learningMode, subtopics, upcomingDate }
   const { isSaving, lastSaved } = useAutoSave(formData, {
     delay: 2000,
     onSave: async (data) => {
@@ -41,7 +74,6 @@ export function NewTopicPage() {
         const parsed = JSON.parse(draft)
         setTopicName(parsed.topicName || '')
         setLearningMode(parsed.learningMode || 'steady')
-        setPriority(parsed.priority || 5)
         setSubtopics(parsed.subtopics || '')
         setUpcomingDate(parsed.upcomingDate || '')
       } catch (error) {
@@ -77,8 +109,7 @@ export function NewTopicPage() {
       const { data: topic, error: topicError } = await topicsService.createTopic({
         user_id: user.id,
         name: sanitizeInput(topicName.trim()),
-        learning_mode: learningMode,
-        priority: priority
+        learning_mode: learningMode
       })
       
       if (topicError || !topic) {
@@ -108,7 +139,6 @@ export function NewTopicPage() {
         topic_id: topic.id,
         user_id: user.id,
         content: sanitizeInput(content),
-        priority: priority,
         learning_mode: learningMode,
         review_count: 0,
         last_reviewed_at: null,
@@ -175,41 +205,88 @@ export function NewTopicPage() {
               <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
                 Learning Mode
               </label>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
                 {Object.entries(LEARNING_MODES).map(([mode, config]) => (
-                  <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <label
+                    key={mode}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '0.5rem',
+                      padding: '0.75rem',
+                      border: `2px solid ${learningMode === mode ? 'var(--color-primary)' : 'var(--color-gray-200)'}`,
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      backgroundColor: learningMode === mode ? 'var(--color-primary-light)' : 'transparent'
+                    }}
+                  >
                     <input
                       type="radio"
                       name="learningMode"
                       value={mode}
                       checked={learningMode === mode}
                       onChange={(e) => setLearningMode(e.target.value as LearningMode)}
+                      style={{ marginTop: '0.25rem' }}
                     />
                     <div>
-                      <span className="body">{config.label}</span>
+                      <span className="body" style={{ fontWeight: learningMode === mode ? '600' : '400' }}>{config.label}</span>
                       <p className="body-small text-secondary">{config.description}</p>
                     </div>
                   </label>
                 ))}
               </div>
-            </div>
 
-            <div>
-              <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
-                Priority: {priority} - {PRIORITY_LABELS[priority]}
-              </label>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={priority}
-                onChange={(e) => setPriority(Number(e.target.value))}
-                style={{ width: '100%' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}>
-                <span className="body-small text-secondary">Low</span>
-                <span className="body-small text-secondary">Medium</span>
-                <span className="body-small text-secondary">High</span>
+              {/* Mode Guidance Panel */}
+              <div style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                backgroundColor: 'var(--color-gray-50)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-gray-200)'
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                    <Clock size={16} color="var(--color-text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <div>
+                      <p className="caption text-secondary">Review schedule</p>
+                      <p className="body-small" style={{ fontWeight: '500' }}>{MODE_GUIDANCE[learningMode].intervals}</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                    <Layers size={16} color="var(--color-text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <div>
+                      <p className="caption text-secondary">Session length</p>
+                      <p className="body-small" style={{ fontWeight: '500' }}>{MODE_GUIDANCE[learningMode].sessionLength}</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                    <BookOpen size={16} color="var(--color-text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <div>
+                      <p className="caption text-secondary">Content per item</p>
+                      <p className="body-small" style={{ fontWeight: '500' }}>{MODE_GUIDANCE[learningMode].contentLength}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  backgroundColor: 'var(--color-surface)',
+                  padding: '0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px dashed var(--color-gray-300)'
+                }}>
+                  <p className="body-small" style={{ marginBottom: '0.5rem' }}>
+                    Each item = a chunk of your notes ({MODE_GUIDANCE[learningMode].contentLength})
+                  </p>
+                  <pre className="body-small" style={{
+                    margin: 0,
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'inherit',
+                    color: 'var(--color-text-secondary)'
+                  }}>{MODE_GUIDANCE[learningMode].example}</pre>
+                </div>
               </div>
             </div>
 

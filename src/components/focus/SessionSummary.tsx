@@ -1,5 +1,5 @@
 import { Button } from '../ui'
-import { BarChart, Clock, Coffee, TrendingUp } from 'lucide-react'
+import { BarChart, Clock, Coffee, TrendingUp, Award, AlertTriangle } from 'lucide-react'
 
 interface SessionSummaryProps {
   isOpen: boolean
@@ -8,6 +8,12 @@ interface SessionSummaryProps {
   adherencePercentage: number
   adherenceColor: { color: string; status: string; emoji: string }
   onClose: () => void
+  // Points breakdown (optional for backwards compatibility)
+  basePoints?: number
+  pointsPenalty?: number
+  netPoints?: number
+  penaltyRate?: number
+  isIncomplete?: boolean
 }
 
 export function SessionSummary({
@@ -17,8 +23,15 @@ export function SessionSummary({
   adherencePercentage,
   adherenceColor,
   onClose,
+  basePoints = 0,
+  pointsPenalty = 0,
+  netPoints = 0,
+  penaltyRate = 0,
+  isIncomplete = false,
 }: SessionSummaryProps) {
   if (!isOpen) return null
+
+  const hasPenalty = pointsPenalty > 0
 
   const totalMinutes = workMinutes + breakMinutes
   const workPercentage = (workMinutes / totalMinutes) * 100
@@ -232,6 +245,77 @@ export function SessionSummary({
           <TrendingUp size={20} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
           <p className="body-small">{getMessage()}</p>
         </div>
+
+        {/* Points Earned Section */}
+        {basePoints > 0 && (
+          <div
+            style={{
+              padding: '1.25rem',
+              backgroundColor: hasPenalty ? 'var(--color-warning-light)' : 'var(--color-success-light)',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '1.5rem',
+              border: `1px solid ${hasPenalty ? 'var(--color-warning)' : 'var(--color-success)'}`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <Award size={20} color={hasPenalty ? 'var(--color-warning)' : 'var(--color-success)'} />
+              <h4 className="h5">Points Earned</h4>
+            </div>
+
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span className="body-small">Base Points</span>
+                <span className="body-small" style={{ fontWeight: '600' }}>+{basePoints}</span>
+              </div>
+
+              {hasPenalty && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="body-small" style={{ color: 'var(--color-error)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <AlertTriangle size={14} />
+                    Penalty ({Math.round(penaltyRate * 100)}%)
+                  </span>
+                  <span className="body-small" style={{ fontWeight: '600', color: 'var(--color-error)' }}>
+                    -{pointsPenalty}
+                  </span>
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  paddingTop: '0.5rem',
+                  borderTop: '1px solid var(--color-gray-200)',
+                  marginTop: '0.25rem',
+                }}
+              >
+                <span className="body" style={{ fontWeight: '600' }}>Net Points</span>
+                <span className="h4" style={{ color: hasPenalty ? 'var(--color-warning)' : 'var(--color-success)' }}>
+                  +{netPoints}
+                </span>
+              </div>
+            </div>
+
+            {isIncomplete && (
+              <div
+                style={{
+                  marginTop: '1rem',
+                  padding: '0.5rem',
+                  backgroundColor: 'var(--color-error-light)',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <AlertTriangle size={16} color="var(--color-error)" />
+                <span className="caption" style={{ color: 'var(--color-error)' }}>
+                  Session marked as incomplete due to low adherence
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Close Button */}
         <Button

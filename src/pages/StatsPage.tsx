@@ -6,7 +6,7 @@ import { supabase } from '../services/supabase'
 import { getExtendedStats } from '../services/statsService'
 import { cacheService } from '../services/cacheService'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { BarChart3, Timer, Edit2 } from 'lucide-react'
+import { BarChart3, Timer, Edit2, AlertTriangle, Award } from 'lucide-react'
 import { FocusAdherenceStats } from '../components/stats/FocusAdherenceStats'
 import { focusTimerService, getAdherenceColor, type FocusSession } from '../services/focusTimerService'
 import { EditSessionModal } from '../components/focus/EditSessionModal'
@@ -17,7 +17,6 @@ const TimingPerformance = lazy(() => import('../components/stats/TimingPerforman
 interface ReviewSession {
   id: string
   reviewed_at: string
-  difficulty: string
   interval_days: number
   learning_item: {
     content: string
@@ -52,13 +51,15 @@ interface FocusSessionDisplay {
   was_adjusted?: boolean
   adjustment_reason?: string | null
   adjusted_at?: string | null
+  is_incomplete?: boolean
+  points_earned?: number
+  points_penalty?: number
 }
 
 interface ReviewSessionDisplay {
   id: string
   type: 'review'
   reviewed_at: string
-  difficulty: string
   interval_days: number
   learning_item: {
     content: string
@@ -199,7 +200,6 @@ export function StatsPage() {
           .select(`
             id,
             reviewed_at,
-            difficulty,
             interval_days,
             learning_items!inner (
               id,
@@ -244,7 +244,6 @@ export function StatsPage() {
         formattedSessionsData = sessionsResult.data.map((session: any) => ({
           id: session.id,
           reviewed_at: session.reviewed_at,
-          difficulty: session.difficulty,
           interval_days: session.interval_days,
           learning_item: {
             content: session.learning_items?.content || '',
@@ -273,6 +272,9 @@ export function StatsPage() {
           was_adjusted: session.was_adjusted,
           adjustment_reason: session.adjustment_reason,
           adjusted_at: session.adjusted_at,
+          is_incomplete: session.is_incomplete,
+          points_earned: session.points_earned,
+          points_penalty: session.points_penalty,
         }))
 
       // Combine review sessions and focus sessions
@@ -405,7 +407,10 @@ export function StatsPage() {
     if (user) {
       loadStats()
     }
-  }, [user, dateRange, loadStats])
+    // Note: loadStats is intentionally excluded from dependencies
+    // It already depends on user and dateRange, including it causes infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, dateRange])
 
   // Debounce date range changes
   useEffect(() => {
@@ -467,16 +472,6 @@ export function StatsPage() {
       throw error // Re-throw so modal can show error
     }
   }, [user, loadStats])
-
-  const formatDifficulty = useCallback((difficulty: string) => {
-    const colors = {
-      again: 'var(--color-error)',
-      hard: 'var(--color-warning)',
-      good: 'var(--color-success)',
-      easy: 'var(--color-info)'
-    }
-    return colors[difficulty as keyof typeof colors] || 'var(--color-gray-600)'
-  }, [])
 
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString)
@@ -787,15 +782,9 @@ export function StatsPage() {
                         {topic.reviewed_items}/{topic.total_items} reviewed
                       </Badge>
                     </div>
-                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
-                      <div>
-                        <p className="body-small text-secondary">Completion</p>
-                        <p className="body">{Math.round(topic.completion_rate)}%</p>
-                      </div>
-                      <div>
-                        <p className="body-small text-secondary">Avg Difficulty</p>
-                        <p className="body">{topic.average_ease.toFixed(1)}</p>
-                      </div>
+                    <div>
+                      <p className="body-small text-secondary">Completion</p>
+                      <p className="body">{Math.round(topic.completion_rate)}%</p>
                     </div>
                     {/* Progress bar */}
                     <div style={{ 
@@ -853,17 +842,12 @@ export function StatsPage() {
                             {item.learning_item.topic.name} • {formatDate(item.reviewed_at)}
                           </p>
                         </div>
-                        <div style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: formatDifficulty(item.difficulty)
-                        }} />
                       </div>
                     )
                   } else {
                     // Focus session card
                     const adherenceColor = getAdherenceColor(item.adherence_percentage)
+                    const hasPenalty = (item.points_penalty ?? 0) > 0
                     return (
                       <div
                         key={item.id}
@@ -872,17 +856,34 @@ export function StatsPage() {
                           justifyContent: 'space-between',
                           alignItems: 'center',
                           padding: '0.75rem',
-                          backgroundColor: adherenceColor.color + '10',
-                          borderLeft: `3px solid ${adherenceColor.color}`,
+                          backgroundColor: item.is_incomplete ? 'var(--color-error-light)' : adherenceColor.color + '10',
+                          borderLeft: `3px solid ${item.is_incomplete ? 'var(--color-error)' : adherenceColor.color}`,
                           borderRadius: 'var(--radius-sm)'
                         }}
                       >
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                            <Timer size={14} color={adherenceColor.color} />
+                            <Timer size={14} color={item.is_incomplete ? 'var(--color-error)' : adherenceColor.color} />
                             <p className="body-small" style={{ fontWeight: '600' }}>
                               Focus Session
                             </p>
+                            {item.is_incomplete && (
+                              <span
+                                className="caption"
+                                style={{
+                                  padding: '0.125rem 0.375rem',
+                                  backgroundColor: 'var(--color-error)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  color: 'white',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                }}
+                                title="Session marked incomplete due to low adherence"
+                              >
+                                <AlertTriangle size={10} /> Incomplete
+                              </span>
+                            )}
                             {item.was_adjusted && (
                               <span
                                 className="caption"
@@ -904,6 +905,18 @@ export function StatsPage() {
                           <p className="body-small text-secondary">
                             {item.total_work_minutes}m work / {item.goal_minutes}m goal • {formatDate(item.created_at)}
                           </p>
+                          {/* Points info */}
+                          {(item.points_earned !== undefined || hasPenalty) && (
+                            <p className="caption text-secondary" style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Award size={12} />
+                              <span style={{ color: 'var(--color-success)' }}>+{item.points_earned ?? 0} pts</span>
+                              {hasPenalty && (
+                                <span style={{ color: 'var(--color-error)' }}>
+                                  (-{item.points_penalty} penalty)
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <div style={{
@@ -911,7 +924,7 @@ export function StatsPage() {
                             alignItems: 'center',
                             gap: '0.25rem',
                             padding: '0.25rem 0.5rem',
-                            backgroundColor: adherenceColor.color,
+                            backgroundColor: item.is_incomplete ? 'var(--color-error)' : adherenceColor.color,
                             borderRadius: 'var(--radius-sm)',
                             color: 'white'
                           }}>

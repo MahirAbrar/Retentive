@@ -1,6 +1,8 @@
-import { logger } from '../utils/logger'
-// Secure storage adapter for Electron
-// Uses IPC to communicate with main process electron-store
+/**
+ * Storage adapter for PWA
+ * Uses localStorage for session persistence
+ * Note: In a PWA, auth is handled by Supabase which stores tokens securely
+ */
 
 interface StorageAdapter {
   getItem: (key: string) => Promise<string | null>
@@ -9,68 +11,20 @@ interface StorageAdapter {
 }
 
 class SecureStorageAdapter implements StorageAdapter {
-  private isElectron: boolean
-
-  constructor() {
-    // Check if we're running in Electron
-    this.isElectron = !!(window.electronAPI && window.electronAPI.secureStorage)
-  }
-
   async getItem(key: string): Promise<string | null> {
-    if (this.isElectron) {
-      try {
-        const value = await window.electronAPI.secureStorage.get(key)
-        return value || null
-      } catch (error) {
-        logger.error('Error getting from secure storage:', error)
-        return null
-      }
-    } else {
-      // Fallback to localStorage for web/development
-      return localStorage.getItem(key)
-    }
+    return localStorage.getItem(key)
   }
 
   async setItem(key: string, value: string): Promise<void> {
-    if (this.isElectron) {
-      try {
-        await window.electronAPI.secureStorage.set(key, value)
-      } catch (error) {
-        logger.error('Error setting secure storage:', error)
-        throw error
-      }
-    } else {
-      // Fallback to localStorage for web/development
-      localStorage.setItem(key, value)
-    }
+    localStorage.setItem(key, value)
   }
 
   async removeItem(key: string): Promise<void> {
-    if (this.isElectron) {
-      try {
-        await window.electronAPI.secureStorage.remove(key)
-      } catch (error) {
-        logger.error('Error removing from secure storage:', error)
-        throw error
-      }
-    } else {
-      // Fallback to localStorage for web/development
-      localStorage.removeItem(key)
-    }
+    localStorage.removeItem(key)
   }
 
   async clear(): Promise<void> {
-    if (this.isElectron) {
-      try {
-        await window.electronAPI.secureStorage.clear()
-      } catch (error) {
-        logger.error('Error clearing secure storage:', error)
-        throw error
-      }
-    } else {
-      // Fallback to localStorage for web/development
-      localStorage.clear()
-    }
+    localStorage.clear()
   }
 }
 
