@@ -1,5 +1,4 @@
 export type LearningMode = 'ultracram' | 'cram' | 'extended' | 'steady'
-export type ReviewDifficulty = 'again' | 'hard' | 'good' | 'easy'
 export type TimingZone = 'perfect' | 'inWindow' | 'late' | 'earlyAllowed' | 'notYetDue'
 export type MasteryStatus = 'active' | 'mastered' | 'archived' | 'maintenance' | 'repeat'
 export type ArchiveStatus = 'active' | 'archived'

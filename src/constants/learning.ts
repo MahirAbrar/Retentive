@@ -1,4 +1,4 @@
-import type { LearningMode, ReviewDifficulty } from '../types/database'
+import type { LearningMode } from '../types/database'
 import { GAMIFICATION_CONFIG } from '../config/gamification'
 
 // Pull learning modes from gamification config (exclude test mode)
@@ -13,40 +13,6 @@ export const LEARNING_MODES: Record<string, { label: string; description: string
     }
     return acc
   }, {} as Record<string, { label: string; description: string }>)
-
-export const BASE_INTERVALS = {
-  ultracram: {
-    again: 0.0007, // ~1 minute (1/1440 of a day)
-    hard: 0.0014, // ~2 minutes
-    good: 0.0021, // ~3 minutes
-    easy: 0.0035, // ~5 minutes
-  },
-  cram: {
-    again: 0.0007, // ~1 minute (1/1440 of a day)
-    hard: 0.0014, // ~2 minutes
-    good: 0.0021, // ~3 minutes
-    easy: 0.0035, // ~5 minutes
-  },
-  steady: {
-    again: 0.0007, // ~1 minute
-    hard: 0.0021, // ~3 minutes
-    good: 0.0035, // ~5 minutes
-    easy: 0.007, // ~10 minutes
-  },
-  extended: {
-    again: 0.0007, // ~1 minute
-    hard: 0.0021, // ~3 minutes
-    good: 0.0035, // ~5 minutes
-    easy: 0.007, // ~10 minutes
-  },
-} as const
-
-export const EASE_FACTOR_DELTA: Record<ReviewDifficulty, number> = {
-  again: -0.2,
-  hard: -0.15,
-  good: 0,
-  easy: 0.13,
-}
 
 export const EASE_FACTOR = {
   MIN: 1.3,

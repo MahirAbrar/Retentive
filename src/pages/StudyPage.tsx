@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
-import type { LearningItem, ReviewDifficulty } from '../types/database'
+import type { LearningItem } from '../types/database'
 import { formatNextReview } from '../utils/formatters'
 import { spacedRepetitionGamified } from '../services/spacedRepetitionGamified'
 import { gamificationService } from '../services/gamificationService'
@@ -23,7 +23,7 @@ export function StudyPage() {
 
   const loadItem = useCallback(async () => {
     if (!itemId) return
-    
+
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -53,7 +53,7 @@ export function StudyPage() {
     }
   }, [itemId, user, loadItem])
 
-  const handleReview = async (difficulty: ReviewDifficulty) => {
+  const handleReview = async () => {
     if (!item || !user) return
 
     setLoading(true)
@@ -62,7 +62,7 @@ export function StudyPage() {
       const reviewedAt = new Date()
 
       // Process review with gamified algorithm
-      const reviewResult = spacedRepetitionGamified.processReview(item, difficulty)
+      const reviewResult = spacedRepetitionGamified.calculateNextReview(item)
       const pointsBreakdown = spacedRepetitionGamified.calculatePoints(item, reviewResult)
       const totalPoints = pointsBreakdown.basePoints + pointsBreakdown.streakBonus + pointsBreakdown.timeBonus
 
@@ -70,7 +70,7 @@ export function StudyPage() {
         ...item,
         review_count: item.review_count + 1,
         last_reviewed_at: reviewedAt.toISOString(),
-        next_review_at: reviewResult.nextReviewDate.toISOString(),
+        next_review_at: reviewResult.nextReviewAt,
         interval_days: reviewResult.intervalDays,
         ease_factor: reviewResult.easeFactor
       }
@@ -119,7 +119,7 @@ export function StudyPage() {
 
       // Show success with points
       const pointsMessage = pointsBreakdown.isPerfectTiming
-        ? `+${totalPoints} pts (Perfect Timing! ⚡)`
+        ? `+${totalPoints} pts (Perfect Timing!)`
         : `+${totalPoints} pts`
 
       addToast('success', `${pointsMessage} • Next review: ${formatNextReview(updatedItem.next_review_at)}`)
@@ -133,8 +133,6 @@ export function StudyPage() {
       setLoading(false)
     }
   }
-
-  // formatNextReview is now imported from utils/formatters
 
   if (loading) {
     return (
@@ -156,11 +154,11 @@ export function StudyPage() {
             <h2 className="h3" style={{ textAlign: 'center', marginBottom: '2rem' }}>
               {item.content}
             </h2>
-            
+
             {!showAnswer ? (
               <div style={{ textAlign: 'center' }}>
-                <Button 
-                  variant="primary" 
+                <Button
+                  variant="primary"
                   size="large"
                   onClick={() => setShowAnswer(true)}
                 >
@@ -168,66 +166,25 @@ export function StudyPage() {
                 </Button>
               </div>
             ) : (
-              <div>
-                <p className="body-large" style={{ textAlign: 'center', marginBottom: '3rem' }}>
-                  Think about how well you knew this...
+              <div style={{ textAlign: 'center' }}>
+                <p className="body-large" style={{ marginBottom: '2rem' }}>
+                  Did you remember this?
                 </p>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleReview('again')}
-                    disabled={loading}
-                    style={{ backgroundColor: 'var(--color-error-light)' }}
-                  >
-                    <div>
-                      <div className="body">Again</div>
-                      <div className="body-small text-secondary">Didn&rsquo;t know</div>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleReview('hard')}
-                    disabled={loading}
-                    style={{ backgroundColor: 'var(--color-warning-light)' }}
-                  >
-                    <div>
-                      <div className="body">Hard</div>
-                      <div className="body-small text-secondary">Difficult</div>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleReview('good')}
-                    disabled={loading}
-                    style={{ backgroundColor: 'var(--color-info-light)' }}
-                  >
-                    <div>
-                      <div className="body">Good</div>
-                      <div className="body-small text-secondary">Got it</div>
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleReview('easy')}
-                    disabled={loading}
-                    style={{ backgroundColor: 'var(--color-success-light)' }}
-                  >
-                    <div>
-                      <div className="body">Easy</div>
-                      <div className="body-small text-secondary">Too easy</div>
-                    </div>
-                  </Button>
-                </div>
+
+                <Button
+                  variant="primary"
+                  size="large"
+                  onClick={handleReview}
+                  disabled={loading}
+                >
+                  Mark Reviewed
+                </Button>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
-      
+
       <div style={{ marginTop: '2rem', textAlign: 'center' }}>
         <Button variant="ghost" onClick={() => navigate(`/topics/${item.topic_id}`)}>
           Back to Topic
