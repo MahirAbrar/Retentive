@@ -328,7 +328,6 @@ interface DataService {
 interface SpacedRepetitionService {
   calculateNextReview(item: LearningItem, quality: number): Date
   getOptimalInterval(reviewCount: number, mode: LearningMode): number
-  adjustForPriority(interval: number, priority: Priority): number
   checkReviewWindow(item: LearningItem): ReviewWindow
 }
 ```

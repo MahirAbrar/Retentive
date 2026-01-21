@@ -28,7 +28,7 @@ export function TopicsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterBy, setFilterBy] = useState<'all' | 'due' | 'new' | 'upcoming' | 'mastered'>('all')
-  const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'priority' | 'lastStudied'>('name')
+  const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'lastStudied'>('name')
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active')
   const { user } = useAuth()
   const { addToast } = useToast()
@@ -283,8 +283,6 @@ export function TopicsPage() {
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name)
-        case 'priority':
-          return b.priority - a.priority
         case 'dueItems':
           return b.dueCount - a.dueCount
         case 'lastStudied':
@@ -452,7 +450,6 @@ export function TopicsPage() {
               }}
             >
               <option value="name">Name</option>
-              <option value="priority">Priority</option>
               <option value="dueItems">Due Items</option>
               <option value="lastStudied">Last Studied</option>
             </select>

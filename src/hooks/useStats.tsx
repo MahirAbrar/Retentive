@@ -4,15 +4,6 @@ import type { ReactNode } from 'react'
 import { useAuth } from './useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
 import { cacheService } from '../services/cacheService'
-import type { Priority } from '../types/database'
-
-interface PriorityStats {
-  priority: Priority
-  label: string
-  total: number
-  due: number
-  percentage: number
-}
 
 interface StatsContextType {
   stats: any
@@ -29,7 +20,6 @@ export function StatsProvider({ children }: { children: ReactNode }) {
     dueToday: 0,
     upcoming: 0,
     mastered: 0,
-    priorityBreakdown: [] as PriorityStats[],
     totalItems: 0,
     totalTopics: 0,
     streakDays: 0,

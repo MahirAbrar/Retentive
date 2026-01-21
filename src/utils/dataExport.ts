@@ -55,7 +55,7 @@ export function validateImportData(data: any): data is ExportData {
   
   // Validate topics structure
   for (const topic of data.topics) {
-    if (!topic.id || !topic.name || !topic.user_id || !topic.learning_mode || typeof topic.priority !== 'number') {
+    if (!topic.id || !topic.name || !topic.user_id || !topic.learning_mode) {
       return false
     }
   }

@@ -7,7 +7,6 @@ import { logger } from '../utils/logger'
 export interface PointsBreakdown {
   basePoints: number
   timeBonus: number
-  priorityBonus: number
   totalPoints: number
   message: string
   isPerfectTiming: boolean
@@ -91,22 +90,16 @@ export class GamificationService {
       // First review
       message = 'First review!'
     }
-    
-    // Apply priority bonus
-    const priorityBonus = GAMIFICATION_CONFIG.POINTS.priorityBonus[
-      item.priority as keyof typeof GAMIFICATION_CONFIG.POINTS.priorityBonus
-    ] || 1
-    
+
     // Calculate total
-    const totalPoints = Math.round(basePoints * timeBonus * priorityBonus)
-    
+    const totalPoints = Math.round(basePoints * timeBonus)
+
     // Update session combo
     this.updateCombo()
-    
+
     return {
       basePoints,
       timeBonus,
-      priorityBonus,
       totalPoints,
       message,
       isPerfectTiming
@@ -433,7 +426,7 @@ export class GamificationService {
 
   private async checkAchievements(
     userId: string,
-    reviewData: {
+    _reviewData: {
       itemId: string
       wasPerfectTiming: boolean
       reviewCount: number

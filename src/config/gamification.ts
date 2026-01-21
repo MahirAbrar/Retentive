@@ -152,16 +152,7 @@ export const GAMIFICATION_CONFIG = {
   // ========== POINTS SYSTEM ==========
   POINTS: {
     baseReview: 10,      // Base points for any review
-    
-    // Priority bonuses (simple multiplier)
-    priorityBonus: {
-      1: 0.5,   // Low priority
-      2: 0.75,
-      3: 1.0,   // Normal
-      4: 1.25,
-      5: 1.5,   // High priority
-    },
-    
+
     // Streak bonuses (fixed amounts)
     streakMilestones: {
       3: 50,

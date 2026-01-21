@@ -44,8 +44,7 @@ export async function importUserData(
       const newTopic: Omit<Topic, 'id' | 'created_at' | 'updated_at'> = {
         user_id: userId,
         name: topic.name,
-        learning_mode: topic.learning_mode,
-        priority: topic.priority
+        learning_mode: topic.learning_mode
       }
 
       const { data: insertedTopic, error: topicError } = await supabase
@@ -77,7 +76,6 @@ export async function importUserData(
         topic_id: newTopicId,
         user_id: userId,
         content: item.content,
-        priority: item.priority,
         learning_mode: 'steady' as const,
         review_count: item.review_count,
         last_reviewed_at: item.last_reviewed_at,

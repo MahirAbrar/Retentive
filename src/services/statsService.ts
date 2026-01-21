@@ -1,8 +1,8 @@
 import { supabase } from './supabase'
 import { cacheService } from './cacheService'
 import { requestDeduplicator } from './requestDeduplicator'
-import type { Priority } from '../types/database'
 import { logger } from '../utils/logger'
+import { GAMIFICATION_CONFIG } from '../config/gamification'
 
 interface Stats {
   overdue: number
@@ -11,16 +11,7 @@ interface Stats {
   mastered: number
 }
 
-interface PriorityStats {
-  priority: Priority
-  label: string
-  total: number
-  due: number
-  percentage: number
-}
-
 interface ExtendedStats extends Stats {
-  priorityBreakdown: PriorityStats[]
   totalItems: number
   totalTopics: number
   streakDays: number
@@ -86,7 +77,7 @@ export async function getStudyStats(userId: string): Promise<Stats> {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .in('topic_id', activeTopicIds)
-      .gte('review_count', (await import('../config/gamification')).GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+      .gte('review_count', GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
 
       return {
         overdue: overdue || 0,
@@ -143,82 +134,6 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       totalItems = count || 0
     }
     
-    // Get priority breakdown with single query (excluding archived topics)
-    const { data: itemsWithTopics } = await supabase
-      .from('learning_items')
-      .select('id, next_review_at, review_count, topics!inner(priority, archive_status)')
-      .eq('user_id', userId)
-      .neq('topics.archive_status', 'archived')
-    
-    // Priority categories
-    type PriorityCategory = 'critical' | 'high' | 'medium' | 'low'
-    
-    // Convert numeric priority to category
-    const getPriorityCategory = (priority: number): PriorityCategory => {
-      if (priority >= 8) return 'critical'
-      if (priority >= 6) return 'high'
-      if (priority >= 4) return 'medium'
-      return 'low'
-    }
-    
-    const priorityMap: Record<PriorityCategory, { total: number; due: number }> = {
-      critical: { total: 0, due: 0 },
-      high: { total: 0, due: 0 },
-      medium: { total: 0, due: 0 },
-      low: { total: 0, due: 0 }
-    }
-    
-    // Process all items in single pass
-    for (const item of itemsWithTopics || []) {
-      const priority = (item.topics as any).priority
-      const category = getPriorityCategory(priority)
-      priorityMap[category].total++
-      
-      if (item.review_count > 0 && (!item.next_review_at || new Date(item.next_review_at) <= now)) {
-        priorityMap[category].due++
-      }
-    }
-    
-    // Convert to array format
-    const priorityBreakdown: PriorityStats[] = [
-      {
-        priority: 5,
-        label: 'Critical',
-        total: priorityMap.critical.total,
-        due: priorityMap.critical.due,
-        percentage: priorityMap.critical.total > 0 
-          ? Math.round((priorityMap.critical.due / priorityMap.critical.total) * 100)
-          : 0
-      },
-      {
-        priority: 4,
-        label: 'High',
-        total: priorityMap.high.total,
-        due: priorityMap.high.due,
-        percentage: priorityMap.high.total > 0 
-          ? Math.round((priorityMap.high.due / priorityMap.high.total) * 100)
-          : 0
-      },
-      {
-        priority: 3,
-        label: 'Medium',
-        total: priorityMap.medium.total,
-        due: priorityMap.medium.due,
-        percentage: priorityMap.medium.total > 0 
-          ? Math.round((priorityMap.medium.due / priorityMap.medium.total) * 100)
-          : 0
-      },
-      {
-        priority: 2,
-        label: 'Low',
-        total: priorityMap.low.total,
-        due: priorityMap.low.due,
-        percentage: priorityMap.low.total > 0 
-          ? Math.round((priorityMap.low.due / priorityMap.low.total) * 100)
-          : 0
-      }
-    ]
-    
     // Calculate streak days (consecutive days with reviews)
     const { data: recentSessions } = await supabase
       .from('review_sessions')
@@ -243,16 +158,16 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       }
     }
     
-    // Get next due item with priority-based selection (excluding new items and archived topics)
+    // Get next due item (excluding new items and archived topics)
     const { data: dueItems } = await supabase
       .from('learning_items')
-      .select('*, topics!inner(priority, archive_status)')
+      .select('*, topics!inner(archive_status)')
       .eq('user_id', userId)
       .neq('topics.archive_status', 'archived')
       .lte('next_review_at', now.toISOString())
       .gt('review_count', 0)
       .order('next_review_at', { ascending: true })
-      .limit(10) // Get a few to check for items due within 1 hour
+      .limit(10)
     
     let nextDueIn: string | null = null
     if (dueItems && dueItems.length > 0) {
@@ -262,32 +177,16 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       // Get next upcoming item (excluding new items and archived topics)
       const { data: upcomingItems } = await supabase
         .from('learning_items')
-        .select('next_review_at, priority, content, topics!inner(priority, archive_status)')
+        .select('next_review_at, content, topics!inner(archive_status)')
         .eq('user_id', userId)
         .neq('topics.archive_status', 'archived')
         .gt('next_review_at', now.toISOString())
         .gt('review_count', 0)
         .order('next_review_at', { ascending: true })
-        .limit(10)
-      
-      if (upcomingItems && upcomingItems.length > 0) {
-        // Group items due within 1 hour of the first item
-        const firstNextReview = upcomingItems[0].next_review_at
-        if (firstNextReview) {
-        const firstDueTime = new Date(firstNextReview)
-        const oneHourLater = new Date(firstDueTime.getTime() + 60 * 60 * 1000)
+        .limit(1)
 
-        const itemsWithinHour = upcomingItems.filter(item => {
-          if (!item.next_review_at) return false
-          return new Date(item.next_review_at) <= oneHourLater
-        })
-        
-        // Sort by priority (highest first), then alphabetically
-        const selectedItem = itemsWithinHour.sort((a: any, b: any) => {
-          const priorityDiff = (b.topics?.[0]?.priority || b.priority) - (a.topics?.[0]?.priority || a.priority)
-          if (priorityDiff !== 0) return priorityDiff
-          return a.content.localeCompare(b.content)
-        })[0]
+      if (upcomingItems && upcomingItems.length > 0) {
+        const selectedItem = upcomingItems[0]
 
         // Calculate time until due
         if (selectedItem.next_review_at) {
@@ -304,7 +203,6 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
           nextDueIn = `${days} day${days !== 1 ? 's' : ''}`
         }
         }
-      }
       }
     }
     
@@ -325,7 +223,6 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
     
     const result = {
       ...basicStats,
-      priorityBreakdown,
       totalItems: totalItems || 0,
       totalTopics: totalTopics || 0,
       streakDays,
@@ -341,7 +238,6 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       logger.error('Error fetching extended stats:', error)
       return {
         ...basicStats,
-        priorityBreakdown: [],
         totalItems: 0,
         totalTopics: 0,
         streakDays: 0,

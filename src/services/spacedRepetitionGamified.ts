@@ -107,14 +107,10 @@ export class SpacedRepetitionGamifiedService {
 
       return now.getTime() >= earliestReviewTime
     }).sort((a, b) => {
-      // Sort by priority (descending) then by due date (ascending)
-      if (a.priority !== b.priority) {
-        return b.priority - a.priority
-      }
-      
+      // Sort by due date (ascending)
       if (!a.next_review_at) return -1
       if (!b.next_review_at) return 1
-      
+
       return new Date(a.next_review_at).getTime() - new Date(b.next_review_at).getTime()
     })
   }

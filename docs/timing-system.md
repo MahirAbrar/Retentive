@@ -179,13 +179,12 @@ The system tracks:
 ### Point Calculation Formula
 
 ```
-Total Points = Base Points × Timing Multiplier × Priority Bonus × Combo Bonus
+Total Points = Base Points × Timing Multiplier
 
 Where:
 - Base Points = 10 (default)
 - Timing Multiplier = Based on review timing (0.7x - 3.0x)
-- Priority Bonus = 1.0x - 1.5x based on topic priority
-- Combo Bonus = +5 to +50 based on consecutive reviews
+- Combo Bonus = +5 to +50 based on consecutive reviews (additive)
 ```
 
 ### Database Fields

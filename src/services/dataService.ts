@@ -3,10 +3,9 @@ import { cacheService } from './cacheService'
 import { localStorageCache } from './localStorageCache'
 import { logger } from '../utils/logger'
 import type { Topic, LearningItem, MasteryStatus, LearningMode } from '../types/database'
-import { 
-  validateTopicName, 
-  validatePriority, 
-  sanitizeInput 
+import {
+  validateTopicName,
+  sanitizeInput
 } from '../utils/validation'
 import { 
   ValidationError
@@ -26,13 +25,11 @@ export interface CreateTopicData {
   name: string
   user_id: string
   learning_mode: LearningMode
-  priority: number
 }
 
 export interface UpdateTopicData {
   name?: string
   learning_mode?: LearningMode
-  priority?: number
 }
 
 export interface CreateLearningItemData {
@@ -40,13 +37,11 @@ export interface CreateLearningItemData {
   user_id: string
   content: string
   learning_mode: LearningMode
-  priority: number
 }
 
 export interface UpdateLearningItemData {
   content?: string
   learning_mode?: LearningMode
-  priority?: number
   last_reviewed_at?: string | null
   next_review_at?: string | null
   review_count?: number
@@ -85,9 +80,6 @@ export class DataService {
     // Validate input
     if (!validateTopicName(data.name)) {
       throw new ValidationError('Topic name must be between 1 and 100 characters')
-    }
-    if (!validatePriority(data.priority)) {
-      throw new ValidationError('Priority must be between 1 and 10')
     }
 
     const sanitizedData = {
@@ -201,9 +193,6 @@ export class DataService {
     if (data.name !== undefined && !validateTopicName(data.name)) {
       throw new ValidationError('Topic name must be between 1 and 100 characters')
     }
-    if (data.priority !== undefined && !validatePriority(data.priority)) {
-      throw new ValidationError('Priority must be between 1 and 10')
-    }
 
     const sanitizedData = {
       ...data,
@@ -272,9 +261,6 @@ export class DataService {
     if (!data.content || data.content.trim().length === 0) {
       throw new ValidationError('Content is required')
     }
-    if (!validatePriority(data.priority)) {
-      throw new ValidationError('Priority must be between 1 and 10')
-    }
 
     const sanitizedData = {
       ...data,
@@ -315,9 +301,6 @@ export class DataService {
     items.forEach((item, index) => {
       if (!item.content || item.content.trim().length === 0) {
         throw new ValidationError(`Item ${index + 1}: Content is required`)
-      }
-      if (!validatePriority(item.priority)) {
-        throw new ValidationError(`Item ${index + 1}: Priority must be between 1 and 10`)
       }
     })
 
@@ -444,9 +427,6 @@ export class DataService {
     // Validate input
     if (data.content !== undefined && (!data.content || data.content.trim().length === 0)) {
       throw new ValidationError('Content cannot be empty')
-    }
-    if (data.priority !== undefined && !validatePriority(data.priority)) {
-      throw new ValidationError('Priority must be between 1 and 10')
     }
 
     const sanitizedData = {

@@ -32,10 +32,6 @@ export function validateTopicName(name: string): boolean {
   return name.trim().length >= 1 && name.trim().length <= 100
 }
 
-export function validatePriority(priority: number): boolean {
-  return Number.isInteger(priority) && priority >= 1 && priority <= 10
-}
-
 export function parseSubtopics(text: string): string[] {
   return text
     .split('\n')
