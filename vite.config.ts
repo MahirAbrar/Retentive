@@ -93,7 +93,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,
-    minify: 'terser',
+    minify: 'esbuild',
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       input: {
