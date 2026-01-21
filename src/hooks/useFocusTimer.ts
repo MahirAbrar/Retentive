@@ -547,7 +547,7 @@ export function useFocusTimer(userId: string) {
   // HANDLE APP CLOSE - End active segments
   // ================================================
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    const handleBeforeUnload = (_e: BeforeUnloadEvent) => {
       // End active segment if exists
       if (state.currentSegment && state.status !== 'idle') {
         const durationMinutes = Math.floor(
@@ -783,6 +783,12 @@ export function useFocusTimer(userId: string) {
 
         try {
           await focusTimerService.endSession(state.session.id, userId, finalStats)
+
+          // Check for focus achievements
+          await gamificationService.checkFocusAchievements(userId, {
+            totalWorkMinutes: workMinutes,
+            adherencePercentage: finalAdherence,
+          })
         } catch (endError) {
           // If network error, queue for later
           if (isNetworkError(endError)) {
@@ -953,7 +959,7 @@ export function useFocusTimer(userId: string) {
         const workMinutes = Math.floor(state.workSeconds / 60)
         const breakMinutes = Math.floor(state.breakSeconds / 60)
 
-        const endedSession = await focusTimerService.endSession(state.session.id, userId, {
+        await focusTimerService.endSession(state.session.id, userId, {
           totalWorkMinutes: workMinutes,
           totalBreakMinutes: breakMinutes,
           adherencePercentage: state.adherencePercentage,

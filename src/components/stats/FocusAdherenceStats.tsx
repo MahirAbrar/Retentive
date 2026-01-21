@@ -150,7 +150,7 @@ export function FocusAdherenceStats({ userId }: FocusAdherenceStatsProps) {
   }, [paginatedSessions, loadPaginatedSessions])
 
   const handlePreviousPage = useCallback(() => {
-    const previousCursor = cursorHistory[cursorHistory.length - 1] || null
+    const _previousCursor = cursorHistory[cursorHistory.length - 1] || null
     // For previous, we need to go back to the start of the previous page
     // We'll fetch with backward direction from the first item of current page
     const firstSession = paginatedSessions[0]

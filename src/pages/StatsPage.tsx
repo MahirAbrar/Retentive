@@ -10,6 +10,7 @@ import { BarChart3, Timer, Edit2, AlertTriangle, Award } from 'lucide-react'
 import { FocusAdherenceStats } from '../components/stats/FocusAdherenceStats'
 import { focusTimerService, getAdherenceColor, type FocusSession } from '../services/focusTimerService'
 import { EditSessionModal } from '../components/focus/EditSessionModal'
+import { StreakCalendar } from '../components/stats/StreakCalendar'
 
 // Lazy load TimingPerformance for better initial load
 const TimingPerformance = lazy(() => import('../components/stats/TimingPerformance').then(module => ({ default: module.TimingPerformance })))
@@ -150,6 +151,8 @@ export function StatsPage() {
   const [topicsLoading, setTopicsLoading] = useState(true)
   const [streakWarning, setStreakWarning] = useState<{ show: boolean; hoursLeft: number }>({ show: false, hoursLeft: 0 })
   const [editingSession, setEditingSession] = useState<FocusSession | null>(null)
+  const [studyDates, setStudyDates] = useState<Set<string>>(new Set())
+  const [adherenceDates, setAdherenceDates] = useState<Set<string>>(new Set())
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -292,6 +295,26 @@ export function StatsPage() {
 
       setCombinedActivity(allActivity)
       setSessionsLoading(false) // Sessions section can show now
+
+      // Extract dates for streak calendars (using all-time data for calendar visualization)
+      const studyDateSet = new Set<string>()
+      formattedSessionsData.forEach(session => {
+        const date = new Date(session.reviewed_at)
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+        studyDateSet.add(dateStr)
+      })
+      setStudyDates(studyDateSet)
+
+      // Extract dates with 100% adherence focus sessions
+      const adherenceDateSet = new Set<string>()
+      focusSessionsData.forEach(session => {
+        if (session.adherence_percentage >= 100) {
+          const date = new Date(session.created_at)
+          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+          adherenceDateSet.add(dateStr)
+        }
+      })
+      setAdherenceDates(adherenceDateSet)
 
       // Process daily activity data more efficiently
       const activityMap = new Map<string, number>()
@@ -677,6 +700,30 @@ export function StatsPage() {
                   </>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Streak Calendars */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+          <Card variant="bordered">
+            <CardContent>
+              <StreakCalendar
+                title="Study Streak"
+                activeDates={studyDates}
+                colorActive="var(--color-success)"
+                weeksToShow={12}
+              />
+            </CardContent>
+          </Card>
+          <Card variant="bordered">
+            <CardContent>
+              <StreakCalendar
+                title="Perfect Adherence"
+                activeDates={adherenceDates}
+                colorActive="var(--color-primary)"
+                weeksToShow={12}
+              />
             </CardContent>
           </Card>
         </div>

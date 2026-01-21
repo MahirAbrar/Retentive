@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Card, CardHeader, CardContent, Button } from '../ui'
 import { useAuth } from '../../hooks/useAuthFixed'
 import { subscriptionService } from '../../services/subscriptionService'
@@ -12,7 +11,6 @@ import './SubscriptionStatus.css'
 
 export function SubscriptionStatus() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubStatus | null>(null)
   const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null)

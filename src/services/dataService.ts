@@ -1,7 +1,6 @@
 import { supabase } from './supabase'
 import { cacheService } from './cacheService'
 import { localStorageCache } from './localStorageCache'
-import { offlineQueue } from './offlineQueue'
 import { logger } from '../utils/logger'
 import type { Topic, LearningItem, MasteryStatus, LearningMode } from '../types/database'
 import { 
@@ -115,29 +114,6 @@ export class DataService {
 
       return result
     } catch (error) {
-      // If offline, queue the operation
-      if (!navigator.onLine) {
-        offlineQueue.addOperation({
-          type: 'create',
-          table: 'topics',
-          data: sanitizedData
-        })
-        
-        // Return optimistic response
-        const optimisticTopic: Topic = {
-          id: `temp_${Date.now()}`,
-          ...sanitizedData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        } as Topic
-        
-        // Update local cache with optimistic data
-        const cachedTopics = localStorageCache.get<Topic[]>(this.CACHE_KEYS.topics(data.user_id)) || []
-        localStorageCache.set(this.CACHE_KEYS.topics(data.user_id), [optimisticTopic, ...cachedTopics], 24 * 60 * 60 * 1000)
-        
-        return { data: optimisticTopic, error: null }
-      }
-      
       return { data: null, error: error as Error }
     }
   }
@@ -257,24 +233,6 @@ export class DataService {
 
       return result
     } catch (error) {
-      // If offline, queue the operation
-      if (!navigator.onLine) {
-        offlineQueue.addOperation({
-          type: 'update',
-          table: 'topics',
-          data: { id: topicId, ...sanitizedData }
-        })
-        
-        // Get existing topic from cache
-        const existingTopic = localStorageCache.get<Topic>(this.CACHE_KEYS.topic(topicId))
-        if (existingTopic) {
-          const updatedTopic = { ...existingTopic, ...sanitizedData } as Topic
-          // Update local cache
-          localStorageCache.set(this.CACHE_KEYS.topic(topicId), updatedTopic, 24 * 60 * 60 * 1000)
-          return { data: updatedTopic, error: null }
-        }
-      }
-      
       return { data: null, error: error as Error }
     }
   }

@@ -1,8 +1,6 @@
 import { supabase } from './supabase'
 import { supabaseService } from './supabaseService'
 import { secureStorage } from './secureStorage'
-import { offlineService } from './offlineService'
-import { gamificationService as gamificationServiceOffline } from './gamificationServiceOffline'
 import { gamificationService } from './gamificationService'
 import { localStorageCache } from './localStorageCache'
 import type { User } from '../types/database'
@@ -81,10 +79,7 @@ export class AuthService {
           if (user.id) {
             localStorageCache.set('current_user', user, 7 * 24 * 60 * 60 * 1000) // 7 days
             localStorageCache.set('current_session', { userId: user.id, email: user.email }, 7 * 24 * 60 * 60 * 1000)
-            
-            offlineService.setUserId(user.id)
-            gamificationServiceOffline.setUserId(user.id)
-            
+
             // Initialize gamification stats for the user
             await gamificationService.getUserStats(user.id)
           }
@@ -155,11 +150,6 @@ export class AuthService {
           isLoading: false,
           isAuthenticated: true,
         })
-        // Update offline service with cached user ID
-        if (cachedUser.id) {
-          offlineService.setUserId(cachedUser.id)
-          gamificationServiceOffline.setUserId(cachedUser.id)
-        }
       } else {
         handleError(error, 'Load session')
         this.updateSessionState({

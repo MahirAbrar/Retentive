@@ -1,8 +1,5 @@
-// Export offline-first versions of services
-export { dataService } from './dataServiceOffline'
-export { gamificationService } from './gamificationServiceOffline'
-export { offlineService } from './offlineService'
-
-// Export other services as-is
+// Export services
+export { dataService } from './dataService'
+export { gamificationService } from './gamificationService'
 export { authService } from './authFixed'
 export { spacedRepetitionGamified } from './spacedRepetitionGamified'

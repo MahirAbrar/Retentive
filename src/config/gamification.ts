@@ -205,75 +205,206 @@ export const GAMIFICATION_CONFIG = {
   
   // ========== ACHIEVEMENTS ==========
   ACHIEVEMENTS: {
+    // Reviews (6)
     FIRST_REVIEW: {
       id: 'first_review',
       name: 'First Steps',
       description: 'Complete your first review',
       icon: '🎯',
-      points: 50
+      points: 10,
+      category: 'reviews'
     },
-    FIRST_MASTERY: {
-      id: 'first_mastery',
-      name: 'Mastery',
-      description: 'Master your first item',
-      icon: '⭐',
-      points: 100
+    REVIEWS_10: {
+      id: 'reviews_10',
+      name: 'Getting Started',
+      description: 'Complete 10 reviews',
+      icon: '📚',
+      points: 25,
+      category: 'reviews'
+    },
+    REVIEWS_50: {
+      id: 'reviews_50',
+      name: 'Dedicated Learner',
+      description: 'Complete 50 reviews',
+      icon: '📖',
+      points: 50,
+      category: 'reviews'
+    },
+    REVIEWS_100: {
+      id: 'reviews_100',
+      name: 'Century',
+      description: 'Complete 100 reviews',
+      icon: '💯',
+      points: 100,
+      category: 'reviews'
+    },
+    REVIEWS_500: {
+      id: 'reviews_500',
+      name: 'Knowledge Seeker',
+      description: 'Complete 500 reviews',
+      icon: '🔍',
+      points: 250,
+      category: 'reviews'
+    },
+    REVIEWS_1000: {
+      id: 'reviews_1000',
+      name: 'Master Scholar',
+      description: 'Complete 1000 reviews',
+      icon: '🎓',
+      points: 500,
+      category: 'reviews'
+    },
+
+    // Streaks (5)
+    STREAK_3: {
+      id: 'streak_3',
+      name: "Three's Company",
+      description: 'Maintain a 3-day streak',
+      icon: '🔥',
+      points: 25,
+      category: 'streaks'
     },
     STREAK_7: {
       id: 'streak_7',
       name: 'Week Warrior',
       description: 'Maintain a 7-day streak',
       icon: '🔥',
-      points: 200
+      points: 50,
+      category: 'streaks'
+    },
+    STREAK_14: {
+      id: 'streak_14',
+      name: 'Fortnight Fighter',
+      description: 'Maintain a 14-day streak',
+      icon: '🔥',
+      points: 100,
+      category: 'streaks'
     },
     STREAK_30: {
       id: 'streak_30',
-      name: 'Consistent',
+      name: 'Monthly Master',
       description: 'Maintain a 30-day streak',
       icon: '🔥🔥',
-      points: 500
+      points: 200,
+      category: 'streaks'
     },
-    PERFECT_10: {
-      id: 'perfect_10',
-      name: 'Perfectionist',
-      description: 'Get perfect timing 10 times',
+    STREAK_100: {
+      id: 'streak_100',
+      name: 'Unstoppable',
+      description: 'Maintain a 100-day streak',
+      icon: '🔥🔥🔥',
+      points: 500,
+      category: 'streaks'
+    },
+
+    // Mastery (4)
+    FIRST_MASTERY: {
+      id: 'first_mastery',
+      name: 'First Mastery',
+      description: 'Master your first item',
+      icon: '⭐',
+      points: 25,
+      category: 'mastery'
+    },
+    MASTERY_10: {
+      id: 'mastery_10',
+      name: 'Knowledge Base',
+      description: 'Master 10 items',
+      icon: '⭐⭐',
+      points: 75,
+      category: 'mastery'
+    },
+    MASTERY_50: {
+      id: 'mastery_50',
+      name: 'Expert',
+      description: 'Master 50 items',
+      icon: '🌟',
+      points: 200,
+      category: 'mastery'
+    },
+    MASTERY_100: {
+      id: 'mastery_100',
+      name: 'Centurion',
+      description: 'Master 100 items',
+      icon: '💫',
+      points: 400,
+      category: 'mastery'
+    },
+
+    // Focus (4)
+    FIRST_FOCUS: {
+      id: 'first_focus',
+      name: 'Focused',
+      description: 'Complete your first focus session',
       icon: '🎯',
-      points: 300
+      points: 10,
+      category: 'focus'
     },
-    SPEED_DEMON: {
-      id: 'speed_demon',
-      name: 'Speed Demon',
-      description: 'Review 50 items in one session',
-      icon: '⚡',
-      points: 400
+    FOCUS_1_HOUR: {
+      id: 'focus_1_hour',
+      name: 'Hour of Power',
+      description: 'Complete 1 hour of focused work',
+      icon: '⏱️',
+      points: 50,
+      category: 'focus'
     },
-    POINTS_100: {
-      id: 'points_100',
-      name: 'Century',
-      description: 'Earn 100 points',
-      icon: '💯',
-      points: 50
+    FOCUS_10_HOURS: {
+      id: 'focus_10_hours',
+      name: 'Deep Worker',
+      description: 'Complete 10 hours of focused work',
+      icon: '🧠',
+      points: 150,
+      category: 'focus'
     },
-    POINTS_1000: {
-      id: 'points_1000',
-      name: 'Millionaire',
-      description: 'Earn 1000 points',
-      icon: '💰',
-      points: 200
+    PERFECT_ADHERENCE: {
+      id: 'perfect_adherence',
+      name: 'Laser Focus',
+      description: 'Complete a session with 100% adherence',
+      icon: '🎯',
+      points: 50,
+      category: 'focus'
     },
+
+    // Milestones (5)
     LEVEL_5: {
       id: 'level_5',
-      name: 'Level 5',
+      name: 'Rising Star',
       description: 'Reach level 5',
       icon: '🎖️',
-      points: 100
+      points: 50,
+      category: 'milestones'
     },
     LEVEL_10: {
       id: 'level_10',
-      name: 'Level 10',
+      name: 'Veteran',
       description: 'Reach level 10',
+      icon: '🏅',
+      points: 100,
+      category: 'milestones'
+    },
+    LEVEL_20: {
+      id: 'level_20',
+      name: 'Legend',
+      description: 'Reach level 20',
       icon: '🏆',
-      points: 1000
+      points: 250,
+      category: 'milestones'
+    },
+    POINTS_1000: {
+      id: 'points_1000',
+      name: 'Point Collector',
+      description: 'Earn 1000 total points',
+      icon: '💰',
+      points: 50,
+      category: 'milestones'
+    },
+    POINTS_10000: {
+      id: 'points_10000',
+      name: 'Point Master',
+      description: 'Earn 10000 total points',
+      icon: '💎',
+      points: 200,
+      category: 'milestones'
     }
   },
   

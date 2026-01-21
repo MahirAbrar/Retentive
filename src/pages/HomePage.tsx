@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, CardHeader, CardContent, Badge, Skeleton } from '../components/ui'
+import { Button, Card, CardHeader, CardContent, Skeleton } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { getExtendedStats } from '../services/statsService'
 import {
