@@ -91,6 +91,13 @@ Do NOT run other test commands unless explicitly asked.
 - Test critical user flows
 - Update CLAUDE.md if architecture changes
 
+## Supabase Migrations
+**IMPORTANT:** Always create migration files for ANY SQL changes!
+- Location: `supabase-migrations/` (NOT `supabase/migrations/`)
+- Naming: `XXX_description.sql` (e.g., `025_fix_has_app_access.sql`)
+- Never just give SQL to run - always create the file first
+- Include comments explaining what the migration does
+
 ## Deployment
 Deploy to any static hosting with HTTPS:
 - Vercel (recommended)

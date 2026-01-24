@@ -46,7 +46,19 @@
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Fallback content shown while JS loads or if it fails -->
+      <div id="app-loading" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: Inter, sans-serif; color: #1a1a1a;">
+        <div style="font-size: 24px; font-weight: 600; margin-bottom: 8px;">Retentive</div>
+        <div style="font-size: 14px; color: #666;">Loading...</div>
+      </div>
+    </div>
+    <noscript>
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: Inter, sans-serif; padding: 20px; text-align: center;">
+        <div style="font-size: 24px; font-weight: 600; margin-bottom: 16px;">JavaScript Required</div>
+        <div style="color: #666;">Please enable JavaScript to use Retentive.</div>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

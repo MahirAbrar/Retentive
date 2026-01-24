@@ -74,9 +74,11 @@ export class SubscriptionService {
 
       const expiresAt = data.subscription_expires_at ? new Date(data.subscription_expires_at) : null
       const now = new Date()
-      
+
       // Check if subscription is still valid
-      const isActive = data.is_paid && (!expiresAt || expiresAt > now)
+      // Simple rule: if expiry date is in the future, user has access
+      // 'cancelled' just means won't auto-renew, not that access is revoked
+      const isActive = expiresAt ? expiresAt > now : false
       
       // Check if trial is still valid (14 days from trial_started_at)
       let trialIsActive = false
