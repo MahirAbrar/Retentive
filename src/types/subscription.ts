@@ -188,11 +188,9 @@ export const canStartTrial = (profile: SubscriptionProfile): boolean => {
 export const PAYWALL_STATS = {
   retentionImprovement: 200,
   betterRetention: 93,
-  activeUsers: '10,000+',
   statistics: [
     { iconName: 'TrendingUp', value: '93%', label: 'Better Retention' },
     { iconName: 'Brain', value: '200%', label: 'Retention Increase' },
-    { iconName: 'Users', value: '10,000+', label: 'Active Learners' },
     { iconName: 'Microscope', value: '140+ Years', label: 'Of Research' }
   ],
   howItWorks: [

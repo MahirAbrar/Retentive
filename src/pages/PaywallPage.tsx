@@ -104,7 +104,7 @@ export function PaywallPage() {
             Science-backed spaced repetition that transforms you into the person everyone thinks has a photographic memory.
           </p>
           <p className="hero-cta">Become the human everyone thinks is superhuman!</p>
-          <p className="social-proof">Join {PAYWALL_STATS.activeUsers} learners who&apos;ve unlocked their brain&apos;s true potential</p>
+          <p className="social-proof">Join learners who&apos;ve unlocked their brain&apos;s true potential</p>
           {trialStatus?.hasUsedTrial && (
             <p className="subtitle trial-ended">Hope you enjoyed your trial! Ready to continue your learning journey?</p>
           )}
