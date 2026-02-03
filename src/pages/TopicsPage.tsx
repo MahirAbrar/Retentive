@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, useToast, Input, Pagination, PaginationInfo, Loading } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
@@ -9,6 +9,7 @@ import { topicsService } from '../services/topicsFixed'
 import { dataService } from '../services/dataService'
 import { usePagination } from '../hooks/usePagination'
 import { cacheService } from '../services/cacheService'
+import { realtimeService } from '../services/realtimeService'
 import type { Topic, LearningItem } from '../types/database'
 import { RefreshCw } from 'lucide-react'
 
@@ -32,6 +33,7 @@ export function TopicsPage() {
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active')
   const { user } = useAuth()
   const { addToast } = useToast()
+  const initialLoadDone = useRef(false)
   
   // Pagination
   const {
@@ -51,19 +53,26 @@ export function TopicsPage() {
 
   const loadTopics = useCallback(async (forceRefresh = false) => {
     if (!user) return
-    
-    // Check cache first
+
     const cacheKey = `topics:${user.id}`
-    if (!forceRefresh) {
-      const cached = cacheService.get<TopicWithStats[]>(cacheKey)
-      if (cached) {
-        setTopics(cached)
-        setLoading(false)
-        return
-      }
+
+    // Stale-while-revalidate: Get cached data even if stale
+    const { data: cached, isStale } = cacheService.getWithMeta<TopicWithStats[]>(cacheKey)
+
+    // If we have cached data, show it immediately (unless forcing refresh)
+    if (cached && !forceRefresh) {
+      setTopics(cached)
+      setLoading(false)
+
+      // If data is fresh, we're done - no need to refetch
+      if (!isStale) return
+
+      // If stale, continue to fetch fresh data silently (no loading spinner)
+    } else {
+      // No cache or force refresh - show loading spinner
+      setLoading(true)
     }
-    
-    setLoading(true)
+
     try {
       const { data: topicsData, error: topicsError } = await topicsService.getTopics(user.id)
       if (topicsError) {
@@ -130,19 +139,25 @@ export function TopicsPage() {
 
   const loadArchivedTopics = useCallback(async (forceRefresh = false) => {
     if (!user) return
-    
-    // Check cache first
+
     const cacheKey = `archived_topics:${user.id}`
-    if (!forceRefresh) {
-      const cached = cacheService.get<TopicWithStats[]>(cacheKey)
-      if (cached) {
-        setArchivedTopics(cached)
-        setLoading(false)
-        return
-      }
+
+    // Stale-while-revalidate: Get cached data even if stale
+    const { data: cached, isStale } = cacheService.getWithMeta<TopicWithStats[]>(cacheKey)
+
+    // If we have cached data, show it immediately (unless forcing refresh)
+    if (cached && !forceRefresh) {
+      setArchivedTopics(cached)
+      setLoading(false)
+
+      // If data is fresh, we're done
+      if (!isStale) return
+
+      // If stale, continue to fetch fresh data silently
+    } else {
+      setLoading(true)
     }
-    
-    setLoading(true)
+
     try {
       const { data: topicsData, error: topicsError } = await dataService.getArchivedTopics(user.id)
       if (topicsError) {
@@ -299,14 +314,52 @@ export function TopicsPage() {
     setFilteredTopics(filtered)
   }, [activeTab, topics, archivedTopics, searchQuery, filterBy, sortBy])
 
+  // Initial load - only runs once per user session
   useEffect(() => {
-    if (user) {
+    if (!user) return
+
+    // Only load on initial mount, not on every dependency change
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true
       loadTopics()
-      if (activeTab === 'archived') {
-        loadArchivedTopics()
-      }
     }
-  }, [user, activeTab, loadTopics, loadArchivedTopics])
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load archived topics when tab changes to archived
+  useEffect(() => {
+    if (user && activeTab === 'archived') {
+      loadArchivedTopics()
+    }
+  }, [user, activeTab, loadArchivedTopics])
+
+  // Realtime subscription for cross-device sync
+  useEffect(() => {
+    if (!user) return
+
+    const unsubscribe = realtimeService.subscribeToTopics(user.id, {
+      onInsert: () => {
+        // New topic added - invalidate cache and refresh
+        cacheService.delete(`topics:${user.id}`)
+        loadTopics(true)
+      },
+      onUpdate: (topic) => {
+        // Update the specific topic in state
+        setTopics(prev => prev.map(t => t.id === topic.id ? { ...t, ...topic } : t))
+        // Also invalidate cache so next load gets fresh data
+        cacheService.delete(`topics:${user.id}`)
+      },
+      onDelete: (topic) => {
+        // Remove topic from state
+        setTopics(prev => prev.filter(t => t.id !== topic.id))
+        cacheService.delete(`topics:${user.id}`)
+      },
+      onError: (error) => {
+        console.error('Realtime topics error:', error)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     filterAndSortTopics()
