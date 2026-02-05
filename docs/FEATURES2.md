@@ -131,7 +131,7 @@
 # Part 2: Topics & Learning
 
 ## Topics
-- Create topics with name, learning mode, and subtopics
+- Create topics with name, learning mode, and items
 - Four learning modes (in order): Ultra-Cram, Cram, Steady, Extended
 - Start date scheduling for future reviews
 - Auto-save drafts every 2 seconds
@@ -157,7 +157,7 @@
   | Steady | ~75-125 words |
   | Extended | ~100-150 words |
 
-## Learning Items (Subtopics)
+## Learning Items
 - Add items to topics
 - Inline edit item content
 - Delete items
@@ -356,7 +356,7 @@
 
 ## Create & Study Workflow
 1. Create topic (name, learning mode)
-2. Add subtopics (creates learning items)
+2. Add items (creates learning items)
 3. Set optional start date
 4. Navigate to topic detail
 5. Click Study on due/new item

@@ -81,7 +81,7 @@ A beautiful, Swiss-design inspired spaced repetition learning app that helps you
 ### 2. Create Your First Topic
 - Click "New Topic" in the sidebar
 - Enter a topic name (e.g., "Spanish Vocabulary")
-- Add subtopics - one per line (e.g., "Hola - Hello")
+- Add items - one per line (e.g., "Hola - Hello")
 - Choose your learning mode:
   - **Ultra-Cram**: Intensive daily reviews
   - **Cram**: Accelerated learning

@@ -1255,7 +1255,7 @@ const { error } = await supabase
                                   setNewItemContent('')
                                 }
                               }}
-                              placeholder="Enter subtopic content..."
+                              placeholder="Enter item content..."
                               style={{ flex: 1 }}
                               autoFocus
                             />
@@ -1271,7 +1271,7 @@ const { error } = await supabase
                             size="small"
                             onClick={() => setAddingItemToTopic(topic.id)}
                           >
-                            + Add Subtopic
+                            + Add Item
                           </Button>
                         )}
                       </div>
@@ -1311,7 +1311,7 @@ const { error } = await supabase
         isOpen={deleteItemConfirm.open}
         onClose={() => setDeleteItemConfirm({ open: false, item: null })}
         onConfirm={handleDeleteItem}
-        title="Delete Subtopic"
+        title="Delete Item"
         message={`Are you sure you want to delete "${deleteItemConfirm.item?.content}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"

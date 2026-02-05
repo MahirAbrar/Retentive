@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Input, Card, CardHeader, CardContent, useToast } from '@/components/ui'
 import { dataService } from '@/services/dataService'
 import { useUser } from '@/hooks/useAuth'
-import { validateTopicName, parseSubtopics } from '@/utils/validation'
+import { validateTopicName, parseItems } from '@/utils/validation'
 import { LEARNING_MODES } from '@/constants/learning'
 import type { LearningMode } from '@/types/database'
 import styles from './TopicForm.module.css'
@@ -11,7 +11,7 @@ import styles from './TopicForm.module.css'
 export function TopicForm() {
   const [name, setName] = useState('')
   const [learningMode, setLearningMode] = useState<LearningMode>('steady')
-  const [subtopics, setSubtopics] = useState('')
+  const [items, setItems] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -26,9 +26,9 @@ export function TopicForm() {
       newErrors.name = 'Topic name must be between 1 and 100 characters'
     }
 
-    const parsedSubtopics = parseSubtopics(subtopics)
-    if (parsedSubtopics.length === 0) {
-      newErrors.subtopics = 'Please add at least one subtopic'
+    const parsedItems = parseItems(items)
+    if (parsedItems.length === 0) {
+      newErrors.items = 'Please add at least one item'
     }
 
     setErrors(newErrors)
@@ -54,9 +54,9 @@ export function TopicForm() {
         throw topicError || new Error('Failed to create topic')
       }
 
-      // Create subtopics
-      const parsedSubtopics = parseSubtopics(subtopics)
-      const subtopicItems = parsedSubtopics.map(content => ({
+      // Create items
+      const parsedItems = parseItems(items)
+      const newItems = parsedItems.map(content => ({
         topic_id: topic.id,
         user_id: user.id,
         content,
@@ -65,13 +65,13 @@ export function TopicForm() {
         next_review_at: null,
       }))
 
-      const { error: itemsError } = await dataService.createLearningItems(subtopicItems)
+      const { error: itemsError } = await dataService.createLearningItems(newItems)
 
       if (itemsError) {
         throw itemsError
       }
 
-      addToast('success', `Topic "${name}" created with ${parsedSubtopics.length} items!`)
+      addToast('success', `Topic "${name}" created with ${parsedItems.length} items!`)
       navigate(`/topics/${topic.id}`)
     } catch (error) {
       setErrors({ 
@@ -122,19 +122,19 @@ export function TopicForm() {
           </div>
 
           <div className={styles.formGroup}>
-            <label htmlFor="subtopics" className={styles.label}>
-              Subtopics (one per line)
+            <label htmlFor="items" className={styles.label}>
+              Items (one per line)
             </label>
             <textarea
-              id="subtopics"
-              value={subtopics}
-              onChange={(e) => setSubtopics(e.target.value)}
+              id="items"
+              value={items}
+              onChange={(e) => setItems(e.target.value)}
               placeholder="Variables and data types&#10;Functions and scope&#10;Arrays and objects&#10;Promises and async/await"
               rows={8}
               className={styles.textarea}
             />
-            {errors.subtopics && (
-              <span className={styles.errorText}>{errors.subtopics}</span>
+            {errors.items && (
+              <span className={styles.errorText}>{errors.items}</span>
             )}
             <p className="caption text-secondary">
               Each line will become a separate learning item

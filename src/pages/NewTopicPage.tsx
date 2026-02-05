@@ -51,13 +51,13 @@ export function NewTopicPage() {
 
   const [topicName, setTopicName] = useState('')
   const [learningMode, setLearningMode] = useState<LearningMode>('steady')
-  const [subtopics, setSubtopics] = useState('')
+  const [items, setItems] = useState('')
   const [upcomingDate, setUpcomingDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Auto-save draft to localStorage
-  const formData = { topicName, learningMode, subtopics, upcomingDate }
+  const formData = { topicName, learningMode, items, upcomingDate }
   const { isSaving, lastSaved } = useAutoSave(formData, {
     delay: 2000,
     onSave: async (data) => {
@@ -74,7 +74,7 @@ export function NewTopicPage() {
         const parsed = JSON.parse(draft)
         setTopicName(parsed.topicName || '')
         setLearningMode(parsed.learningMode || 'steady')
-        setSubtopics(parsed.subtopics || '')
+        setItems(parsed.items || parsed.subtopics || '')
         setUpcomingDate(parsed.upcomingDate || '')
       } catch (error) {
         logger.error('Failed to load draft:', error)
@@ -89,8 +89,8 @@ export function NewTopicPage() {
       newErrors.name = 'Topic name is required'
     }
     
-    if (!subtopics.trim()) {
-      newErrors.subtopics = 'At least one subtopic is required'
+    if (!items.trim()) {
+      newErrors.items = 'At least one item is required'
     }
     
     setErrors(newErrors)
@@ -117,8 +117,8 @@ export function NewTopicPage() {
         throw new Error(topicError?.message || 'Failed to create topic')
       }
       
-      // Parse subtopics and create learning items
-      const subtopicLines = subtopics
+      // Parse items and create learning items
+      const itemLines = items
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0)
@@ -135,7 +135,7 @@ export function NewTopicPage() {
         nextReviewAt = new Date().toISOString()
       }
       
-      const learningItems = subtopicLines.map(content => ({
+      const learningItems = itemLines.map(content => ({
         topic_id: topic.id,
         user_id: user.id,
         content: sanitizeInput(content),
@@ -178,7 +178,7 @@ export function NewTopicPage() {
           <div>
             <h1 className="h2">Create New Topic</h1>
             <p className="body text-secondary">
-              Add a topic and its subtopics to start learning
+              Add a topic and its items to start learning
             </p>
           </div>
           {lastSaved && (
@@ -291,28 +291,28 @@ export function NewTopicPage() {
             </div>
 
             <div>
-              <label htmlFor="subtopics" className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
-                Subtopics (one per line)
+              <label htmlFor="items" className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                Items (one per line)
               </label>
               <textarea
-                id="subtopics"
-                value={subtopics}
-                onChange={(e) => setSubtopics(e.target.value)}
-                placeholder="Enter each subtopic on a new line&#10;e.g.:&#10;Hola - Hello&#10;Buenos días - Good morning&#10;Gracias - Thank you"
+                id="items"
+                value={items}
+                onChange={(e) => setItems(e.target.value)}
+                placeholder="Enter each item on a new line&#10;e.g.:&#10;Hola - Hello&#10;Buenos días - Good morning&#10;Gracias - Thank you"
                 rows={8}
                 style={{
                   width: '100%',
                   padding: 'var(--space-3)',
-                  border: `1px solid ${errors.subtopics ? 'var(--color-error)' : 'var(--color-gray-300)'}`,
+                  border: `1px solid ${errors.items ? 'var(--color-error)' : 'var(--color-gray-300)'}`,
                   borderRadius: 'var(--radius-sm)',
                   fontFamily: 'inherit',
                   fontSize: 'inherit',
                   resize: 'vertical'
                 }}
               />
-              {errors.subtopics && (
+              {errors.items && (
                 <p className="body-small text-error" style={{ marginTop: '0.25rem' }}>
-                  {errors.subtopics}
+                  {errors.items}
                 </p>
               )}
             </div>

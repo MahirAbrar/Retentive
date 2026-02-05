@@ -32,7 +32,7 @@ export function validateTopicName(name: string): boolean {
   return name.trim().length >= 1 && name.trim().length <= 100
 }
 
-export function parseSubtopics(text: string): string[] {
+export function parseItems(text: string): string[] {
   return text
     .split('\n')
     .map(line => line.trim())

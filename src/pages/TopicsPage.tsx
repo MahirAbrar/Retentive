@@ -270,7 +270,7 @@ export function TopicsPage() {
       filtered = filtered.filter(topic => 
         // Search in topic name
         topic.name.toLowerCase().includes(query) ||
-        // Search in subtopic content
+        // Search in item content
         (topic.items && topic.items.some((item: any) =>
           item.content.toLowerCase().includes(query)
         ))

@@ -73,7 +73,7 @@ export const PRICING = {
     name: 'Monthly',
     description: 'Billed monthly',
     features: [
-      'Unlimited topics & subtopics',
+      'Unlimited topics & items',
       'Advanced statistics',
       'Offline mode',
       'Export your data',
@@ -91,7 +91,7 @@ export const PRICING = {
     badge: 'Most Popular',
     features: [
       'Save 20% ($4/month)',
-      'Unlimited topics & subtopics',
+      'Unlimited topics & items',
       'Advanced statistics',
       'Offline mode',
       'Export your data'
@@ -108,7 +108,7 @@ export const PRICING = {
     badge: 'Best Value',
     features: [
       'Best value - 50% off ($2.50/month)',
-      'Unlimited topics & subtopics',
+      'Unlimited topics & items',
       'Advanced statistics',
       'Offline mode',
       'Export your data'
@@ -120,7 +120,7 @@ export const PRICING = {
     description: '14 days of full access',
     features: [
       'Full access to all features',
-      'Unlimited topics & subtopics',
+      'Unlimited topics & items',
       'Advanced statistics',
       'Offline mode',
       'Export your data'
@@ -202,13 +202,13 @@ export const PAYWALL_STATS = {
     },
     {
       step: 2,
-      title: 'Add Subtopics',
-      description: 'Break down complex topics into bite-sized, manageable subtopics.',
+      title: 'Add Items',
+      description: 'Break down complex topics into bite-sized, manageable items.',
       iconName: 'FileText'
     },
     {
       step: 3,
-      title: 'Study Your Subtopics',
+      title: 'Study Your Items',
       description: 'Review your original content and materials at the perfect moments for maximum retention.',
       iconName: 'Target'
     },

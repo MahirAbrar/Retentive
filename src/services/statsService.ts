@@ -17,6 +17,7 @@ interface ExtendedStats extends Stats {
   streakDays: number
   nextDueIn: string | null
   newItemsCount: number
+  lastStudiedAt: string | null
 }
 
 export async function getStudyStats(userId: string): Promise<Stats> {
@@ -142,6 +143,8 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       .order('reviewed_at', { ascending: false })
       .limit(100)
     
+    const lastStudiedAt = recentSessions?.[0]?.reviewed_at || null
+
     let streakDays = 0
     if (recentSessions && recentSessions.length > 0) {
       const dates = new Set<string>()
@@ -227,7 +230,8 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       totalTopics: totalTopics || 0,
       streakDays,
       nextDueIn,
-      newItemsCount: newItemsCount || 0
+      newItemsCount: newItemsCount || 0,
+      lastStudiedAt
     }
     
       // Cache for 5 minutes (balance between freshness and performance)
@@ -242,7 +246,8 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
         totalTopics: 0,
         streakDays: 0,
         nextDueIn: null,
-        newItemsCount: 0
+        newItemsCount: 0,
+        lastStudiedAt: null
       }
     }
   })

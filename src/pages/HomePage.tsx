@@ -28,6 +28,23 @@ const FocusTimer = lazy(() =>
   }))
 )
 
+function formatRelativeTime(dateStr: string): string {
+  const now = Date.now()
+  const then = new Date(dateStr).getTime()
+  const seconds = Math.floor((now - then) / 1000)
+
+  if (seconds < 60) return 'Just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'Yesterday'
+  if (days < 30) return `${days} days ago`
+  const months = Math.floor(days / 30)
+  return `${months} month${months !== 1 ? 's' : ''} ago`
+}
+
 export function HomePage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -42,6 +59,7 @@ export function HomePage() {
     streakDays: 0,
     nextDueIn: null as string | null,
     newItemsCount: 0,
+    lastStudiedAt: null as string | null,
   })
 
   const loadStats = useCallback(async () => {
@@ -67,6 +85,13 @@ export function HomePage() {
     return stats.overdue + stats.dueToday
   }, [stats.overdue, stats.dueToday])
 
+  // Check if last studied > 24 hours ago (or never)
+  const lastStudiedOver24h = useMemo(() => {
+    if (!stats.lastStudiedAt) return true
+    const hoursSince = (Date.now() - new Date(stats.lastStudiedAt).getTime()) / (1000 * 60 * 60)
+    return hoursSince > 24
+  }, [stats.lastStudiedAt])
+
   // Memoize the progress percentage (commented out as not currently used)
   // const progressPercentage = useMemo(() => {
   //   if (stats.totalItems === 0) return 0
@@ -81,6 +106,35 @@ export function HomePage() {
         </h1>
         <p className="body-large text-secondary">Master anything with spaced repetition learning</p>
       </header>
+
+      {/* Last Studied nudge — shown prominently when > 24h */}
+      {user && !loading && lastStudiedOver24h && (
+        <Card variant="bordered" style={{ marginBottom: '2rem' }}>
+          <CardContent>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '1rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div>
+                <p className="body-small text-secondary">Last Studied</p>
+                <p className="h3" style={{ color: 'var(--color-warning)' }}>
+                  {stats.lastStudiedAt ? formatRelativeTime(stats.lastStudiedAt) : 'Never'}
+                </p>
+              </div>
+              <Link to="/topics">
+                <Button variant="primary" size="small">
+                  Study Now
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div style={{ display: 'grid', gap: '2rem', marginBottom: '3rem' }}>
         {/* Quick Stats */}
@@ -404,6 +458,20 @@ export function HomePage() {
                           )}
                         </div>
                       </div>
+                      {!lastStudiedOver24h && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <span className="body">Last Studied</span>
+                          <span className="h4" style={{ color: 'var(--color-text-secondary)' }}>
+                            {stats.lastStudiedAt ? formatRelativeTime(stats.lastStudiedAt) : 'Never'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
