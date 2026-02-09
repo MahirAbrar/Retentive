@@ -25,11 +25,13 @@ export interface CreateTopicData {
   name: string
   user_id: string
   learning_mode: LearningMode
+  subject_id?: string | null
 }
 
 export interface UpdateTopicData {
   name?: string
   learning_mode?: LearningMode
+  subject_id?: string | null
 }
 
 export interface CreateLearningItemData {

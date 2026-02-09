@@ -10,8 +10,12 @@ This file contains important information for Claude to remember across sessions.
 ## Important Files
 - `todolist.md` - Master development plan with all phases
 - `human-todo.md` - Tasks requiring manual intervention
+- `docs/BaseFeatures.md` - Feature documentation (MUST be updated when adding/removing features)
 - `.env` - Environment variables (Supabase credentials with VITE_ prefix)
 - `.env.example` - Template for environment setup
+
+## Feature Documentation
+**IMPORTANT:** When adding or removing any feature, you MUST update `docs/BaseFeatures.md` to reflect the change. This file serves as the source of truth for all app features.
 
 ## Development Workflow
 1. Always check and update todo list when working on tasks

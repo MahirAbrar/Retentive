@@ -29,10 +29,23 @@ export interface User {
   trial_days_remaining?: number
 }
 
+export interface Subject {
+  id: string
+  user_id: string
+  name: string
+  description?: string | null
+  icon: string
+  color: string
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
 export interface Topic {
   id: string
   user_id: string
   name: string
+  subject_id?: string | null
   learning_mode: LearningMode
   archive_status?: ArchiveStatus
   archive_date?: string | null

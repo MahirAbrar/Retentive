@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Input, Card, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
 import { topicsService } from '../services/topicsFixed'
+import { SubjectSelector } from '../components/subjects'
 import { LEARNING_MODES } from '../constants/learning'
 import type { LearningMode } from '../types/database'
 import { sanitizeInput } from '../utils/sanitize'
@@ -50,6 +51,7 @@ export function NewTopicPage() {
   const { addToast } = useToast()
 
   const [topicName, setTopicName] = useState('')
+  const [subjectId, setSubjectId] = useState<string | null>(null)
   const [learningMode, setLearningMode] = useState<LearningMode>('steady')
   const [items, setItems] = useState('')
   const [upcomingDate, setUpcomingDate] = useState('')
@@ -57,7 +59,7 @@ export function NewTopicPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Auto-save draft to localStorage
-  const formData = { topicName, learningMode, items, upcomingDate }
+  const formData = { topicName, subjectId, learningMode, items, upcomingDate }
   const { isSaving, lastSaved } = useAutoSave(formData, {
     delay: 2000,
     onSave: async (data) => {
@@ -73,6 +75,7 @@ export function NewTopicPage() {
       try {
         const parsed = JSON.parse(draft)
         setTopicName(parsed.topicName || '')
+        setSubjectId(parsed.subjectId || null)
         setLearningMode(parsed.learningMode || 'steady')
         setItems(parsed.items || parsed.subtopics || '')
         setUpcomingDate(parsed.upcomingDate || '')
@@ -109,7 +112,8 @@ export function NewTopicPage() {
       const { data: topic, error: topicError } = await topicsService.createTopic({
         user_id: user.id,
         name: sanitizeInput(topicName.trim()),
-        learning_mode: learningMode
+        learning_mode: learningMode,
+        subject_id: subjectId
       })
       
       if (topicError || !topic) {
@@ -161,6 +165,9 @@ export function NewTopicPage() {
       
       // Invalidate topics cache so the new topic shows immediately
       cacheService.delete(`topics:${user.id}`)
+
+      // Also invalidate subjects cache since topic counts changed
+      cacheService.delete(`subjects:${user.id}`)
       
       navigate('/topics')
     } catch (error) {
@@ -200,6 +207,14 @@ export function NewTopicPage() {
               placeholder="e.g., Spanish Vocabulary, Physics Formulas"
               required
             />
+
+            {user && (
+              <SubjectSelector
+                userId={user.id}
+                selectedSubjectId={subjectId}
+                onSelect={setSubjectId}
+              />
+            )}
 
             <div>
               <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>

@@ -11,6 +11,9 @@ import { FocusAdherenceStats } from '../components/stats/FocusAdherenceStats'
 import { focusTimerService, getAdherenceColor, type FocusSession } from '../services/focusTimerService'
 import { EditSessionModal } from '../components/focus/EditSessionModal'
 import { StreakCalendar } from '../components/stats/StreakCalendar'
+import { subjectService } from '../services/subjectService'
+import { getIconComponent } from '../utils/icons'
+import type { SubjectWithStats } from '../types/subject'
 
 // Lazy load TimingPerformance for better initial load
 const TimingPerformance = lazy(() => import('../components/stats/TimingPerformance').then(module => ({ default: module.TimingPerformance })))
@@ -151,6 +154,8 @@ export function StatsPage() {
   const [topicsLoading, setTopicsLoading] = useState(true)
   const [streakWarning, setStreakWarning] = useState<{ show: boolean; hoursLeft: number }>({ show: false, hoursLeft: 0 })
   const [editingSession, setEditingSession] = useState<FocusSession | null>(null)
+  const [subjectStats, setSubjectStats] = useState<SubjectWithStats[]>([])
+  const [subjectsLoading, setSubjectsLoading] = useState(true)
   const [studyDates, setStudyDates] = useState<Set<string>>(new Set())
   const [adherenceDates, setAdherenceDates] = useState<Set<string>>(new Set())
 
@@ -193,7 +198,7 @@ export function StatsPage() {
       }
       
       // Run all independent queries in parallel for better performance
-      const [extendedStats, sessionsResult, focusSessionsResult, topicsResult, itemsResult] = await Promise.all([
+      const [extendedStats, sessionsResult, focusSessionsResult, topicsResult, itemsResult, subjectsResult] = await Promise.all([
         // Get extended stats
         getExtendedStats(user.id),
 
@@ -234,7 +239,13 @@ export function StatsPage() {
         supabase
           .from('learning_items')
           .select('topic_id, review_count, ease_factor')
-          .eq('user_id', user.id)
+          .eq('user_id', user.id),
+
+        // Get subject stats
+        subjectService.getSubjectsWithStats(user.id).catch(err => {
+          logger.error('Error fetching subject stats:', err)
+          return []
+        })
       ])
       
       // Set extended stats immediately for fast initial render
@@ -408,6 +419,10 @@ export function StatsPage() {
       
       setTopicStats(topicStatsData)
       setTopicsLoading(false) // Topic stats can show now
+
+      // Set subject stats
+      setSubjectStats(subjectsResult || [])
+      setSubjectsLoading(false)
       
       // Cache the processed data for 2 minutes
       cacheService.set(cacheKey, {
@@ -423,6 +438,7 @@ export function StatsPage() {
       setStatsLoading(false)
       setSessionsLoading(false)
       setTopicsLoading(false)
+      setSubjectsLoading(false)
     }
   }, [user, dateRange])
 
@@ -797,6 +813,98 @@ export function StatsPage() {
             </Card>
           </div>
         </div>
+
+        {/* Subject Performance */}
+        {subjectStats.length > 0 && (
+          <Card variant="bordered">
+            <CardHeader>
+              <h3 className="h4">Subject Performance</h3>
+            </CardHeader>
+            <CardContent>
+              {subjectsLoading ? (
+                <div style={{ padding: '2rem', textAlign: 'center' }}>
+                  <div style={{ height: '100px', backgroundColor: 'var(--color-gray-100)', borderRadius: '8px' }} />
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  {subjectStats.map(subject => {
+                    const Icon = getIconComponent(subject.icon)
+                    const completionRate = subject.itemCount > 0
+                      ? Math.round((subject.masteredCount / subject.itemCount) * 100)
+                      : 0
+                    return (
+                      <div
+                        key={subject.id}
+                        style={{
+                          padding: '1rem',
+                          backgroundColor: subject.color + '10',
+                          borderLeft: `3px solid ${subject.color}`,
+                          borderRadius: 'var(--radius-sm)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <div style={{
+                              width: '24px',
+                              height: '24px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: subject.color + '20',
+                              color: subject.color,
+                              borderRadius: 'var(--radius-sm)'
+                            }}>
+                              <Icon size={14} />
+                            </div>
+                            <h4 className="body" style={{ fontWeight: '600' }}>{subject.name}</h4>
+                          </div>
+                          <Badge variant="ghost">
+                            {subject.topicCount} topic{subject.topicCount !== 1 ? 's' : ''} • {subject.itemCount} item{subject.itemCount !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '0.75rem' }}>
+                          <div>
+                            <p className="caption text-secondary">Due</p>
+                            <p className="body" style={{ fontWeight: '500', color: subject.dueCount > 0 ? 'var(--color-warning)' : 'inherit' }}>
+                              {subject.dueCount}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="caption text-secondary">Mastered</p>
+                            <p className="body" style={{ fontWeight: '500', color: 'var(--color-success)' }}>
+                              {subject.masteredCount}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="caption text-secondary">Completion</p>
+                            <p className="body" style={{ fontWeight: '500' }}>
+                              {completionRate}%
+                            </p>
+                          </div>
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{
+                          marginTop: '0.75rem',
+                          height: '4px',
+                          backgroundColor: 'var(--color-gray-200)',
+                          borderRadius: '2px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            width: `${completionRate}%`,
+                            height: '100%',
+                            backgroundColor: subject.color,
+                            transition: 'width 0.3s ease'
+                          }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Topic Performance */}
         <Card variant="bordered">

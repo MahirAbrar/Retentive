@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, useToast, Input, Pagination, PaginationInfo, Loading } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
@@ -9,11 +9,15 @@ import { lazyWithRetry } from '../utils/lazyWithRetry'
 const TopicList = lazyWithRetry(() => import('../components/topics/TopicList').then(m => ({ default: m.TopicList })))
 import { topicsService } from '../services/topicsFixed'
 import { dataService } from '../services/dataService'
+import { subjectService } from '../services/subjectService'
 import { usePagination } from '../hooks/usePagination'
 import { cacheService } from '../services/cacheService'
 import { realtimeService } from '../services/realtimeService'
-import type { Topic, LearningItem } from '../types/database'
-import { RefreshCw } from 'lucide-react'
+import type { Topic, LearningItem, Subject } from '../types/database'
+import type { SubjectWithStats } from '../types/subject'
+import { SubjectHeader, SubjectEditModal, SubjectCreateModal } from '../components/subjects'
+import { MindmapView } from '../components/mindmap'
+import { RefreshCw, FolderOpen, Plus, List, GitBranch } from 'lucide-react'
 
 interface TopicWithStats extends Topic {
   itemCount: number
@@ -33,6 +37,11 @@ export function TopicsPage() {
   const [filterBy, setFilterBy] = useState<'all' | 'due' | 'new' | 'upcoming' | 'mastered'>('all')
   const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'lastStudied'>('name')
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active')
+  const [subjects, setSubjects] = useState<SubjectWithStats[]>([])
+  const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set())
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
+  const [showSubjectCreate, setShowSubjectCreate] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'mindmap'>('list')
   const { user } = useAuth()
   const { addToast } = useToast()
   const initialLoadDone = useRef(false)
@@ -316,6 +325,12 @@ export function TopicsPage() {
     setFilteredTopics(filtered)
   }, [activeTab, topics, archivedTopics, searchQuery, filterBy, sortBy])
 
+  const loadSubjects = useCallback(async () => {
+    if (!user) return
+    const { data } = await subjectService.getSubjectsWithStats(user.id)
+    setSubjects(data || [])
+  }, [user])
+
   // Initial load - only runs once per user session
   useEffect(() => {
     if (!user) return
@@ -324,6 +339,7 @@ export function TopicsPage() {
     if (!initialLoadDone.current) {
       initialLoadDone.current = true
       loadTopics()
+      loadSubjects()
     }
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -367,14 +383,113 @@ export function TopicsPage() {
     filterAndSortTopics()
   }, [filterAndSortTopics])
 
+  // Group topics by subject for display
+  const groupedTopics = useMemo(() => {
+    const groups = new Map<string | null, TopicWithStats[]>()
+
+    for (const topic of filteredTopics) {
+      const key = topic.subject_id || null
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(topic)
+    }
+
+    return groups
+  }, [filteredTopics])
+
+  const toggleSubjectCollapse = useCallback((subjectId: string) => {
+    setCollapsedSubjects(prev => {
+      const next = new Set(prev)
+      if (next.has(subjectId)) {
+        next.delete(subjectId)
+      } else {
+        next.add(subjectId)
+      }
+      return next
+    })
+  }, [])
+
+  const handleSubjectSave = useCallback((updatedSubject: Subject) => {
+    setSubjects(prev => prev.map(s => s.id === updatedSubject.id ? { ...s, ...updatedSubject } : s))
+  }, [])
+
+  const handleSubjectDelete = useCallback((subjectId: string) => {
+    setSubjects(prev => prev.filter(s => s.id !== subjectId))
+    // Reload topics to reflect unassigned subjects
+    loadTopics(true)
+  }, [loadTopics])
+
+  const handleSubjectCreated = useCallback((newSubject: Subject) => {
+    setSubjects(prev => [...prev, { ...newSubject, topicCount: 0, itemCount: 0, dueCount: 0, newCount: 0, masteredCount: 0 }])
+    setShowSubjectCreate(false)
+  }, [])
+
+  const handleTopicUpdate = useCallback((updatedTopic: Topic) => {
+    // Update the topic in the topics list
+    setTopics(prev => prev.map(t =>
+      t.id === updatedTopic.id
+        ? { ...t, ...updatedTopic }
+        : t
+    ))
+    // Invalidate cache so next load gets fresh data
+    if (user) {
+      cacheService.delete(`topics:${user.id}`)
+      cacheService.delete(`subjects:${user.id}`)
+    }
+    // Reload subjects to update counts
+    loadSubjects()
+  }, [user, loadSubjects])
+
   return (
     <div style={{ maxWidth: 'var(--container-lg)', margin: '0 auto' }}>
       <header style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 className="h2">My Topics</h1>
-          <Link to="/topics/new">
-            <Button variant="primary">New Topic</Button>
-          </Link>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {/* View Toggle */}
+            <div style={{
+              display: 'flex',
+              gap: '0.25rem',
+              padding: '0.25rem',
+              backgroundColor: 'var(--color-gray-100)',
+              borderRadius: 'var(--radius-sm)'
+            }}>
+              <Button
+                variant={viewMode === 'list' ? 'primary' : 'ghost'}
+                size="small"
+                onClick={() => setViewMode('list')}
+                title="List view"
+                style={{
+                  padding: '0.375rem 0.75rem',
+                  ...(viewMode !== 'list' && { backgroundColor: 'transparent' })
+                }}
+              >
+                <List size={16} />
+              </Button>
+              <Button
+                variant={viewMode === 'mindmap' ? 'primary' : 'ghost'}
+                size="small"
+                onClick={() => setViewMode('mindmap')}
+                title="Mindmap view"
+                style={{
+                  padding: '0.375rem 0.75rem',
+                  ...(viewMode !== 'mindmap' && { backgroundColor: 'transparent' })
+                }}
+              >
+                <GitBranch size={16} />
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => setShowSubjectCreate(true)}
+              title="Create new subject"
+            >
+              <Plus size={16} style={{ marginRight: '0.25rem' }} />
+              New Subject
+            </Button>
+            <Link to="/topics/new">
+              <Button variant="primary">New Topic</Button>
+            </Link>
+          </div>
         </div>
         <p className="body text-secondary" style={{ marginTop: '0.5rem' }}>
           Organize your learning into topics and track progress
@@ -532,19 +647,133 @@ export function TopicsPage() {
         )}
       </div>
 
+      {/* Content - List or Mindmap View */}
       <Suspense fallback={<Loading text="Loading topics..." />}>
-        <TopicList
-          topics={currentItems}
-          onDelete={handleDelete}
-          onArchive={handleArchive}
-          onUnarchive={handleUnarchive}
-          isArchived={activeTab === 'archived'}
-          loading={loading}
-        />
+        {viewMode === 'mindmap' ? (
+          <MindmapView
+            subjects={subjects}
+            topics={filteredTopics}
+          />
+        ) : (
+          <>
+            {subjects.length > 0 || groupedTopics.get(null)?.length ? (
+              <div style={{ display: 'grid', gap: '1.5rem' }}>
+                {/* Render each subject with its topics */}
+                {subjects.map((subject) => {
+                  const subjectTopics = groupedTopics.get(subject.id) || []
+                  if (subjectTopics.length === 0) return null
+
+                  const isCollapsed = collapsedSubjects.has(subject.id)
+
+                  return (
+                    <div key={subject.id}>
+                      <SubjectHeader
+                        subject={{ ...subject, topicCount: subjectTopics.length, itemCount: subjectTopics.reduce((sum, t) => sum + t.itemCount, 0), dueCount: subjectTopics.reduce((sum, t) => sum + t.dueCount, 0), newCount: subjectTopics.reduce((sum, t) => sum + t.newCount, 0), masteredCount: subjectTopics.reduce((sum, t) => sum + t.masteredCount, 0) }}
+                        isCollapsed={isCollapsed}
+                        onToggle={() => toggleSubjectCollapse(subject.id)}
+                        onEdit={() => setEditingSubject(subject)}
+                      />
+                      {!isCollapsed && (
+                        <TopicList
+                          topics={subjectTopics}
+                          onDelete={handleDelete}
+                          onArchive={handleArchive}
+                          onUnarchive={handleUnarchive}
+                          onTopicUpdate={handleTopicUpdate}
+                          isArchived={activeTab === 'archived'}
+                          loading={loading}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* Unassigned topics section */}
+                {groupedTopics.get(null)?.length ? (
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '1rem',
+                        backgroundColor: 'var(--color-surface)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--color-border)',
+                        marginBottom: '1rem',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '2.5rem',
+                          height: '2.5rem',
+                          backgroundColor: 'var(--color-gray-100)',
+                          color: 'var(--color-text-secondary)',
+                          borderRadius: 'var(--radius-sm)',
+                        }}
+                      >
+                        <FolderOpen size={20} />
+                      </div>
+                      <div>
+                        <h3 className="h4" style={{ margin: 0 }}>
+                          Unassigned
+                        </h3>
+                        <p className="body-small text-secondary" style={{ margin: 0 }}>
+                          {groupedTopics.get(null)?.length} topic{groupedTopics.get(null)?.length !== 1 ? 's' : ''} not in a subject
+                        </p>
+                      </div>
+                    </div>
+                    <TopicList
+                      topics={groupedTopics.get(null) || []}
+                      onDelete={handleDelete}
+                      onArchive={handleArchive}
+                      onUnarchive={handleUnarchive}
+                      onTopicUpdate={handleTopicUpdate}
+                      isArchived={activeTab === 'archived'}
+                      loading={loading}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <TopicList
+                topics={currentItems}
+                onDelete={handleDelete}
+                onArchive={handleArchive}
+                onUnarchive={handleUnarchive}
+                onTopicUpdate={handleTopicUpdate}
+                isArchived={activeTab === 'archived'}
+                loading={loading}
+              />
+            )}
+          </>
+        )}
       </Suspense>
+
+      {/* Subject Edit Modal */}
+      <SubjectEditModal
+        subject={editingSubject}
+        isOpen={!!editingSubject}
+        onClose={() => setEditingSubject(null)}
+        onSave={handleSubjectSave}
+        onDelete={handleSubjectDelete}
+      />
+
+      {/* Subject Create Modal */}
+      {user && showSubjectCreate && (
+        <SubjectCreateModal
+          isOpen={showSubjectCreate}
+          onClose={() => setShowSubjectCreate(false)}
+          onSave={handleSubjectCreated}
+          userId={user.id}
+        />
+      )}
       
-      {/* Pagination Controls */}
-      {filteredTopics.length > 0 && (
+      {/* Pagination Controls - only in list view */}
+      {viewMode === 'list' && filteredTopics.length > 0 && (
         <div style={{ marginTop: '2rem' }}>
           <PaginationInfo 
             startIndex={startIndex} 

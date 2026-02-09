@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent, Button, Badge, useToast, ConfirmDialog, 
 import { MasteryDialog } from '../MasteryDialog'
 import { ArchiveInsights } from './ArchiveInsights'
 import { AutoArchiveSuggestion } from './AutoArchiveSuggestion'
+import { SubjectSelector } from '../subjects'
 import type { Topic, LearningItem, LearningMode, MasteryStatus } from '../../types/database'
 import { 
   MoreVertical, 
@@ -65,11 +66,12 @@ interface TopicListProps {
   onDelete?: (topicId: string) => void
   onArchive?: (topicId: string) => void
   onUnarchive?: (topicId: string) => void
+  onTopicUpdate?: (topic: Topic) => void
   isArchived?: boolean
   loading?: boolean
 }
 
-function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, isArchived = false, loading }: TopicListProps) {
+function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicUpdate, isArchived = false, loading }: TopicListProps) {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
   const [topicItems, setTopicItems] = useState<Record<string, LearningItem[]>>({})
   const [topicStats, setTopicStats] = useState<Record<string, { total: number; due: number; new: number; archived?: number }>>({})
@@ -1330,7 +1332,8 @@ const { error } = await supabase
                 name: updatedTopic.name,
                 oldMode: editingTopic.learning_mode,
                 newMode: updatedTopic.learning_mode,
-                modeChanged: updatedTopic.learning_mode !== editingTopic.learning_mode
+                modeChanged: updatedTopic.learning_mode !== editingTopic.learning_mode,
+                subjectId: updatedTopic.subject_id
               })
 
               // Update the topic
@@ -1338,7 +1341,8 @@ const { error } = await supabase
                 .from('topics')
                 .update({
                   name: updatedTopic.name,
-                  learning_mode: updatedTopic.learning_mode
+                  learning_mode: updatedTopic.learning_mode,
+                  subject_id: updatedTopic.subject_id
                 })
                 .eq('id', updatedTopic.id)
                 .select()
@@ -1388,9 +1392,9 @@ const { error } = await supabase
                     message: itemsError.message
                   })
                   addToast('error', `Topic updated but failed to update items: ${itemsError.message}`)
-                  // Still close modal and reload since topic was updated
+                  // Still close modal and notify parent since topic was updated
                   setEditingTopic(null)
-                  window.location.reload()
+                  onTopicUpdate?.(topicData[0])
                   return
                 }
 
@@ -1407,8 +1411,8 @@ const { error } = await supabase
 
               logger.info('=== Topic update complete ===')
               setEditingTopic(null)
-              // Refresh topics list
-              window.location.reload()
+              // Notify parent of the update
+              onTopicUpdate?.(topicData[0])
             } catch (error) {
               logger.error('Unexpected error during topic update:', error)
               addToast('error', `Failed to update topic: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -1455,6 +1459,7 @@ interface EditTopicModalProps {
 const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditTopicModalProps) {
   const [name, setName] = useState(topic?.name || '')
   const [learningMode, setLearningMode] = useState<LearningMode>(topic?.learning_mode || 'steady')
+  const [subjectId, setSubjectId] = useState<string | null>(topic?.subject_id || null)
 
   // Sync state when topic prop changes
   useEffect(() => {
@@ -1462,10 +1467,12 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
       logger.info('EditTopicModal: Syncing topic prop to state', {
         topicId: topic.id,
         name: topic.name,
-        mode: topic.learning_mode
+        mode: topic.learning_mode,
+        subjectId: topic.subject_id
       })
       setName(topic.name)
       setLearningMode(topic.learning_mode)
+      setSubjectId(topic.subject_id || null)
     }
   }, [topic])
 
@@ -1488,14 +1495,16 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
       newName: name.trim(),
       oldMode: topic.learning_mode,
       newMode: learningMode,
-      modeChanged: topic.learning_mode !== learningMode
+      modeChanged: topic.learning_mode !== learningMode,
+      subjectId
     })
 
     if (topic) {
       onSave({
         ...topic,
         name: name.trim(),
-        learning_mode: learningMode
+        learning_mode: learningMode,
+        subject_id: subjectId
       })
     }
   }
@@ -1509,6 +1518,12 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+          />
+
+          <SubjectSelector
+            userId={topic.user_id}
+            selectedSubjectId={subjectId}
+            onSelect={setSubjectId}
           />
 
           <div>

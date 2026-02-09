@@ -3,7 +3,8 @@ import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/
 import { supabase } from './supabase'
 import { supabaseService } from './supabaseService'
 import { dataService } from './dataService'
-import type { Topic, LearningItem } from '../types/database'
+import type { Topic, LearningItem, Subject } from '../types/database'
+import { subjectService } from './subjectService'
 import { handleError } from '../utils/errors'
 
 export type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE'
@@ -94,6 +95,56 @@ export class RealtimeService {
           handlers.onError?.(new Error('Failed to subscribe to topics'))
           this.scheduleReconnect(channelName, () => {
             this.subscribeToTopics(userId, handlers)
+          })
+        }
+      })
+
+    this.channels.set(channelName, channel)
+
+    return () => this.unsubscribeFromChannel(channelName)
+  }
+
+  // Subject Subscriptions
+
+  subscribeToSubjects(
+    userId: string,
+    handlers: RealtimeChangeHandler<Subject>
+  ): () => void {
+    const channelName = `subjects:${userId}`
+
+    // Prevent race conditions - skip if subscription is in progress
+    if (this.subscriptionLocks.has(channelName)) {
+      logger.log(`Subscription to ${channelName} already in progress, skipping`)
+      return () => this.unsubscribeFromChannel(channelName)
+    }
+
+    // Unsubscribe from existing channel if any
+    this.unsubscribeFromChannel(channelName)
+    this.subscriptionLocks.add(channelName)
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'subjects',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<Subject>) => {
+          this.handleSubjectChange(payload, handlers, userId)
+        }
+      )
+      .subscribe((status) => {
+        this.subscriptionLocks.delete(channelName)
+        if (status === 'SUBSCRIBED') {
+          logger.log(`Subscribed to subjects for user ${userId}`)
+          this.reconnectAttempts.delete(channelName) // Reset on success
+        } else if (status === 'CHANNEL_ERROR') {
+          handlers.onError?.(new Error('Failed to subscribe to subjects'))
+          this.scheduleReconnect(channelName, () => {
+            this.subscribeToSubjects(userId, handlers)
           })
         }
       })
@@ -323,7 +374,7 @@ export class RealtimeService {
             dataService.clearCache()
           }
           break
-        
+
         case 'UPDATE':
           if (payload.new && payload.old) {
             handlers.onUpdate?.(payload.new as LearningItem, payload.old as LearningItem)
@@ -331,7 +382,7 @@ export class RealtimeService {
             dataService.clearCache()
           }
           break
-        
+
         case 'DELETE':
           if (payload.old) {
             handlers.onDelete?.(payload.old as LearningItem)
@@ -342,6 +393,43 @@ export class RealtimeService {
       }
     } catch (error) {
       handleError(error, 'Realtime item change')
+      handlers.onError?.(error as Error)
+    }
+  }
+
+  private handleSubjectChange(
+    payload: RealtimePostgresChangesPayload<Subject>,
+    handlers: RealtimeChangeHandler<Subject>,
+    userId: string
+  ) {
+    try {
+      switch (payload.eventType) {
+        case 'INSERT':
+          if (payload.new) {
+            handlers.onInsert?.(payload.new as Subject)
+            // Clear subject cache
+            subjectService.clearCache(userId)
+          }
+          break
+
+        case 'UPDATE':
+          if (payload.new && payload.old) {
+            handlers.onUpdate?.(payload.new as Subject, payload.old as Subject)
+            // Clear subject cache
+            subjectService.clearCache(userId)
+          }
+          break
+
+        case 'DELETE':
+          if (payload.old) {
+            handlers.onDelete?.(payload.old as Subject)
+            // Clear subject cache
+            subjectService.clearCache(userId)
+          }
+          break
+      }
+    } catch (error) {
+      handleError(error, 'Realtime subject change')
       handlers.onError?.(error as Error)
     }
   }
