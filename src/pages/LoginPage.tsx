@@ -227,7 +227,7 @@ export function LoginPage() {
             </div>
 
             <a
-              href={`https://${import.meta.env.VITE_MARKET_LINK}/reset-password`}
+              href={`https://${import.meta.env.VITE_MARKET_LINK}/auth/reset-password`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
