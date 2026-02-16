@@ -147,7 +147,7 @@ export class SubscriptionService {
       }
 
       // Redirect to marketing website with user info
-      const marketingUrl = import.meta.env.VITE_MARKETING_URL || 'https://retentive.app'
+      const marketingUrl = `https://${import.meta.env.VITE_MARKET_LINK}`
       const checkoutUrl = new URL(`${marketingUrl}/subscribe`)
       checkoutUrl.searchParams.set('plan', plan)
       checkoutUrl.searchParams.set('email', user.email || '')

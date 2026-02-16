@@ -43,7 +43,7 @@ export function SubscriptionStatus() {
   }, [user, loadStatus])
 
   const handleUpgrade = () => {
-    window.open('https://retentive-learning-app.vercel.app/', '_blank')
+    window.open(`https://${import.meta.env.VITE_MARKET_LINK}/`, '_blank')
   }
 
 

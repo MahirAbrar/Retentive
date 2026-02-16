@@ -21,7 +21,7 @@ import { lazyWithRetry } from './utils/lazyWithRetry'
 
 // Lazy load all pages with retry logic for deployment cache mismatches
 const HomePage = lazyWithRetry(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })))
-const LoginPage = lazyWithRetry(() => import('./pages/LoginPageFixed').then(m => ({ default: m.LoginPage })))
+const LoginPage = lazyWithRetry(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
 const TopicsPage = lazyWithRetry(() => import('./pages/TopicsPage').then(m => ({ default: m.TopicsPage })))
 const NewTopicPage = lazyWithRetry(() => import('./pages/NewTopicPage').then(m => ({ default: m.NewTopicPage })))
 const TopicDetailView = lazyWithRetry(() => import('./pages/TopicDetailView').then(m => ({ default: m.TopicDetailView })))

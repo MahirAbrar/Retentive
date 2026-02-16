@@ -1091,7 +1091,7 @@ src/
 │   ├── NewTopicPage.tsx
 │   ├── StatsPage.tsx
 │   ├── SettingsPage.tsx
-│   ├── LoginPageFixed.tsx
+│   ├── LoginPage.tsx
 │   ├── ResetPasswordPage.tsx
 │   ├── PaywallPage.tsx
 │   └── PaymentSuccess.tsx

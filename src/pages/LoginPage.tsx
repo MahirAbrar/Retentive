@@ -227,7 +227,7 @@ export function LoginPage() {
             </div>
 
             <a
-              href="https://retentive.site/reset-password"
+              href={`https://${import.meta.env.VITE_MARKET_LINK}/reset-password`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -249,7 +249,7 @@ export function LoginPage() {
               Don&apos;t have an account?
               {' '}
               <a
-                href="https://retentive.site/auth/register"
+                href={`https://${import.meta.env.VITE_MARKET_LINK}/auth/register`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

@@ -316,7 +316,7 @@ export function GettingStartedGuide({ isLoggedIn, totalDueItems, isExpanded, onT
                   </Link>
                 </>
               ) : (
-                <a href="https://retentive-learning-app.vercel.app/" target="_blank" rel="noopener noreferrer">
+                <a href={`https://${import.meta.env.VITE_MARKET_LINK}/`} target="_blank" rel="noopener noreferrer">
                   <Button variant="primary" size="large">
                     Get Started
                   </Button>
