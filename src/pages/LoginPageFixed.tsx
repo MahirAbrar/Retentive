@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { Moon, Sun } from 'lucide-react'
 import { Button, Input, Card, CardHeader, CardContent, useToast } from '../components/ui'
 import { useAuth } from '../hooks/useAuthFixed'
@@ -226,13 +226,18 @@ export function LoginPage() {
               </Button>
             </div>
 
-            <Link to="/reset-password" style={{
-              textAlign: 'center',
-              display: 'block',
-              marginBottom: '1rem'
-            }}>
+            <a
+              href="https://retentive.site/reset-password"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                textAlign: 'center',
+                display: 'block',
+                marginBottom: '1rem'
+              }}
+            >
               <span className="body-small text-info">Forgot password?</span>
-            </Link>
+            </a>
 
             <hr style={{
               border: 'none',
@@ -244,7 +249,7 @@ export function LoginPage() {
               Don&apos;t have an account?
               {' '}
               <a
-                href="https://retentive-learning-app.vercel.app/auth/register"
+                href="https://retentive.site/auth/register"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

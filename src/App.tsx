@@ -27,7 +27,6 @@ const NewTopicPage = lazyWithRetry(() => import('./pages/NewTopicPage').then(m =
 const TopicDetailView = lazyWithRetry(() => import('./pages/TopicDetailView').then(m => ({ default: m.TopicDetailView })))
 const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const StatsPage = lazyWithRetry(() => import('./pages/StatsPage').then(m => ({ default: m.StatsPage })))
-const ResetPasswordPage = lazyWithRetry(() => import('./pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const TestGamificationPage = lazyWithRetry(() => import('./pages/TestGamificationPage').then(m => ({ default: m.TestGamificationPage })))
 const DarkModeTest = lazyWithRetry(() => import('./pages/DarkModeTest').then(m => ({ default: m.DarkModeTest })))
 const TestGamificationPersistence = lazyWithRetry(() => import('./pages/TestGamificationPersistence').then(m => ({ default: m.TestGamificationPersistence })))
@@ -110,8 +109,6 @@ function App() {
                     </ProtectedRoute>
                   } />
                   <Route path="/login" element={<LoginPage />} />
-                  <Route path="/reset-password" element={<ResetPasswordPage />} />
-                  <Route path="/auth/callback" element={<ResetPasswordPage />} />
                   <Route
                     path="/topics"
                     element={
