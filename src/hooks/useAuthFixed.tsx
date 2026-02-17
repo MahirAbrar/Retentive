@@ -26,8 +26,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    const subscription = authService.onAuthStateChange((user) => {
-      setUser(user)
+    const subscription = authService.onAuthStateChange((newUser) => {
+      setUser(prev => {
+        if (prev?.id === newUser?.id && prev?.email === newUser?.email) {
+          return prev // same user, keep stable reference
+        }
+        return newUser
+      })
     })
 
     return () => {

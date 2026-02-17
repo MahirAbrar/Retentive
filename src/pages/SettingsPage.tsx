@@ -18,9 +18,6 @@ export function SettingsPage() {
   
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -54,53 +51,6 @@ export function SettingsPage() {
     } catch {
       setErrors({ profile: 'Failed to update profile' })
       addToast('error', 'Failed to update profile')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // Validate passwords
-    const newErrors: Record<string, string> = {}
-    
-    if (!currentPassword) {
-      newErrors.currentPassword = 'Current password is required'
-    }
-    
-    if (!newPassword) {
-      newErrors.newPassword = 'New password is required'
-    } else if (newPassword.length < 8) {
-      newErrors.newPassword = 'Password must be at least 8 characters'
-    }
-    
-    if (newPassword !== confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match'
-    }
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      return
-    }
-
-    setLoading(true)
-    setErrors({})
-
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      })
-
-      if (error) throw error
-
-      addToast('success', 'Password changed successfully')
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-    } catch {
-      setErrors({ password: 'Failed to change password' })
-      addToast('error', 'Failed to change password')
     } finally {
       setLoading(false)
     }
@@ -346,58 +296,6 @@ export function SettingsPage() {
                   disabled={loading}
                 >
                   Save Changes
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Password Change */}
-        <Card variant="bordered">
-          <CardHeader>
-            <h3 className="h4">Change Password</h3>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <Input
-                label="Current Password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                error={errors.currentPassword}
-                placeholder="••••••••"
-              />
-              
-              <Input
-                label="New Password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                error={errors.newPassword}
-                placeholder="••••••••"
-              />
-              
-              <Input
-                label="Confirm New Password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                error={errors.confirmPassword}
-                placeholder="••••••••"
-              />
-              
-              {errors.password && (
-                <p className="body-small text-error">{errors.password}</p>
-              )}
-              
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  loading={loading}
-                  disabled={loading || !currentPassword || !newPassword || !confirmPassword}
-                >
-                  Change Password
                 </Button>
               </div>
             </form>

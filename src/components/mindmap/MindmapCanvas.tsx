@@ -4,12 +4,12 @@
  */
 
 import { useNavigate } from 'react-router-dom'
-import { ZoomIn, ZoomOut, Maximize2, Expand, Shrink, Eye, EyeOff, Minus, Plus, Palette, Filter, Layout, Maximize, Minimize, RotateCcw } from 'lucide-react'
+import { ZoomIn, ZoomOut, Maximize2, Expand, Shrink, Eye, EyeOff, Minus, Plus, Palette, Filter, Maximize, Minimize, RotateCcw } from 'lucide-react'
 import { MindmapNode } from './MindmapNode'
 import { MindmapConnection } from './MindmapConnection'
 import { useMindmapInteraction } from './useMindmapInteraction'
 import type { MindmapData, MindmapNode as NodeType, MindmapDimensions } from './mindmap.types'
-import type { ColorMode, LayoutMode, FilterMode } from './MindmapView'
+import type { ColorMode, FilterMode } from './MindmapView'
 
 interface MindmapCanvasProps {
   data: MindmapData
@@ -33,8 +33,6 @@ interface MindmapCanvasProps {
   onLineScaleChange: (scale: number) => void
   colorMode: ColorMode
   onColorModeChange: (mode: ColorMode) => void
-  layoutMode: LayoutMode
-  onLayoutModeChange: (mode: LayoutMode) => void
   filterMode: FilterMode
   onFilterModeChange: (mode: FilterMode) => void
   isFullscreen: boolean
@@ -66,8 +64,6 @@ export function MindmapCanvas({
   onLineScaleChange,
   colorMode,
   onColorModeChange,
-  layoutMode,
-  onLayoutModeChange,
   filterMode,
   onFilterModeChange,
   isFullscreen,
@@ -608,65 +604,6 @@ export function MindmapCanvas({
             title="Color by mastery level"
           >
             Mastery
-          </button>
-        </div>
-
-        {/* Layout Mode */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '2px',
-            backgroundColor: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '2px'
-          }}
-        >
-          <button
-            onClick={() => onLayoutModeChange('radial')}
-            style={{
-              padding: '4px 8px',
-              fontSize: '10px',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              backgroundColor: layoutMode === 'radial' ? 'var(--color-primary)' : 'transparent',
-              color: layoutMode === 'radial' ? 'var(--color-secondary)' : 'var(--color-text-secondary)'
-            }}
-            title="Radial layout"
-          >
-            <Layout size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-            Radial
-          </button>
-          <button
-            onClick={() => onLayoutModeChange('horizontal')}
-            style={{
-              padding: '4px 8px',
-              fontSize: '10px',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              backgroundColor: layoutMode === 'horizontal' ? 'var(--color-primary)' : 'transparent',
-              color: layoutMode === 'horizontal' ? 'var(--color-secondary)' : 'var(--color-text-secondary)'
-            }}
-            title="Horizontal tree layout"
-          >
-            H-Tree
-          </button>
-          <button
-            onClick={() => onLayoutModeChange('vertical')}
-            style={{
-              padding: '4px 8px',
-              fontSize: '10px',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              backgroundColor: layoutMode === 'vertical' ? 'var(--color-primary)' : 'transparent',
-              color: layoutMode === 'vertical' ? 'var(--color-secondary)' : 'var(--color-text-secondary)'
-            }}
-            title="Vertical tree layout"
-          >
-            V-Tree
           </button>
         </div>
 

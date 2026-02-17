@@ -52,6 +52,7 @@ export function HomePage() {
     nextDueIn: null as string | null,
     newItemsCount: 0,
     lastStudiedAt: null as string | null,
+    reviewedToday: 0,
   })
 
   const loadStats = useCallback(async () => {
@@ -109,6 +110,7 @@ export function HomePage() {
             dueToday={stats.dueToday}
             upcoming={stats.upcoming}
             mastered={stats.mastered}
+            reviewedToday={stats.reviewedToday}
           />
         </div>
 

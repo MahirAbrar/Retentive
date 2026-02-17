@@ -176,7 +176,7 @@
 
 ## Mindmap View
 - Visual hierarchy: Center ("My Learning") → Subjects → Topics → Items
-- Radial tree layout (center hub with subjects radiating outward)
+- Radial layout (center hub with subjects radiating outward)
 - **Expand/collapse interactions**:
   - Click subjects to expand and show topics
   - Click topics to expand and show items (up to 8 items shown, "+N more" for overflow)
@@ -202,7 +202,6 @@
   - **Spacing slider** - Scale distance/spacing between nodes from 50% to 150%
   - **Reset controls button** - Resets node size and spacing to 100% (appears when modified)
   - **Color Mode toggle** - Switch between Subject colors (default) or Mastery-based colors (green=mastered, blue=good, orange=progress, red=needs work)
-  - **Layout Mode selector** - Choose between Radial (default), Horizontal Tree, or Vertical Tree layouts
   - **Filter selector** - Filter visible topics: All, Due (has due items), Mastered (fully mastered), New (has unreviewed items)
   - **Empty filter message** - Helpful message when filter returns no matching topics with "Show All" button
 - **Force-directed physics** (d3-force):
@@ -302,7 +301,7 @@
 # Part 4: Statistics & Analytics
 
 ## Home Dashboard
-- **Quick stats cards** (Overdue, Due Today, Upcoming, Mastered)
+- **Quick stats cards** (Overdue, Due Today, Upcoming, Mastered, Reviewed Today)
 - **Review status cards** (Next Review, New Items)
 - **Study progress cards** (Total Topics, Total Items, Streak)
 - **Last Studied banner** - Shows time since last study with "Study Now" CTA
@@ -316,27 +315,29 @@
 - Persisted to database per user
 
 ## Statistics Page
-- Date range selector (Last Week, Last Month, All Time)
-- Total reviews count
-- Current day streak with warning (<4 hours remaining)
-- Mastered items count
-- Average completion rate
+- **Day Streak card** - Always visible, independent of date range, with streak warning (<4 hours remaining)
+- **Performance card** - Date range selector (Week, Month, All Time) with Reviews, Mastered (in period), Avg/Day, Peak Day
 - Daily activity chart (7 days)
-- Learning velocity metrics (avg reviews/day, peak day)
-- Study patterns analysis (active topics, items per topic, retention rate)
-- Topic performance bar chart (top 5 topics)
 - Topic completion percentages
 
 ## Recent Activity Feed
 - Combined reviews + focus sessions
 - Session edit history with reasons
 - Edit/incomplete badges
-- Load more pagination
+- Fixed count selector (5, 10, 15 items)
 
 ## Timing Performance
-- Perfect timing count
-- On-time percentage
-- Early/late review tracking
+- Date range filter (Week, Month, Year, All Time)
+- **Overall summary**: on-time rate percentage, perfect/on-time/late counts, total reviews in period
+- **Per-topic cards** sorted by on-time rate (best to worst):
+  - Topic name, item count, review count
+  - On-time percentage with color-coded icon (trophy 90%+, check 75%+, chart 60%+, warning below)
+  - Progress bar
+  - Perfect/on-time/late breakdown with percentages
+  - "Items needing attention" badge when items fall below 60% on-time
+- **Expandable topic detail view** (lazy loaded):
+  - Item-level stats: Excellent/Good/Needs Work counts
+  - Per-item: review count, last review timing, on-time percentage
 
 ## Focus Adherence Stats
 - Total focus sessions
@@ -345,9 +346,11 @@
 - Best adherence
 
 ## Streak Calendar
+- Full-year calendar view with year navigation
 - Visual calendar showing study activity
 - Color-coded days based on activity level
 - Current streak highlight
+- Loaded independently of date range (always all-time data)
 
 ---
 
@@ -356,10 +359,6 @@
 ## Profile
 - Display name update
 - Email display (read-only)
-
-## Security
-- Password change (current + new + confirm)
-- Password reset via email
 
 ## Preferences
 - Theme toggle (Light/Dark mode)
@@ -371,7 +370,7 @@
 - Trial status display in settings
 - Premium tier (monthly/yearly via Stripe)
 - Subscription status display
-- Upgrade option with Stripe checkout
+- Upgrade/manage subscription links to https://www.retentive.site/dashboard
 - Cancel subscription option
 - Access guard redirects to paywall when trial/subscription expires
 

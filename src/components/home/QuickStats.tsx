@@ -1,3 +1,4 @@
+import React from 'react'
 import { Card, CardContent, Skeleton } from '../ui'
 
 interface QuickStatsProps {
@@ -6,6 +7,7 @@ interface QuickStatsProps {
   dueToday: number
   upcoming: number
   mastered: number
+  reviewedToday: number
 }
 
 const statItems = [
@@ -13,13 +15,14 @@ const statItems = [
   { key: 'dueToday', label: 'Due Today', color: 'var(--color-warning)' },
   { key: 'upcoming', label: 'Upcoming', color: 'var(--color-info)' },
   { key: 'mastered', label: 'Mastered', color: 'var(--color-success)' },
+  { key: 'reviewedToday', label: 'Reviewed Today', color: 'var(--color-accent)' },
 ] as const
 
-export function QuickStats({ loading, overdue, dueToday, upcoming, mastered }: QuickStatsProps) {
+export const QuickStats = React.memo(function QuickStats({ loading, overdue, dueToday, upcoming, mastered, reviewedToday }: QuickStatsProps) {
   if (loading) {
     return (
       <>
-        {[0, 1, 2, 3].map((i) => (
+        {Array.from({ length: statItems.length }, (_, i) => (
           <Card key={i}>
             <CardContent>
               <div style={{ textAlign: 'center' }}>
@@ -33,7 +36,7 @@ export function QuickStats({ loading, overdue, dueToday, upcoming, mastered }: Q
     )
   }
 
-  const values = { overdue, dueToday, upcoming, mastered }
+  const values = { overdue, dueToday, upcoming, mastered, reviewedToday }
 
   return (
     <>
@@ -49,4 +52,4 @@ export function QuickStats({ loading, overdue, dueToday, upcoming, mastered }: Q
       ))}
     </>
   )
-}
+})

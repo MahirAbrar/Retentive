@@ -48,21 +48,24 @@ class TimingStatsService {
   /**
    * Get overall timing summary (cached for performance)
    */
-  async getTimingSummary(userId: string): Promise<TimingSummary> {
-    const cacheKey = `timing-summary:${userId}`
+  async getTimingSummary(userId: string, days?: number): Promise<TimingSummary> {
+    const cacheKey = `timing-summary:${userId}:${days ?? 'all'}`
     const cached = cacheService.get<TimingSummary>(cacheKey)
     if (cached) return cached
 
     try {
-      // Get aggregated timing stats from last 30 days
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-      const { data, error } = await supabase
+      let query = supabase
         .from('review_sessions')
         .select('timing_bonus, points_earned')
         .eq('user_id', userId)
-        .gte('reviewed_at', thirtyDaysAgo.toISOString())
+
+      if (days) {
+        const startDate = new Date()
+        startDate.setDate(startDate.getDate() - days)
+        query = query.gte('reviewed_at', startDate.toISOString())
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
 
@@ -112,25 +115,29 @@ class TimingStatsService {
   /**
    * Get timing stats grouped by topic (optimized query)
    */
-  async getTopicTimingStats(userId: string): Promise<TopicTimingStats[]> {
-    const cacheKey = `timing-topics:${userId}`
+  async getTopicTimingStats(userId: string, days?: number): Promise<TopicTimingStats[]> {
+    const cacheKey = `timing-topics:${userId}:${days ?? 'all'}`
     const cached = cacheService.get<TopicTimingStats[]>(cacheKey)
     if (cached) return cached
 
     try {
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const startDate = new Date()
+      if (days) {
+        startDate.setDate(startDate.getDate() - days)
+      } else {
+        startDate.setFullYear(2020)
+      }
 
       // Single optimized query with aggregation at database level
       const { data, error } = await supabase
         .rpc('get_topic_timing_stats', {
           p_user_id: userId,
-          p_date_limit: thirtyDaysAgo.toISOString()
+          p_date_limit: startDate.toISOString()
         })
 
       if (error) {
         // Fallback to manual query if RPC doesn't exist
-        return this.getTopicTimingStatsFallback(userId)
+        return this.getTopicTimingStatsFallback(userId, days)
       }
 
       const stats: TopicTimingStats[] = (data || []).map((row: any) => ({
@@ -159,10 +166,14 @@ class TimingStatsService {
   /**
    * Fallback method if database function doesn't exist
    */
-  private async getTopicTimingStatsFallback(userId: string): Promise<TopicTimingStats[]> {
+  private async getTopicTimingStatsFallback(userId: string, days?: number): Promise<TopicTimingStats[]> {
     try {
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const startDate = new Date()
+      if (days) {
+        startDate.setDate(startDate.getDate() - days)
+      } else {
+        startDate.setFullYear(2020)
+      }
 
       // Get topics
       const { data: topics } = await supabase
@@ -184,7 +195,7 @@ class TimingStatsService {
           )
         `)
         .eq('user_id', userId)
-        .gte('reviewed_at', thirtyDaysAgo.toISOString())
+        .gte('reviewed_at', startDate.toISOString())
 
       // Process data
       const topicStatsMap = new Map<string, TopicTimingStats>()
@@ -340,8 +351,10 @@ class TimingStatsService {
    * Clear timing caches when new reviews happen
    */
   clearCaches(userId: string, topicId?: string) {
-    cacheService.delete(`timing-summary:${userId}`)
-    cacheService.delete(`timing-topics:${userId}`)
+    for (const range of [7, 30, 365, 'all']) {
+      cacheService.delete(`timing-summary:${userId}:${range}`)
+      cacheService.delete(`timing-topics:${userId}:${range}`)
+    }
     if (topicId) {
       cacheService.delete(`timing-detail:${topicId}`)
     }

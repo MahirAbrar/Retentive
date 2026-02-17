@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuthFixed'
 import { supabase } from '../services/supabase'
 import { getExtendedStats } from '../services/statsService'
 import { cacheService } from '../services/cacheService'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { BarChart3, Timer, Edit2, AlertTriangle, Award } from 'lucide-react'
 import { FocusAdherenceStats } from '../components/stats/FocusAdherenceStats'
 import { focusTimerService, getAdherenceColor, type FocusSession } from '../services/focusTimerService'
@@ -108,50 +108,21 @@ const DailyActivityChart = memo(function DailyActivityChart({ data }: { data: Da
   )
 })
 
-const TopicCompletionChart = memo(function TopicCompletionChart({ data }: { data: TopicStats[] }) {
-  return (
-  <ResponsiveContainer width="100%" height={200}>
-    <BarChart data={data.slice(0, 5)}>
-      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" />
-      <XAxis 
-        dataKey="topic_name" 
-        tick={{ fontSize: 12 }}
-        angle={-45}
-        textAnchor="end"
-        height={80}
-      />
-      <YAxis 
-        tick={{ fontSize: 12 }}
-        label={{ value: 'Completion %', angle: -90, position: 'insideLeft' }}
-      />
-      <Tooltip 
-        contentStyle={{ 
-          backgroundColor: 'var(--color-surface)', 
-          border: '1px solid var(--color-gray-200)',
-          borderRadius: 'var(--radius-sm)'
-        }}
-        formatter={(value: number) => `${Math.round(value)}%`}
-      />
-      <Bar dataKey="completion_rate" fill="var(--color-primary)" />
-    </BarChart>
-  </ResponsiveContainer>
-  )
-})
-
 export function StatsPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<any>(null)
   const [formattedSessions, setFormattedSessions] = useState<ReviewSession[]>([])
   const [combinedActivity, setCombinedActivity] = useState<ActivityItem[]>([])
-  const [visibleSessions, setVisibleSessions] = useState(10) // Pagination for recent activity
+  const [visibleSessions, setVisibleSessions] = useState(5) // Pagination for recent activity
   const [topicStats, setTopicStats] = useState<TopicStats[]>([])
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([])
+  const [masteredInPeriod, setMasteredInPeriod] = useState(0)
   const [dateRange, setDateRange] = useState('week')
   const [pendingDateRange, setPendingDateRange] = useState('week')
   const [_loading, setLoading] = useState(true)
   const [statsLoading, setStatsLoading] = useState(true)
   const [sessionsLoading, setSessionsLoading] = useState(true)
-  const [topicsLoading, setTopicsLoading] = useState(true)
+  const [, setTopicsLoading] = useState(true)
   const [streakWarning, setStreakWarning] = useState<{ show: boolean; hoursLeft: number }>({ show: false, hoursLeft: 0 })
   const [editingSession, setEditingSession] = useState<FocusSession | null>(null)
   const [subjectStats, setSubjectStats] = useState<SubjectWithStats[]>([])
@@ -159,50 +130,129 @@ export function StatsPage() {
   const [studyDates, setStudyDates] = useState<Set<string>>(new Set())
   const [adherenceDates, setAdherenceDates] = useState<Set<string>>(new Set())
 
+  // Load date-range-independent data once (streak, completion, topics, subjects)
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+
+    const loadIndependentData = async () => {
+      setStatsLoading(true)
+      setTopicsLoading(true)
+      setSubjectsLoading(true)
+      try {
+        const [extendedStats, topicsResult, itemsResult, subjectsResult] = await Promise.all([
+          getExtendedStats(user.id),
+          supabase.from('topics').select('id, name').eq('user_id', user.id),
+          supabase.from('learning_items').select('topic_id, review_count, ease_factor').eq('user_id', user.id),
+          subjectService.getSubjectsWithStats(user.id).catch(err => {
+            logger.error('Error fetching subject stats:', err)
+            return []
+          })
+        ])
+
+        if (cancelled) return
+
+        setStats(extendedStats)
+
+        // Streak warning
+        if (extendedStats.streakDays > 0 && extendedStats.reviewedToday === 0) {
+          const now = new Date()
+          const midnight = new Date(now)
+          midnight.setHours(24, 0, 0, 0)
+          const hoursLeft = Math.floor((midnight.getTime() - now.getTime()) / (1000 * 60 * 60))
+          if (hoursLeft <= 4) {
+            setStreakWarning({ show: true, hoursLeft })
+          }
+        }
+
+        // Process topic stats
+        const itemsByTopic = new Map<string, any[]>()
+        if (itemsResult.data) {
+          for (const item of itemsResult.data) {
+            if (!itemsByTopic.has(item.topic_id)) {
+              itemsByTopic.set(item.topic_id, [])
+            }
+            itemsByTopic.get(item.topic_id)!.push(item)
+          }
+        }
+
+        const topicStatsData = (topicsResult.data || []).map(topic => {
+          const items = itemsByTopic.get(topic.id) || []
+          const reviewedItems = items.filter((item: any) => item.review_count > 0)
+          const avgEase = reviewedItems.length > 0
+            ? reviewedItems.reduce((sum: number, item: any) => sum + item.ease_factor, 0) / reviewedItems.length
+            : 2.5
+          return {
+            topic_id: topic.id,
+            topic_name: topic.name,
+            total_items: items.length,
+            reviewed_items: reviewedItems.length,
+            average_ease: avgEase,
+            completion_rate: items.length > 0 ? (reviewedItems.length / items.length) * 100 : 0
+          }
+        })
+
+        setTopicStats(topicStatsData)
+        setSubjectStats(subjectsResult || [])
+      } catch (error) {
+        logger.error('Error loading independent stats:', error)
+      } finally {
+        if (!cancelled) {
+          setStatsLoading(false)
+          setTopicsLoading(false)
+          setSubjectsLoading(false)
+        }
+      }
+    }
+
+    loadIndependentData()
+    return () => { cancelled = true }
+  }, [user])
+
+  // Load date-range-dependent data (sessions, activity)
   const loadStats = useCallback(async () => {
     if (!user) return
-    
-    // Check cache first for instant loading
+
     const cacheKey = `stats-page:${user.id}:${dateRange}`
     const cached = cacheService.get<{
       sessions: ReviewSession[]
-      topicStats: TopicStats[]
       dailyActivity: DailyActivity[]
+      masteredInPeriod: number
     }>(cacheKey)
-    
+
     if (cached) {
       setFormattedSessions(cached.sessions)
-      setTopicStats(cached.topicStats)
       setDailyActivity(cached.dailyActivity)
+      setMasteredInPeriod(cached.masteredInPeriod)
       setSessionsLoading(false)
-      setTopicsLoading(false)
     }
-    
-    // Set individual loading states
-    setStatsLoading(true)
+
     if (!cached) {
       setSessionsLoading(true)
-      setTopicsLoading(true)
     }
     setLoading(true)
-    
+
     try {
-      // Calculate date range once
       const startDate = new Date()
       if (dateRange === 'week') {
         startDate.setDate(startDate.getDate() - 7)
       } else if (dateRange === 'month') {
         startDate.setMonth(startDate.getMonth() - 1)
       } else if (dateRange === 'all') {
-        startDate.setFullYear(2020) // Far back enough
+        startDate.setFullYear(2020)
       }
-      
-      // Run all independent queries in parallel for better performance
-      const [extendedStats, sessionsResult, focusSessionsResult, topicsResult, itemsResult, subjectsResult] = await Promise.all([
-        // Get extended stats
-        getExtendedStats(user.id),
 
-        // Get recent review sessions with joined data in single query
+      // Build mastered query based on date range (includes archived topics, review_count >= 5)
+      const masteredQuery = supabase
+        .from('learning_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('review_count', 5)
+      if (dateRange !== 'all') {
+        masteredQuery.gte('mastery_date', startDate.toISOString())
+      }
+
+      const [sessionsResult, focusSessionsResult, masteredResult] = await Promise.all([
         supabase
           .from('review_sessions')
           .select(`
@@ -221,38 +271,19 @@ export function StatsPage() {
           .eq('user_id', user.id)
           .gte('reviewed_at', startDate.toISOString())
           .order('reviewed_at', { ascending: false })
-          .limit(100), // Increased limit but still bounded
+          .limit(100),
 
-        // Get recent focus sessions
         focusTimerService.getUserSessions(user.id, 50).catch(err => {
           logger.error('Error fetching focus sessions:', err)
           return []
         }),
 
-        // Get topics for stats
-        supabase
-          .from('topics')
-          .select('id, name')
-          .eq('user_id', user.id),
-
-        // Get all items with stats
-        supabase
-          .from('learning_items')
-          .select('topic_id, review_count, ease_factor')
-          .eq('user_id', user.id),
-
-        // Get subject stats
-        subjectService.getSubjectsWithStats(user.id).catch(err => {
-          logger.error('Error fetching subject stats:', err)
-          return []
-        })
+        masteredQuery,
       ])
-      
-      // Set extended stats immediately for fast initial render
-      setStats(extendedStats)
-      setStatsLoading(false) // Stats cards can show now
-      
-      // Process sessions data (already joined with items and topics)
+
+      setMasteredInPeriod(masteredResult.count || 0)
+
+      // Process sessions
       let formattedSessionsData: ReviewSession[] = []
       if (!sessionsResult.error && sessionsResult.data) {
         formattedSessionsData = sessionsResult.data.map((session: any) => ({
@@ -269,7 +300,7 @@ export function StatsPage() {
       } else if (sessionsResult.error) {
         logger.error('Error fetching review sessions:', sessionsResult.error)
       }
-      
+
       setFormattedSessions(formattedSessionsData)
 
       // Process focus sessions
@@ -291,7 +322,7 @@ export function StatsPage() {
           points_penalty: session.points_penalty,
         }))
 
-      // Combine review sessions and focus sessions
+      // Combine and sort
       const reviewActivities: ReviewSessionDisplay[] = formattedSessionsData.map(s => ({
         ...s,
         type: 'review' as const
@@ -301,49 +332,27 @@ export function StatsPage() {
         .sort((a, b) => {
           const dateA = a.type === 'review' ? new Date(a.reviewed_at) : new Date(a.created_at)
           const dateB = b.type === 'review' ? new Date(b.reviewed_at) : new Date(b.created_at)
-          return dateB.getTime() - dateA.getTime() // Descending order
+          return dateB.getTime() - dateA.getTime()
         })
 
       setCombinedActivity(allActivity)
-      setSessionsLoading(false) // Sessions section can show now
+      setSessionsLoading(false)
 
-      // Extract dates for streak calendars (using all-time data for calendar visualization)
-      const studyDateSet = new Set<string>()
-      formattedSessionsData.forEach(session => {
-        const date = new Date(session.reviewed_at)
-        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-        studyDateSet.add(dateStr)
-      })
-      setStudyDates(studyDateSet)
-
-      // Extract dates with 100% adherence focus sessions
-      const adherenceDateSet = new Set<string>()
-      focusSessionsData.forEach(session => {
-        if (session.adherence_percentage >= 100) {
-          const date = new Date(session.created_at)
-          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-          adherenceDateSet.add(dateStr)
-        }
-      })
-      setAdherenceDates(adherenceDateSet)
-
-      // Process daily activity data more efficiently
+      // Daily activity chart
       const activityMap = new Map<string, number>()
-      const daysToShow = 7 // Always show 7 days in chart
-      const daysToProcess = dateRange === 'week' ? 7 : dateRange === 'month' ? 30 : Math.min(formattedSessionsData.length, 90) // Limit processing
-      
-      // Initialize only needed days
+      const daysToShow = 7
+      const daysToProcess = dateRange === 'week' ? 7 : dateRange === 'month' ? 30 : Math.min(formattedSessionsData.length, 90)
+
       for (let i = 0; i < daysToShow; i++) {
         const date = new Date()
         date.setDate(date.getDate() - i)
         const dateStr = date.toISOString().split('T')[0]
         activityMap.set(dateStr, 0)
       }
-      
-      // Count reviews per day (only process what we need)
+
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - daysToProcess)
-      
+
       formattedSessionsData
         .filter(session => new Date(session.reviewed_at) >= cutoffDate)
         .forEach(session => {
@@ -352,93 +361,23 @@ export function StatsPage() {
             activityMap.set(dateStr, (activityMap.get(dateStr) || 0) + 1)
           }
         })
-      
-      // Convert to array and sort by date
+
       const activityData = Array.from(activityMap.entries())
         .map(([date, reviews]) => ({ date, reviews }))
         .sort((a, b) => a.date.localeCompare(b.date))
-      
-      setDailyActivity(activityData)
-      
-      // Check if streak is about to end
-      if (extendedStats.streakDays > 0) {
-        // Get today's sessions to check if user has reviewed today
-        const today = new Date()
-        const todayStr = today.toDateString()
-        const todayReviews = formattedSessionsData.filter(s => 
-          new Date(s.reviewed_at).toDateString() === todayStr
-        )
-        
-        // If no reviews today, check how much time is left
-        if (todayReviews.length === 0) {
-          // Calculate hours until midnight (when streak ends)
-          const midnight = new Date(today)
-          midnight.setHours(24, 0, 0, 0)
-          const hoursUntilMidnight = Math.floor((midnight.getTime() - today.getTime()) / (1000 * 60 * 60))
-          
-          if (hoursUntilMidnight <= 4) {
-            setStreakWarning({ show: true, hoursLeft: hoursUntilMidnight })
-          } else {
-            setStreakWarning({ show: false, hoursLeft: 0 })
-          }
-        } else {
-          setStreakWarning({ show: false, hoursLeft: 0 })
-        }
-      }
-      
-      // Process topic stats using already fetched data
-      const itemsByTopic = new Map<string, any[]>()
-      if (itemsResult.data) {
-        for (const item of itemsResult.data) {
-          if (!itemsByTopic.has(item.topic_id)) {
-            itemsByTopic.set(item.topic_id, [])
-          }
-          const topicItems = itemsByTopic.get(item.topic_id)
-          if (topicItems) {
-            topicItems.push(item)
-          }
-        }
-      }
-      
-      const topicStatsData = (topicsResult.data || []).map(topic => {
-        const items = itemsByTopic.get(topic.id) || []
-        const reviewedItems = items.filter((item: any) => item.review_count > 0)
-        const avgEase = reviewedItems.length > 0
-          ? reviewedItems.reduce((sum: number, item: any) => sum + item.ease_factor, 0) / reviewedItems.length
-          : 2.5
-        
-        return {
-          topic_id: topic.id,
-          topic_name: topic.name,
-          total_items: items.length,
-          reviewed_items: reviewedItems.length,
-          average_ease: avgEase,
-          completion_rate: items.length > 0 ? (reviewedItems.length / items.length) * 100 : 0
-        }
-      })
-      
-      setTopicStats(topicStatsData)
-      setTopicsLoading(false) // Topic stats can show now
 
-      // Set subject stats
-      setSubjectStats(subjectsResult || [])
-      setSubjectsLoading(false)
-      
-      // Cache the processed data for 2 minutes
+      setDailyActivity(activityData)
+
       cacheService.set(cacheKey, {
         sessions: formattedSessionsData,
-        topicStats: topicStatsData,
-        dailyActivity: activityData
+        dailyActivity: activityData,
+        masteredInPeriod: masteredResult.count || 0
       }, 2 * 60 * 1000)
     } catch (error) {
       logger.error('Error loading stats:', error)
     } finally {
       setLoading(false)
-      // Ensure all loading states are off
-      setStatsLoading(false)
       setSessionsLoading(false)
-      setTopicsLoading(false)
-      setSubjectsLoading(false)
     }
   }, [user, dateRange])
 
@@ -450,6 +389,51 @@ export function StatsPage() {
     // It already depends on user and dateRange, including it causes infinite loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, dateRange])
+
+  // Load streak calendar data independently of date range (always all-time)
+  useEffect(() => {
+    if (!user) return
+
+    const loadCalendarData = async () => {
+      try {
+        const [sessionsResult, focusSessionsResult] = await Promise.all([
+          supabase
+            .from('review_sessions')
+            .select('reviewed_at')
+            .eq('user_id', user.id)
+            .order('reviewed_at', { ascending: false })
+            .limit(2000),
+          focusTimerService.getUserSessions(user.id, 200).catch(() => [])
+        ])
+
+        // Extract study dates
+        const studyDateSet = new Set<string>()
+        if (sessionsResult.data) {
+          sessionsResult.data.forEach(session => {
+            const date = new Date(session.reviewed_at)
+            const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+            studyDateSet.add(dateStr)
+          })
+        }
+        setStudyDates(studyDateSet)
+
+        // Extract dates with 100% adherence focus sessions
+        const adherenceDateSet = new Set<string>()
+        ;(focusSessionsResult || []).forEach(session => {
+          if ((session.adherence_percentage || 0) >= 100) {
+            const date = new Date(session.created_at)
+            const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+            adherenceDateSet.add(dateStr)
+          }
+        })
+        setAdherenceDates(adherenceDateSet)
+      } catch (error) {
+        logger.error('Error loading calendar data:', error)
+      }
+    }
+
+    loadCalendarData()
+  }, [user])
 
   // Debounce date range changes
   useEffect(() => {
@@ -525,12 +509,6 @@ export function StatsPage() {
   }, [])
 
   // Memoized calculations
-  const avgCompletion = useMemo(() => 
-    topicStats.length > 0 
-      ? Math.round(topicStats.reduce((sum, t) => sum + t.completion_rate, 0) / topicStats.length)
-      : 0
-  , [topicStats])
-
   const avgReviewsPerDay = useMemo(() => 
     dailyActivity.length > 0 && dailyActivity.some(d => d.reviews > 0)
       ? (dailyActivity.reduce((sum, d) => sum + d.reviews, 0) / dailyActivity.filter(d => d.reviews > 0).length).toFixed(1)
@@ -543,11 +521,7 @@ export function StatsPage() {
       : 0
   , [dailyActivity])
 
-  const avgItemsPerTopic = useMemo(() => 
-    topicStats.length > 0 
-      ? Math.round(topicStats.reduce((sum, t) => sum + t.total_items, 0) / topicStats.length)
-      : 0
-  , [topicStats])
+
 
   // Show content progressively as it loads
   return (
@@ -559,62 +533,71 @@ export function StatsPage() {
         </p>
       </header>
 
-      {/* Date Range Selector */}
-      <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            onClick={() => setPendingDateRange('week')}
-            style={{
-              padding: '0.5rem 1rem',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: pendingDateRange === 'week' ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: pendingDateRange === 'week' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              fontWeight: pendingDateRange === 'week' ? '600' : '400'
-            }}
-          >
-            Last Week
-          </button>
-          <button
-            onClick={() => setPendingDateRange('month')}
-            style={{
-              padding: '0.5rem 1rem',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: pendingDateRange === 'month' ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: pendingDateRange === 'month' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              fontWeight: pendingDateRange === 'month' ? '600' : '400'
-            }}
-          >
-            Last Month
-          </button>
-          <button
-            onClick={() => setPendingDateRange('all')}
-            style={{
-              padding: '0.5rem 1rem',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: pendingDateRange === 'all' ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: pendingDateRange === 'all' ? 'var(--color-secondary)' : 'var(--color-text-primary)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              fontWeight: pendingDateRange === 'all' ? '600' : '400'
-            }}
-          >
-            All Time
-          </button>
-        </div>
-      </div>
-
       <div style={{ display: 'grid', gap: '2rem' }}>
-        {/* Summary Stats - Show immediately with skeleton if loading */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-          <Card>
-            <CardContent>
+        {/* Independent Stats - not affected by date range */}
+        <Card>
+          <CardContent>
+            <div style={{ textAlign: 'center', position: 'relative' }}>
+              {statsLoading ? (
+                <>
+                  <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                  <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
+                </>
+              ) : (
+                <>
+                  <p className="h2">{stats?.streakDays || 0}</p>
+                  <p className="body-small text-secondary">Day Streak</p>
+                </>
+              )}
+              {streakWarning.show && (
+                <div style={{
+                  position: 'absolute',
+                  top: '-10px',
+                  right: '-10px',
+                  backgroundColor: 'var(--color-warning)',
+                  color: 'white',
+                  borderRadius: 'var(--radius-full)',
+                  padding: '0.25rem 0.5rem',
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}>
+                  {streakWarning.hoursLeft}h left!
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Period Stats - Reviews & Mastered with date range selector */}
+        <Card variant="bordered">
+          <CardHeader>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 className="h4">Performance</h3>
+              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                {([['week', 'Week'], ['month', 'Month'], ['all', 'All Time']] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setPendingDateRange(value)}
+                    style={{
+                      padding: '0.25rem 0.75rem',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: pendingDateRange === value ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: pendingDateRange === value ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: pendingDateRange === value ? '600' : '400',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
               <div style={{ textAlign: 'center' }}>
                 {sessionsLoading ? (
                   <>
@@ -624,60 +607,23 @@ export function StatsPage() {
                 ) : (
                   <>
                     <p className="h2">{formattedSessions.length}</p>
-                    <p className="body-small text-secondary">Reviews ({dateRange})</p>
+                    <p className="body-small text-secondary">Reviews</p>
                   </>
                 )}
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
               <div style={{ textAlign: 'center', position: 'relative' }}>
-                {statsLoading ? (
+                {sessionsLoading ? (
                   <>
                     <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
                     <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
                   </>
                 ) : (
                   <>
-                    <p className="h2">{stats?.streakDays || 0}</p>
-                    <p className="body-small text-secondary">Day Streak</p>
-                  </>
-                )}
-                {streakWarning.show && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '-10px',
-                    right: '-10px',
-                    backgroundColor: 'var(--color-warning)',
-                    color: 'white',
-                    borderRadius: 'var(--radius-full)',
-                    padding: '0.25rem 0.5rem',
-                    fontSize: 'var(--text-xs)',
-                    fontWeight: '600',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                  }}>
-                    {streakWarning.hoursLeft}h left!
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
-              <div style={{ textAlign: 'center', position: 'relative' }}>
-                {statsLoading ? (
-                  <>
-                    <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
-                    <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
-                  </>
-                ) : (
-                  <>
-                    <p className="h2">{stats?.mastered || 0}</p>
+                    <p className="h2">{masteredInPeriod}</p>
                     <p className="body-small text-secondary">Mastered</p>
                   </>
                 )}
-                <div 
+                <div
                   style={{
                     position: 'absolute',
                     top: '0',
@@ -699,26 +645,35 @@ export function StatsPage() {
                   i
                 </div>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
               <div style={{ textAlign: 'center' }}>
-                {topicsLoading ? (
+                {sessionsLoading ? (
                   <>
                     <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
                     <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
                   </>
                 ) : (
                   <>
-                    <p className="h2">{avgCompletion}%</p>
-                    <p className="body-small text-secondary">Avg Completion</p>
+                    <p className="h2">{avgReviewsPerDay}</p>
+                    <p className="body-small text-secondary">Avg/Day</p>
                   </>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div style={{ textAlign: 'center' }}>
+                {sessionsLoading ? (
+                  <>
+                    <div style={{ height: '2.5rem', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', marginBottom: '0.5rem' }} />
+                    <div style={{ height: '1rem', width: '80px', backgroundColor: 'var(--color-gray-100)', borderRadius: '4px', margin: '0 auto' }} />
+                  </>
+                ) : (
+                  <>
+                    <p className="h2">{peakDayReviews}</p>
+                    <p className="body-small text-secondary">Peak Day</p>
+                  </>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Streak Calendars */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
@@ -728,7 +683,6 @@ export function StatsPage() {
                 title="Study Streak"
                 activeDates={studyDates}
                 colorActive="var(--color-success)"
-                weeksToShow={12}
               />
             </CardContent>
           </Card>
@@ -738,7 +692,6 @@ export function StatsPage() {
                 title="Perfect Adherence"
                 activeDates={adherenceDates}
                 colorActive="var(--color-primary)"
-                weeksToShow={12}
               />
             </CardContent>
           </Card>
@@ -760,58 +713,6 @@ export function StatsPage() {
             </CardContent>
           </Card>
 
-          {/* Additional Stats Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
-            {/* Learning Velocity */}
-            <Card variant="bordered">
-              <CardHeader>
-                <h3 className="h4">Learning Velocity</h3>
-              </CardHeader>
-              <CardContent>
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="body">Avg Reviews/Day</span>
-                    <span className="h4">{avgReviewsPerDay}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="body">This {dateRange === 'week' ? 'Week' : dateRange === 'month' ? 'Month' : 'Period'}</span>
-                    <span className="h4">{formattedSessions.length}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="body">Peak Day</span>
-                    <span className="h4">{peakDayReviews} reviews</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Study Time Distribution */}
-            <Card variant="bordered">
-              <CardHeader>
-                <h3 className="h4">Study Patterns</h3>
-              </CardHeader>
-              <CardContent>
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="body">Active Topics</span>
-                    <span className="h4">{topicStats.filter(t => t.reviewed_items > 0).length}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="body">Items/Topic</span>
-                    <span className="h4">{avgItemsPerTopic}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="body">Retention Rate</span>
-                    <span className="h4" style={{ color: 'var(--color-success)' }}>
-                      {stats?.mastered && stats?.totalItems 
-                        ? Math.round((stats.mastered / stats.totalItems) * 100)
-                        : 0}%
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         {/* Subject Performance */}
@@ -915,13 +816,7 @@ export function StatsPage() {
             {topicStats.length === 0 ? (
               <p className="body text-secondary">No topics yet</p>
             ) : (
-              <>
-                {/* Bar Chart for Topic Completion */}
-                <div style={{ marginBottom: '2rem' }}>
-                  <TopicCompletionChart data={topicStats} />
-                </div>
-                
-                <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gap: '1rem' }}>
                 {topicStats.map(topic => (
                   <div 
                     key={topic.topic_id}
@@ -959,7 +854,6 @@ export function StatsPage() {
                   </div>
                 ))}
                 </div>
-              </>
             )}
           </CardContent>
         </Card>
@@ -967,7 +861,29 @@ export function StatsPage() {
         {/* Recent Activity */}
         <Card variant="bordered">
           <CardHeader>
-            <h3 className="h4">Recent Activity</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="h4">Recent Activity</h3>
+              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                {[5, 10, 15].map(count => (
+                  <button
+                    key={count}
+                    onClick={() => setVisibleSessions(count)}
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: visibleSessions === count ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: visibleSessions === count ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: visibleSessions === count ? '600' : '400',
+                    }}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {combinedActivity.length === 0 ? (
@@ -1118,21 +1034,6 @@ export function StatsPage() {
                     )
                   }
                 })}
-                {combinedActivity.length > visibleSessions && (
-                  <button
-                    onClick={() => setVisibleSessions(prev => Math.min(prev + 10, combinedActivity.length))}
-                    style={{
-                      padding: '0.5rem',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-sm)',
-                      backgroundColor: 'var(--color-surface)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    Show More ({combinedActivity.length - visibleSessions} remaining)
-                  </button>
-                )}
               </div>
             )}
           </CardContent>

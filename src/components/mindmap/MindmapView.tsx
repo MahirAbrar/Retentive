@@ -27,7 +27,6 @@ interface MindmapViewProps {
 }
 
 export type ColorMode = 'subject' | 'mastery'
-export type LayoutMode = 'radial' | 'horizontal' | 'vertical'
 export type FilterMode = 'all' | 'due' | 'mastered' | 'new'
 
 export function MindmapView({ subjects, topics }: MindmapViewProps) {
@@ -39,7 +38,6 @@ export function MindmapView({ subjects, topics }: MindmapViewProps) {
   const [nodeScale, setNodeScale] = useState(1) // Range: 0.6 to 1.4
   const [lineScale, setLineScale] = useState(1) // Range: 0.5 to 1.5
   const [colorMode, setColorMode] = useState<ColorMode>('subject')
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>('radial')
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -198,8 +196,7 @@ export function MindmapView({ subjects, topics }: MindmapViewProps) {
     topicNodes,
     expandedSubjects,
     expandedTopics,
-    dimensions,
-    layoutMode
+    dimensions
   )
 
   // Apply force simulation for physics-based positioning
@@ -317,8 +314,6 @@ export function MindmapView({ subjects, topics }: MindmapViewProps) {
         onLineScaleChange={setLineScale}
         colorMode={colorMode}
         onColorModeChange={setColorMode}
-        layoutMode={layoutMode}
-        onLayoutModeChange={setLayoutMode}
         filterMode={filterMode}
         onFilterModeChange={setFilterMode}
         isFullscreen={isFullscreen}

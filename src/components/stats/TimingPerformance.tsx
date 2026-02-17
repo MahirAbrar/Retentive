@@ -138,8 +138,16 @@ const TopicTimingCard = memo(function TopicTimingCard({
   )
 })
 
+const dateRangeOptions = [
+  { value: 'week', label: 'Week', days: 7 },
+  { value: 'month', label: 'Month', days: 30 },
+  { value: 'year', label: 'Year', days: 365 },
+  { value: 'all', label: 'All Time', days: undefined },
+] as const
+
 export function TimingPerformance() {
   const { user } = useAuth()
+  const [dateRange, setDateRange] = useState<string>('month')
   const [summary, setSummary] = useState({
     totalReviews: 0,
     perfectCount: 0,
@@ -152,41 +160,33 @@ export function TimingPerformance() {
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [topicsLoading, setTopicsLoading] = useState(true)
 
-  // Load summary immediately (cached)
+  const selectedDays = dateRangeOptions.find(o => o.value === dateRange)?.days
+
+  // Load summary and topics when date range changes
   useEffect(() => {
     if (!user) return
 
-    const loadSummary = async () => {
+    setSummaryLoading(true)
+    setTopicsLoading(true)
+
+    const loadData = async () => {
       try {
-        const data = await timingStatsService.getTimingSummary(user.id)
-        setSummary(data)
+        const [summaryData, topicsData] = await Promise.all([
+          timingStatsService.getTimingSummary(user.id, selectedDays),
+          timingStatsService.getTopicTimingStats(user.id, selectedDays),
+        ])
+        setSummary(summaryData)
+        setTopics(topicsData)
       } catch (error) {
-        logger.error('Error loading timing summary:', error)
+        logger.error('Error loading timing stats:', error)
       } finally {
         setSummaryLoading(false)
-      }
-    }
-
-    loadSummary()
-  }, [user])
-
-  // Load topic list after summary
-  useEffect(() => {
-    if (!user) return
-
-    const loadTopics = async () => {
-      try {
-        const data = await timingStatsService.getTopicTimingStats(user.id)
-        setTopics(data)
-      } catch (error) {
-        logger.error('Error loading topic timing stats:', error)
-      } finally {
         setTopicsLoading(false)
       }
     }
 
-    loadTopics()
-  }, [user])
+    loadData()
+  }, [user, selectedDays])
 
   const toggleTopic = useCallback((topicId: string) => {
     setExpandedTopics(prev => {
@@ -214,9 +214,31 @@ export function TimingPerformance() {
       {/* Section Header */}
       <Card variant="bordered">
         <CardHeader>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <BarChart3 size={20} />
-            <h3 className="h4">Timing Performance</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <BarChart3 size={20} />
+              <h3 className="h4">Timing Performance</h3>
+            </div>
+            <div style={{ display: 'flex', gap: '0.25rem' }}>
+              {dateRangeOptions.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setDateRange(value)}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: dateRange === value ? 'var(--color-primary)' : 'var(--color-surface)',
+                    color: dateRange === value ? 'var(--color-secondary)' : 'var(--color-text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: dateRange === value ? '600' : '400',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -259,7 +281,7 @@ export function TimingPerformance() {
                 </div>
               </div>
               <p className="body-small text-secondary" style={{ marginTop: '1rem' }}>
-                Based on {summary.totalReviews} reviews in the last 30 days
+                Based on {summary.totalReviews} reviews{selectedDays ? ` in the last ${selectedDays === 7 ? 'week' : selectedDays === 30 ? 'month' : 'year'}` : ''}
               </p>
             </div>
           )}

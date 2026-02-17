@@ -1,11 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 interface StreakCalendarProps {
   title: string
   activeDates: Set<string> // Set of date strings in 'YYYY-MM-DD' format
   colorActive?: string
   colorInactive?: string
-  weeksToShow?: number
 }
 
 export function StreakCalendar({
@@ -13,23 +12,31 @@ export function StreakCalendar({
   activeDates,
   colorActive = 'var(--color-success)',
   colorInactive = 'var(--color-gray-100)',
-  weeksToShow = 12
 }: StreakCalendarProps) {
+  const currentYear = new Date().getFullYear()
+  const [selectedYear, setSelectedYear] = useState(currentYear)
+
   const calendarData = useMemo(() => {
     const today = new Date()
     const data: { date: Date; dateStr: string; isActive: boolean }[][] = []
 
-    // Start from weeksToShow weeks ago, aligned to Sunday
-    const startDate = new Date(today)
-    startDate.setDate(startDate.getDate() - (weeksToShow * 7) + (7 - today.getDay()))
+    // Show full year: Jan 1 to Dec 31 of selected year
+    const yearStart = new Date(selectedYear, 0, 1)
+    // Align to the Sunday on or before Jan 1
+    const startDate = new Date(yearStart)
+    startDate.setDate(startDate.getDate() - startDate.getDay())
+
+    const yearEnd = new Date(selectedYear, 11, 31)
+    // Align to the Saturday on or after Dec 31
+    const endDate = new Date(yearEnd)
+    endDate.setDate(endDate.getDate() + (6 - endDate.getDay()))
 
     // Build weeks array
-    for (let week = 0; week < weeksToShow; week++) {
+    const current = new Date(startDate)
+    while (current <= endDate) {
       const weekData: { date: Date; dateStr: string; isActive: boolean }[] = []
       for (let day = 0; day < 7; day++) {
-        const currentDate = new Date(startDate)
-        currentDate.setDate(startDate.getDate() + (week * 7) + day)
-
+        const currentDate = new Date(current)
         const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
 
         weekData.push({
@@ -37,12 +44,13 @@ export function StreakCalendar({
           dateStr,
           isActive: activeDates.has(dateStr) && currentDate <= today
         })
+        current.setDate(current.getDate() + 1)
       }
       data.push(weekData)
     }
 
     return data
-  }, [activeDates, weeksToShow])
+  }, [activeDates, selectedYear])
 
   // Calculate current streak
   const currentStreak = useMemo(() => {
@@ -90,21 +98,65 @@ export function StreakCalendar({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.25rem' }}>
+      {/* Year Navigation */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.75rem',
+        marginBottom: '0.75rem'
+      }}>
+        <button
+          onClick={() => setSelectedYear(y => y - 1)}
+          style={{
+            background: 'none',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-sm)',
+            cursor: 'pointer',
+            padding: '0.25rem 0.5rem',
+            color: 'var(--color-text-primary)',
+            fontSize: '0.75rem',
+          }}
+        >
+          &larr;
+        </button>
+        <span className="body-small" style={{ fontWeight: '600', minWidth: '3rem', textAlign: 'center' }}>
+          {selectedYear}
+        </span>
+        <button
+          onClick={() => setSelectedYear(y => y + 1)}
+          disabled={selectedYear >= currentYear}
+          style={{
+            background: 'none',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-sm)',
+            cursor: selectedYear >= currentYear ? 'not-allowed' : 'pointer',
+            padding: '0.25rem 0.5rem',
+            color: 'var(--color-text-primary)',
+            fontSize: '0.75rem',
+            opacity: selectedYear >= currentYear ? 0.3 : 1,
+          }}
+        >
+          &rarr;
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '2px' }}>
         {/* Day labels */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '2px',
-          marginRight: '0.25rem'
+          gap: '1px',
+          marginRight: '2px',
+          flexShrink: 0,
         }}>
           {dayLabels.map((label, i) => (
             <div
               key={i}
               style={{
                 width: '12px',
-                height: '12px',
-                fontSize: '9px',
+                height: '10px',
+                fontSize: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -119,11 +171,11 @@ export function StreakCalendar({
         {/* Calendar grid */}
         <div style={{
           display: 'flex',
-          gap: '2px',
-          overflow: 'auto'
+          gap: '1px',
+          flex: 1,
         }}>
           {calendarData.map((week, weekIndex) => (
-            <div key={weekIndex} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div key={weekIndex} style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: 1 }}>
               {week.map((day, dayIndex) => {
                 const isToday = day.dateStr === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
                 const isFuture = day.date > new Date()
@@ -133,17 +185,18 @@ export function StreakCalendar({
                     key={dayIndex}
                     title={`${day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${day.isActive ? ' ✓' : ''}`}
                     style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '2px',
+                      width: '100%',
+                      aspectRatio: '1',
+                      borderRadius: '1px',
                       backgroundColor: isFuture
                         ? 'transparent'
                         : day.isActive
                           ? colorActive
                           : colorInactive,
-                      border: isToday ? `2px solid var(--color-primary)` : 'none',
+                      border: isToday ? `1px solid var(--color-primary)` : 'none',
                       boxSizing: 'border-box',
-                      cursor: 'default'
+                      cursor: 'default',
+                      maxHeight: '10px',
                     }}
                   />
                 )

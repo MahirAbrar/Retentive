@@ -12,7 +12,6 @@ import type {
   SubjectNodeData,
   TopicNodeData
 } from './mindmap.types'
-import type { LayoutMode } from './MindmapView'
 
 interface LayoutConfig {
   subjectRadius: number
@@ -31,17 +30,15 @@ export function useMindmapLayout(
   topics: TopicNodeData[],
   expandedSubjects: Set<string>,
   expandedTopics: Set<string>,
-  dimensions: MindmapDimensions,
-  layoutMode: LayoutMode = 'radial'
+  dimensions: MindmapDimensions
 ): MindmapData {
   return useMemo(() => {
-    const { centerX, centerY, width, height } = dimensions
+    const { centerX, centerY } = dimensions
     const nodes: MindmapNode[] = []
     const connections: MindmapConnection[] = []
 
-    // Center node position depends on layout
-    const centerNodeX = layoutMode === 'horizontal' ? 80 : layoutMode === 'vertical' ? centerX : centerX
-    const centerNodeY = layoutMode === 'vertical' ? 60 : centerY
+    const centerNodeX = centerX
+    const centerNodeY = centerY
 
     // Center node
     const centerNode: MindmapNode = {
@@ -69,36 +66,14 @@ export function useMindmapLayout(
     const unassignedTopics = topics.filter(t => !t.subjectId)
     const totalSubjects = subjectCount + (unassignedTopics.length > 0 ? 1 : 0)
 
-    // Layout-specific calculations
     const getSubjectPosition = (index: number) => {
-      if (layoutMode === 'horizontal') {
-        // Horizontal tree: subjects spread vertically on the right of center
-        const spacing = Math.min(80, (height - 100) / Math.max(totalSubjects, 1))
-        const startY = centerNodeY - ((totalSubjects - 1) * spacing) / 2
-        return {
-          x: centerNodeX + 150,
-          y: startY + index * spacing,
-          angle: 0
-        }
-      } else if (layoutMode === 'vertical') {
-        // Vertical tree: subjects spread horizontally below center
-        const spacing = Math.min(120, (width - 100) / Math.max(totalSubjects, 1))
-        const startX = centerNodeX - ((totalSubjects - 1) * spacing) / 2
-        return {
-          x: startX + index * spacing,
-          y: centerNodeY + 120,
-          angle: Math.PI / 2
-        }
-      } else {
-        // Radial layout (default)
-        const angleStep = totalSubjects > 0 ? (2 * Math.PI) / totalSubjects : 0
-        const startAngle = -Math.PI / 2
-        const angle = startAngle + index * angleStep
-        return {
-          x: centerX + subjectRadius * Math.cos(angle),
-          y: centerY + subjectRadius * Math.sin(angle),
-          angle
-        }
+      const angleStep = totalSubjects > 0 ? (2 * Math.PI) / totalSubjects : 0
+      const startAngle = -Math.PI / 2
+      const angle = startAngle + index * angleStep
+      return {
+        x: centerX + subjectRadius * Math.cos(angle),
+        y: centerY + subjectRadius * Math.sin(angle),
+        angle
       }
     }
 
@@ -211,7 +186,7 @@ export function useMindmapLayout(
     }
 
     return { nodes, connections, centerNode }
-  }, [subjects, topics, expandedSubjects, expandedTopics, dimensions, layoutMode])
+  }, [subjects, topics, expandedSubjects, expandedTopics, dimensions])
 }
 
 function addTopicNodes(
