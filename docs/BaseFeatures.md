@@ -10,6 +10,7 @@
 |--------|--------|
 | Sign Up | `supabase.auth.signUp({ email, password })` |
 | Sign In | `supabase.auth.signInWithPassword({ email, password })` |
+| Sign In with Google | `supabase.auth.signInWithOAuth({ provider: 'google' })` |
 | Sign Out | `supabase.auth.signOut()` |
 | Get User | `supabase.auth.getUser()` |
 | Get Session | `supabase.auth.getSession()` |

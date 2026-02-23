@@ -259,6 +259,23 @@ export class AuthService {
    * @param credentials - Email and password
    * @returns User object or error
    */
+  async signInWithGoogle(): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      })
+      if (error) throw error
+      return { error: null }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error('Failed to sign in with Google'),
+      }
+    }
+  }
+
   async signIn({ email, password }: AuthCredentials): Promise<AuthResponse> {
     return withRetry(async () => {
       try {
