@@ -151,6 +151,27 @@
   margin-bottom: 3rem;
 }
 
+.pricing-cta-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.subscribe-card .plan-description {
+  font-size: 1.125rem;
+  margin-top: 0.75rem;
+}
+
+.subscribe-card .btn-large {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+
 .pricing-card {
   background: var(--color-surface);
   border: 2px solid var(--color-border);
@@ -258,6 +279,13 @@
   width: 100%;
   padding: 1rem;
   font-size: 1.125rem;
+}
+
+.no-card-note {
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.5rem;
 }
 
 .card-footer {
@@ -633,7 +661,8 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .pricing-cards {
+  .pricing-cards,
+  .pricing-cta-cards {
     grid-template-columns: 1fr;
   }
 

@@ -115,9 +115,9 @@ export const PRICING = {
     ]
   },
   trial: {
-    days: 14,
+    days: 30,
     name: 'Free Trial',
-    description: '14 days of full access',
+    description: '30 days of full access',
     features: [
       'Full access to all features',
       'Unlimited topics & items',
@@ -215,14 +215,8 @@ export const PAYWALL_STATS = {
     {
       step: 4,
       title: 'Review at Optimal Times',
-      description: 'Our algorithm tells you exactly when to review for maximum retention.',
+      description: 'Retentive schedules your next review automatically. You open it, it shows you what\'s due. Nothing slips through.',
       iconName: 'Clock'
-    },
-    {
-      step: 5,
-      title: 'Ace Everything!',
-      description: 'Ace your exams! Ace your work! Ace your studies! Become unstoppable.',
-      iconName: 'Trophy'
     }
   ],
   learningModes: [

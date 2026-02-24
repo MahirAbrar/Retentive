@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuthFixed'
 import { useToast } from '../components/ui'
 import { trialService } from '../services/trialService'
-import { subscriptionService } from '../services/subscriptionService'
 import { PRICING, PAYWALL_STATS } from '../types/subscription'
 import { logger } from '../utils/logger'
 import * as Icons from 'lucide-react'
@@ -52,13 +51,13 @@ export function PaywallPage() {
       
       if (result.success) {
         const trialEndDate = new Date()
-        trialEndDate.setDate(trialEndDate.getDate() + 14)
-        const formattedDate = trialEndDate.toLocaleDateString('en-US', { 
-          month: 'long', 
-          day: 'numeric', 
-          year: 'numeric' 
+        trialEndDate.setDate(trialEndDate.getDate() + 30)
+        const formattedDate = trialEndDate.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
         })
-        addToast('success', `Welcome to your 14-day free trial! Your trial will end on ${formattedDate}. Enjoy full access to all features.`)
+        addToast('success', `Welcome to your 30-day free trial! Your trial will end on ${formattedDate}. Enjoy full access to all features.`)
         navigate('/')
       } else {
         addToast('error', result.error || 'Failed to start trial')
@@ -71,40 +70,16 @@ export function PaywallPage() {
     }
   }
 
-  const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
-    if (!user) return
-    
-    setLoading(true)
-    try {
-      const result = await subscriptionService.createCheckoutSession(
-        user.id,
-        plan
-      )
-      
-      if (result.url) {
-        // Redirect to Stripe checkout
-        window.location.href = result.url
-      } else {
-        addToast('error', result.error || 'Failed to create checkout URL')
-      }
-    } catch (error) {
-      logger.error('Error creating checkout:', error)
-      addToast('error', 'Failed to start checkout. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="paywall-page">
       <div className="paywall-container">
         <div className="paywall-header">
-          <h1 className="display">Unlock Your Superhuman Memory</h1>
+          <h1 className="display">Study Once. Remember for Months.</h1>
           <p className="subtitle">
-            Science-backed spaced repetition that transforms you into the person everyone thinks has a photographic memory.
+            Retentive tells you exactly when to review what you&apos;ve learned — before you forget it. Create topics, add your study material, and let the algorithm handle the rest.
           </p>
-          <p className="hero-cta">Become the human everyone thinks is superhuman!</p>
-          <p className="social-proof">Join learners who&apos;ve unlocked their brain&apos;s true potential</p>
+          <p className="hero-cta">Try first, decide later — 30 days free, no credit card required.</p>
+          <p className="social-proof">Spaced repetition — the only study method with 140+ years of research behind it.</p>
           {trialStatus?.hasUsedTrial && (
             <p className="subtitle trial-ended">Hope you enjoyed your trial! Ready to continue your learning journey?</p>
           )}
@@ -131,8 +106,7 @@ export function PaywallPage() {
         {/* How It Works Section */}
         <div className="how-it-works-section">
           <h2 className="section-title">How It Works</h2>
-          <p className="section-subtitle">Transform into a learning superhuman with our science-backed method</p>
-          <p className="section-hero">Become the person everyone thinks has superhuman memory!</p>
+          <p className="section-subtitle">You handle the learning. Retentive handles the timing.</p>
 
           <div className="steps-grid">
             {PAYWALL_STATS.howItWorks.map((step) => (
@@ -146,13 +120,16 @@ export function PaywallPage() {
           </div>
         </div>
 
-        {/* Pricing Cards */}
+        {/* Pricing / Subscribe Section */}
         <div className="pricing-section">
-          <h2 className="section-title">Simple, Transparent Pricing</h2>
-          <p className="section-subtitle">Start with a free trial, upgrade when you&apos;re ready</p>
+          <h2 className="section-title">Get Started</h2>
+          <p className="section-subtitle">
+            {trialStatus?.hasUsedTrial
+              ? 'Subscribe to continue your learning journey'
+              : 'Try free for 30 days, then pick a plan that works for you'}
+          </p>
 
-          <div className="pricing-cards">
-            {/* Trial Card */}
+          <div className="pricing-cta-cards">
             {!trialStatus?.hasUsedTrial && (
               <div className="pricing-card trial-card">
                 <div className="card-header">
@@ -176,88 +153,32 @@ export function PaywallPage() {
                 >
                   {loading ? 'Starting...' : 'Start Free Trial'}
                 </button>
+                <p className="no-card-note">No credit card required</p>
               </div>
             )}
 
-            {/* Monthly Plan */}
-            <div className="pricing-card">
+            <div className="pricing-card subscribe-card">
               <div className="card-header">
-                <h3 className="card-title">{PRICING.monthly.name}</h3>
-                <div className="price">
-                  <span className="currency">$</span>
-                  <span className="amount">{PRICING.monthly.price}</span>
-                  <span className="period">/month</span>
-                </div>
-                <p className="plan-description">{PRICING.monthly.description}</p>
+                <h3 className="card-title">Subscribe</h3>
+                <p className="plan-description">
+                  Plans starting from ${PRICING.semiAnnual.pricePerMonth}/month
+                </p>
               </div>
               <ul className="features-list">
-                {PRICING.monthly.features.map((feature, idx) => (
-                  <li key={idx}>✓ {feature}</li>
-                ))}
+                <li>✓ Unlimited topics &amp; items</li>
+                <li>✓ Advanced statistics</li>
+                <li>✓ Offline mode</li>
+                <li>✓ Export your data</li>
+                <li>✓ Cancel anytime</li>
               </ul>
-              <button
-                className="btn btn-secondary btn-large"
-                onClick={() => handleSubscribe('monthly')}
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : 'Get Started'}
-              </button>
-            </div>
-
-            {/* Quarterly Plan */}
-            <div className="pricing-card featured">
-              <div className="badge">{PRICING.quarterly.badge}</div>
-              <div className="card-header">
-                <h3 className="card-title">{PRICING.quarterly.name}</h3>
-                <div className="price">
-                  <span className="currency">$</span>
-                  <span className="amount">{PRICING.quarterly.price}</span>
-                  <span className="period">/3 months</span>
-                </div>
-                <p className="price-per-month">${PRICING.quarterly.pricePerMonth}/month</p>
-                <p className="plan-description">{PRICING.quarterly.description}</p>
-              </div>
-              <ul className="features-list">
-                {PRICING.quarterly.features.map((feature, idx) => (
-                  <li key={idx}>✓ {feature}</li>
-                ))}
-              </ul>
-              <button
+              <a
                 className="btn btn-primary btn-large"
-                onClick={() => handleSubscribe('quarterly' as any)}
-                disabled={loading}
+                href="https://www.retentive.site/dashboard"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                {loading ? 'Processing...' : 'Get Started'}
-              </button>
-              <p className="card-footer">Save 20%</p>
-            </div>
-
-            {/* Semi-Annual Plan */}
-            <div className="pricing-card best-value">
-              <div className="badge">{PRICING.semiAnnual.badge}</div>
-              <div className="card-header">
-                <h3 className="card-title">{PRICING.semiAnnual.name}</h3>
-                <div className="price">
-                  <span className="currency">$</span>
-                  <span className="amount">{PRICING.semiAnnual.price}</span>
-                  <span className="period">/6 months</span>
-                </div>
-                <p className="price-per-month">${PRICING.semiAnnual.pricePerMonth}/month</p>
-                <p className="plan-description">{PRICING.semiAnnual.description}</p>
-              </div>
-              <ul className="features-list">
-                {PRICING.semiAnnual.features.map((feature, idx) => (
-                  <li key={idx}>✓ {feature}</li>
-                ))}
-              </ul>
-              <button
-                className="btn btn-primary btn-large"
-                onClick={() => handleSubscribe('semiannual' as any)}
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : 'Get Started'}
-              </button>
-              <p className="card-footer">Best value - 50% off</p>
+                View Plans &amp; Subscribe
+              </a>
             </div>
           </div>
         </div>
@@ -333,7 +254,7 @@ export function PaywallPage() {
           <div className="faq-grid">
             <div className="faq-item">
               <h4>Can I cancel anytime?</h4>
-              <p>Yes! You can cancel your subscription at any time from your settings page.</p>
+              <p>Yes! You can cancel your subscription at any time from your dashboard.</p>
             </div>
             <div className="faq-item">
               <h4>What payment methods do you accept?</h4>
@@ -352,11 +273,19 @@ export function PaywallPage() {
 
         {/* Footer */}
         <div className="paywall-footer">
+          <a
+            className="btn btn-primary"
+            href="https://www.retentive.site/dashboard"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View Plans &amp; Subscribe
+          </a>
           <button className="btn-link" onClick={() => navigate('/')}>
             Maybe later
           </button>
           <p className="footer-text">
-            Secure payment powered by Stripe • 30-day money-back guarantee
+            Secure payment powered by Stripe • No credit card required for trial
           </p>
         </div>
       </div>

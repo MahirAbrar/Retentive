@@ -91,9 +91,9 @@ export class TrialService {
       let expiresAt = null
 
       if (data.is_trial && trialStarted && !trialEnded) {
-        // Calculate expiry (14 days from start)
+        // Calculate expiry (30 days from start)
         expiresAt = new Date(trialStarted)
-        expiresAt.setDate(expiresAt.getDate() + 14)
+        expiresAt.setDate(expiresAt.getDate() + 30)
         
         if (now < expiresAt) {
           isActive = true

@@ -47,7 +47,7 @@ export function TrialBanner() {
   // Don't show banner if:
   // - No user logged in
   // - Not on trial
-  // - Trial has more than 5 days left (show earlier for 14-day trial)
+  // - Trial has more than 5 days left (show earlier for 30-day trial)
   // - User dismissed it today
   if (!user || !trialStatus?.isActive || trialStatus.daysRemaining > 5 || dismissed) {
     return null

@@ -80,12 +80,12 @@ export class SubscriptionService {
       // 'cancelled' just means won't auto-renew, not that access is revoked
       const isActive = expiresAt ? expiresAt > now : false
       
-      // Check if trial is still valid (14 days from trial_started_at)
+      // Check if trial is still valid (30 days from trial_started_at)
       let trialIsActive = false
       if (data.is_trial && data.trial_started_at) {
         const trialStart = new Date(data.trial_started_at)
         const trialExpiry = new Date(trialStart)
-        trialExpiry.setDate(trialExpiry.getDate() + 14)
+        trialExpiry.setDate(trialExpiry.getDate() + 30)
         trialIsActive = now < trialExpiry
         
         logger.info('Trial check in subscriptionService:', {

@@ -166,7 +166,7 @@ export function SubscriptionStatus() {
               <>
                 <div className="detail-row">
                   <span className="label">Trial Period:</span>
-                  <span className="value">14-day free trial</span>
+                  <span className="value">30-day free trial</span>
                 </div>
                 <div className="detail-row">
                   <span className="label">Started:</span>
@@ -200,7 +200,7 @@ export function SubscriptionStatus() {
                 </p>
                 {!trialStatus?.hasUsedTrial && (
                   <p className="body-small text-secondary">
-                    Start your 14-day free trial to unlock all features!
+                    Start your 30-day free trial to unlock all features!
                   </p>
                 )}
               </div>
