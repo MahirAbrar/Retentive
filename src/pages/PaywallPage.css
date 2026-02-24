@@ -49,6 +49,35 @@
   border-radius: var(--radius-md);
 }
 
+/* Skip Link (top) */
+.skip-link-top {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.btn-skip {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-decoration: underline;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.btn-skip:hover {
+  opacity: 1;
+}
+
+/* Per-month price highlight */
+.price-per-month {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-success);
+  margin-top: 0.25rem;
+}
+
 /* Statistics Section */
 .stats-section {
   display: grid;

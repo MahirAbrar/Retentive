@@ -110,6 +110,13 @@ export function PaywallPage() {
           )}
         </div>
 
+        {/* Skip Link */}
+        <div className="skip-link-top">
+          <button className="btn-skip" onClick={() => navigate('/')}>
+            Maybe later
+          </button>
+        </div>
+
         {/* Statistics Section */}
         <div className="stats-section">
           {PAYWALL_STATS.statistics.map((stat, index) => (
@@ -119,6 +126,24 @@ export function PaywallPage() {
               <span className="stat-label">{stat.label}</span>
             </div>
           ))}
+        </div>
+
+        {/* How It Works Section */}
+        <div className="how-it-works-section">
+          <h2 className="section-title">How It Works</h2>
+          <p className="section-subtitle">Transform into a learning superhuman with our science-backed method</p>
+          <p className="section-hero">Become the person everyone thinks has superhuman memory!</p>
+
+          <div className="steps-grid">
+            {PAYWALL_STATS.howItWorks.map((step) => (
+              <div key={step.step} className="step-card">
+                <div className="step-number">{step.step}</div>
+                <div className="step-icon">{renderIcon(step.iconName, { size: 48, strokeWidth: 1.5 })}</div>
+                <h3 className="step-title">{step.title}</h3>
+                <p className="step-description">{step.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Pricing Cards */}
@@ -189,6 +214,7 @@ export function PaywallPage() {
                   <span className="amount">{PRICING.quarterly.price}</span>
                   <span className="period">/3 months</span>
                 </div>
+                <p className="price-per-month">${PRICING.quarterly.pricePerMonth}/month</p>
                 <p className="plan-description">{PRICING.quarterly.description}</p>
               </div>
               <ul className="features-list">
@@ -216,6 +242,7 @@ export function PaywallPage() {
                   <span className="amount">{PRICING.semiAnnual.price}</span>
                   <span className="period">/6 months</span>
                 </div>
+                <p className="price-per-month">${PRICING.semiAnnual.pricePerMonth}/month</p>
                 <p className="plan-description">{PRICING.semiAnnual.description}</p>
               </div>
               <ul className="features-list">
@@ -232,24 +259,6 @@ export function PaywallPage() {
               </button>
               <p className="card-footer">Best value - 50% off</p>
             </div>
-          </div>
-        </div>
-
-        {/* How It Works Section */}
-        <div className="how-it-works-section">
-          <h2 className="section-title">How It Works</h2>
-          <p className="section-subtitle">Transform into a learning superhuman with our science-backed method</p>
-          <p className="section-hero">Become the person everyone thinks has superhuman memory!</p>
-
-          <div className="steps-grid">
-            {PAYWALL_STATS.howItWorks.map((step) => (
-              <div key={step.step} className="step-card">
-                <div className="step-number">{step.step}</div>
-                <div className="step-icon">{renderIcon(step.iconName, { size: 48, strokeWidth: 1.5 })}</div>
-                <h3 className="step-title">{step.title}</h3>
-                <p className="step-description">{step.description}</p>
-              </div>
-            ))}
           </div>
         </div>
 

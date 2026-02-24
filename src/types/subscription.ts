@@ -90,11 +90,11 @@ export const PRICING = {
     pricePerMonth: 4.00,
     badge: 'Most Popular',
     features: [
-      'Save 20% ($4/month)',
       'Unlimited topics & items',
       'Advanced statistics',
       'Offline mode',
-      'Export your data'
+      'Export your data',
+      'Cancel anytime'
     ]
   },
   semiAnnual: {
@@ -107,11 +107,11 @@ export const PRICING = {
     pricePerMonth: 2.50,
     badge: 'Best Value',
     features: [
-      'Best value - 50% off ($2.50/month)',
       'Unlimited topics & items',
       'Advanced statistics',
       'Offline mode',
-      'Export your data'
+      'Export your data',
+      'Cancel anytime'
     ]
   },
   trial: {
