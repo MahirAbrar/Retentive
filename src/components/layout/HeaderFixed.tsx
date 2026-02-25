@@ -77,7 +77,6 @@ export function HeaderFixed() {
       position: 'sticky',
       top: 0,
       zIndex: 'var(--z-sticky)',
-      WebkitAppRegion: 'drag',
       userSelect: 'none'
     }}>
       <div style={{
@@ -90,7 +89,7 @@ export function HeaderFixed() {
       }}>
         {/* Left side: Logo + Desktop Nav */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}>
-          <Link to="/" style={{ textDecoration: 'none', WebkitAppRegion: 'no-drag' }}>
+          <Link to="/" style={{ textDecoration: 'none' }}>
             <h1 className="h4" style={{ margin: 0 }}>Retentive</h1>
           </Link>
 
@@ -98,14 +97,13 @@ export function HeaderFixed() {
           <div className="desktop-nav" style={{
             display: 'flex',
             gap: 'var(--space-4)',
-            WebkitAppRegion: 'no-drag'
           }}>
             {navLinks}
           </div>
         </nav>
 
         {/* Right side: Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', WebkitAppRegion: 'no-drag' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           {user ? (
             <>
               {/* These show on desktop, hidden on mobile */}

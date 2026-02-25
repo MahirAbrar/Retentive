@@ -210,15 +210,17 @@ export function GamificationDashboard() {
       <Card className={styles.achievementsCard}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
           <h2 className={styles.title} style={{ marginBottom: 0 }}>Achievements</h2>
-          <Button 
-            variant="secondary" 
-            size="small"
-            onClick={handleCheckAchievements}
-            loading={checkingAchievements}
-            disabled={checkingAchievements}
-          >
-            Check for Achievements
-          </Button>
+          {stats.todayReviews > 0 && (
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={handleCheckAchievements}
+              loading={checkingAchievements}
+              disabled={checkingAchievements}
+            >
+              Check for Achievements
+            </Button>
+          )}
         </div>
         <div className={styles.achievementsGrid}>
           {achievements.map(achievement => {
@@ -268,16 +270,16 @@ export function GamificationDashboard() {
                     progressText = `${sessionReviewCount}/50 reviews today`
                     break
                   default:
-                    progressText = 'Keep learning!'
+                    progress = 0
+                    progressText = 'In progress'
                 }
               }
             }
             
             return (
-              <div 
-                key={achievement.id} 
+              <div
+                key={achievement.id}
                 className={`${styles.achievement} ${achievement.unlocked ? styles.unlocked : styles.locked}`}
-                title={achievement.unlocked ? 'Unlocked!' : progressText}
               >
                 <div className={styles.achievementIcon}>
                   <AchievementIcon achievementId={achievement.id} size={32} />

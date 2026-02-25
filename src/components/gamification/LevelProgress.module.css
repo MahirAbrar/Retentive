@@ -69,6 +69,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .progressFill::after {
+    animation: none;
+  }
+}
+
 .progressText {
   color: var(--color-white);
   font-size: var(--text-sm);

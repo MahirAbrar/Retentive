@@ -24,7 +24,7 @@ export function StudyProgress({
   showLastStudied,
 }: StudyProgressProps) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: loading ? '1fr 1fr' : '1fr', gap: '1rem' }}>
       {loading ? (
         <>
           <Card variant="bordered">

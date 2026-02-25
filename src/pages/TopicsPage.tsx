@@ -34,8 +34,16 @@ export function TopicsPage() {
   const [filteredTopics, setFilteredTopics] = useState<TopicWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterBy, setFilterBy] = useState<'all' | 'due' | 'new' | 'upcoming' | 'mastered'>('all')
-  const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'lastStudied'>('name')
+  const [searchInput, setSearchInput] = useState('')
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const [filterBy, setFilterBy] = useState<'all' | 'due' | 'new' | 'upcoming' | 'mastered'>(() => {
+    const stored = localStorage.getItem('topics-filter')
+    return (stored as 'all' | 'due' | 'new' | 'upcoming' | 'mastered') || 'all'
+  })
+  const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'lastStudied'>(() => {
+    const stored = localStorage.getItem('topics-sort')
+    return (stored as 'name' | 'dueItems' | 'lastStudied') || 'name'
+  })
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active')
   const [subjects, setSubjects] = useState<SubjectWithStats[]>([])
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set())
@@ -383,18 +391,31 @@ export function TopicsPage() {
     filterAndSortTopics()
   }, [filterAndSortTopics])
 
-  // Group topics by subject for display
+  // Persist filter/sort preferences
+  useEffect(() => { localStorage.setItem('topics-filter', filterBy) }, [filterBy])
+  useEffect(() => { localStorage.setItem('topics-sort', sortBy) }, [sortBy])
+
+  // Debounce search input
+  useEffect(() => {
+    clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchQuery(searchInput)
+    }, 300)
+    return () => clearTimeout(searchDebounceRef.current)
+  }, [searchInput])
+
+  // Group topics by subject for display — uses currentItems so pagination works
   const groupedTopics = useMemo(() => {
     const groups = new Map<string | null, TopicWithStats[]>()
 
-    for (const topic of filteredTopics) {
+    for (const topic of currentItems) {
       const key = topic.subject_id || null
       if (!groups.has(key)) groups.set(key, [])
       groups.get(key)!.push(topic)
     }
 
     return groups
-  }, [filteredTopics])
+  }, [currentItems])
 
   const toggleSubjectCollapse = useCallback((subjectId: string) => {
     setCollapsedSubjects(prev => {
@@ -458,6 +479,7 @@ export function TopicsPage() {
                 size="small"
                 onClick={() => setViewMode('list')}
                 title="List view"
+                aria-pressed={viewMode === 'list'}
                 style={{
                   padding: '0.375rem 0.75rem',
                   ...(viewMode !== 'list' && { backgroundColor: 'transparent' })
@@ -470,6 +492,7 @@ export function TopicsPage() {
                 size="small"
                 onClick={() => setViewMode('mindmap')}
                 title="Mindmap view"
+                aria-pressed={viewMode === 'mindmap'}
                 style={{
                   padding: '0.375rem 0.75rem',
                   ...(viewMode !== 'mindmap' && { backgroundColor: 'transparent' })
@@ -497,13 +520,18 @@ export function TopicsPage() {
       </header>
 
       {/* Active/Archived Tabs */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '1rem', 
-        marginBottom: '2rem',
-        borderBottom: '2px solid var(--color-border)'
-      }}>
+      <div
+        role="tablist"
+        style={{
+          display: 'flex',
+          gap: '1rem',
+          marginBottom: '2rem',
+          borderBottom: '2px solid var(--color-border)'
+        }}
+      >
         <button
+          role="tab"
+          aria-selected={activeTab === 'active'}
           onClick={() => setActiveTab('active')}
           style={{
             padding: '0.75rem 1.5rem',
@@ -519,7 +547,7 @@ export function TopicsPage() {
           className="body"
         >
           Active Topics
-          <span style={{ 
+          <span style={{
             marginLeft: '0.5rem',
             fontSize: '0.875rem',
             opacity: 0.7
@@ -528,6 +556,8 @@ export function TopicsPage() {
           </span>
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === 'archived'}
           onClick={() => setActiveTab('archived')}
           style={{
             padding: '0.75rem 1.5rem',
@@ -543,7 +573,7 @@ export function TopicsPage() {
           className="body"
         >
           Archived
-          <span style={{ 
+          <span style={{
             marginLeft: '0.5rem',
             fontSize: '0.875rem',
             opacity: 0.7
@@ -558,8 +588,8 @@ export function TopicsPage() {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <Input
             placeholder="Search topics..."
-            value={searchQuery}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchInput(e.target.value)}
             style={{ flex: '1', minWidth: '200px' }}
           />
           
@@ -625,11 +655,12 @@ export function TopicsPage() {
             </select>
           </div>
 
-          {(searchQuery || filterBy !== 'all') && (
+          {(searchInput || filterBy !== 'all') && (
             <Button
               variant="ghost"
               size="small"
               onClick={() => {
+                setSearchInput('')
                 setSearchQuery('')
                 setFilterBy('all')
               }}
@@ -640,7 +671,7 @@ export function TopicsPage() {
         </div>
         
         {/* Results count */}
-        {(searchQuery || filterBy !== 'all') && (
+        {(searchInput || filterBy !== 'all') && (
           <p className="body-small text-secondary" style={{ marginTop: '0.5rem' }}>
             Showing {filteredTopics.length} of {activeTab === 'active' ? topics.length : archivedTopics.length} topics
           </p>
@@ -798,8 +829,9 @@ export function TopicsPage() {
             gap: '0.5rem',
             marginTop: '1rem'
           }}>
-            <label className="body-small text-secondary">Items per page:</label>
+            <label htmlFor="items-per-page" className="body-small text-secondary">Items per page:</label>
             <select
+              id="items-per-page"
               value={itemsPerPage}
               onChange={(e) => setItemsPerPage(Number(e.target.value))}
               style={{

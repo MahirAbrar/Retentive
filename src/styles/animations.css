@@ -154,3 +154,14 @@
   background-size: 1000px 100%;
   animation: shimmer 2s ease-in-out infinite;
 }
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-in,
+  .animate-scale-in,
+  .animate-pulse,
+  .skeleton-shimmer {
+    animation: none;
+  }
+}

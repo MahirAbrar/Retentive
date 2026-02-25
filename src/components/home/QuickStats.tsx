@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, Skeleton } from '../ui'
 
 interface QuickStatsProps {
@@ -11,11 +12,11 @@ interface QuickStatsProps {
 }
 
 const statItems = [
-  { key: 'overdue', label: 'Overdue', color: 'var(--color-error)' },
-  { key: 'dueToday', label: 'Due Today', color: 'var(--color-warning)' },
-  { key: 'upcoming', label: 'Upcoming', color: 'var(--color-info)' },
-  { key: 'mastered', label: 'Mastered', color: 'var(--color-success)' },
-  { key: 'reviewedToday', label: 'Reviewed Today', color: 'var(--color-accent)' },
+  { key: 'overdue', label: 'Overdue', color: 'var(--color-error)', linkTo: '/topics' },
+  { key: 'dueToday', label: 'Due Today', color: 'var(--color-warning)', linkTo: '/topics' },
+  { key: 'upcoming', label: 'Upcoming', color: 'var(--color-info)', linkTo: null },
+  { key: 'mastered', label: 'Mastered', color: 'var(--color-success)', linkTo: null },
+  { key: 'reviewedToday', label: 'Reviewed Today', color: 'var(--color-accent)', linkTo: null },
 ] as const
 
 export const QuickStats = React.memo(function QuickStats({ loading, overdue, dueToday, upcoming, mastered, reviewedToday }: QuickStatsProps) {
@@ -40,16 +41,29 @@ export const QuickStats = React.memo(function QuickStats({ loading, overdue, due
 
   return (
     <>
-      {statItems.map(({ key, label, color }) => (
-        <Card key={key}>
-          <CardContent>
-            <div style={{ textAlign: 'center' }}>
-              <p className="h2" style={{ color }}>{values[key]}</p>
-              <p className="body-small text-secondary">{label}</p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      {statItems.map(({ key, label, color, linkTo }) => {
+        const isClickable = linkTo && values[key] > 0
+        const card = (
+          <Card key={key} style={isClickable ? { cursor: 'pointer', transition: 'transform 0.15s ease' } : undefined}>
+            <CardContent>
+              <div style={{ textAlign: 'center' }}>
+                <p className="h2" style={{ color }}>{values[key]}</p>
+                <p className="body-small text-secondary">{label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )
+
+        if (isClickable) {
+          return (
+            <Link key={key} to={linkTo} style={{ textDecoration: 'none', color: 'inherit' }}>
+              {card}
+            </Link>
+          )
+        }
+
+        return card
+      })}
     </>
   )
 })

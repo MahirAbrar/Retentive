@@ -166,6 +166,7 @@ export function FocusTimer() {
           <button
             onClick={() => setShowSettings(true)}
             disabled={status !== 'idle'}
+            aria-disabled={status !== 'idle'}
             style={{
               border: 'none',
               background: 'none',
@@ -346,7 +347,7 @@ export function FocusTimer() {
                   marginBottom: '0.5rem',
                 }}
               >
-                <span className="body-small" style={{ fontWeight: '600' }}>
+                <span className="body-small" style={{ fontWeight: '600' }} title="How closely you followed the work/break schedule">
                   Adherence
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -417,76 +418,22 @@ export function FocusTimer() {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <button
+                  className="break-suggestion-btn"
                   onClick={() => openBreakActivityModal('cognitive-overload')}
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--color-background)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
-                    e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
-                    e.currentTarget.style.borderColor = 'var(--color-border)'
-                  }}
                 >
                   📚 Need to Absorb Info?
                 </button>
                 <button
+                  className="break-suggestion-btn"
                   onClick={() => openBreakActivityModal('attention-drift')}
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--color-background)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
-                    e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
-                    e.currentTarget.style.borderColor = 'var(--color-border)'
-                  }}
                 >
                   🎯 Losing Focus?
                 </button>
                 <button
+                  className="break-suggestion-btn"
                   onClick={() => openBreakActivityModal('urge-management')}
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--color-background)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
-                    e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
-                    e.currentTarget.style.borderColor = 'var(--color-border)'
-                  }}
                 >
-                  🚫 Want to Give Up?
+                  🚫 Feeling Like Stopping?
                 </button>
               </div>
             </div>

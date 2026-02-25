@@ -294,6 +294,24 @@
   font-weight: var(--font-medium);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .achievement.unlocked {
+    animation: none;
+  }
+
+  .achievement.unlocked::before {
+    animation: none;
+  }
+
+  .achievement.unlocked::after {
+    animation: none;
+  }
+
+  .achievement.unlocked .achievementIcon {
+    animation: none;
+  }
+}
+
 @media (max-width: 768px) {
   .statsGrid {
     grid-template-columns: 1fr;
