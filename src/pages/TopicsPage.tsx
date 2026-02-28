@@ -17,7 +17,7 @@ import type { Topic, LearningItem, Subject } from '../types/database'
 import type { SubjectWithStats } from '../types/subject'
 import { SubjectHeader, SubjectEditModal, SubjectCreateModal } from '../components/subjects'
 import { MindmapView } from '../components/mindmap'
-import { RefreshCw, FolderOpen, Plus, List, GitBranch } from 'lucide-react'
+import { RefreshCw, FolderOpen, Plus, List, GitBranch, ChevronDown, ChevronRight } from 'lucide-react'
 
 interface TopicWithStats extends Topic {
   itemCount: number
@@ -34,8 +34,14 @@ export function TopicsPage() {
   const [filteredTopics, setFilteredTopics] = useState<TopicWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterBy, setFilterBy] = useState<'all' | 'due' | 'new' | 'upcoming' | 'mastered'>('all')
-  const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'lastStudied'>('name')
+  const [filterBy, setFilterBy] = useState<'all' | 'due' | 'new' | 'upcoming' | 'mastered'>(() => {
+    const stored = localStorage.getItem('topics-filter')
+    return (stored as 'all' | 'due' | 'new' | 'upcoming' | 'mastered') || 'all'
+  })
+  const [sortBy, setSortBy] = useState<'name' | 'dueItems' | 'lastStudied'>(() => {
+    const stored = localStorage.getItem('topics-sort')
+    return (stored as 'name' | 'dueItems' | 'lastStudied') || 'name'
+  })
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active')
   const [subjects, setSubjects] = useState<SubjectWithStats[]>([])
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set())
@@ -383,6 +389,10 @@ export function TopicsPage() {
     filterAndSortTopics()
   }, [filterAndSortTopics])
 
+  // Persist filter/sort preferences
+  useEffect(() => { localStorage.setItem('topics-filter', filterBy) }, [filterBy])
+  useEffect(() => { localStorage.setItem('topics-sort', sortBy) }, [sortBy])
+
   // Group topics by subject for display
   const groupedTopics = useMemo(() => {
     const groups = new Map<string | null, TopicWithStats[]>()
@@ -692,6 +702,7 @@ export function TopicsPage() {
                 {groupedTopics.get(null)?.length ? (
                   <div>
                     <div
+                      onClick={() => toggleSubjectCollapse('__unassigned__')}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -700,9 +711,15 @@ export function TopicsPage() {
                         backgroundColor: 'var(--color-surface)',
                         borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--color-border)',
-                        marginBottom: '1rem',
+                        marginBottom: collapsedSubjects.has('__unassigned__') ? '0' : '1rem',
+                        cursor: 'pointer',
                       }}
                     >
+                      {collapsedSubjects.has('__unassigned__') ? (
+                        <ChevronRight size={18} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+                      ) : (
+                        <ChevronDown size={18} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+                      )}
                       <div
                         style={{
                           display: 'flex',
@@ -726,15 +743,17 @@ export function TopicsPage() {
                         </p>
                       </div>
                     </div>
-                    <TopicList
-                      topics={groupedTopics.get(null) || []}
-                      onDelete={handleDelete}
-                      onArchive={handleArchive}
-                      onUnarchive={handleUnarchive}
-                      onTopicUpdate={handleTopicUpdate}
-                      isArchived={activeTab === 'archived'}
-                      loading={loading}
-                    />
+                    {!collapsedSubjects.has('__unassigned__') && (
+                      <TopicList
+                        topics={groupedTopics.get(null) || []}
+                        onDelete={handleDelete}
+                        onArchive={handleArchive}
+                        onUnarchive={handleUnarchive}
+                        onTopicUpdate={handleTopicUpdate}
+                        isArchived={activeTab === 'archived'}
+                        loading={loading}
+                      />
+                    )}
                   </div>
                 ) : null}
               </div>

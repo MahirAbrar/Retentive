@@ -78,6 +78,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set())
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set())
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; topicId: string | null; topicName: string }>({ open: false, topicId: null, topicName: '' })
+  const [archiveConfirm, setArchiveConfirm] = useState<{ open: boolean; topicId: string | null; topicName: string; activeItemCount: number }>({ open: false, topicId: null, topicName: '', activeItemCount: 0 })
   const [deleteItemConfirm, setDeleteItemConfirm] = useState<{ open: boolean; item: LearningItem | null }>({ open: false, item: null })
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null)
   const [editingItem, setEditingItem] = useState<string | null>(null)
@@ -268,6 +269,12 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   // formatNextReview is now imported from utils/formatters
 
   // Removed unused function
+
+  const handleArchiveTopic = async () => {
+    if (!archiveConfirm.topicId || !onArchive) return
+    onArchive(archiveConfirm.topicId)
+    setArchiveConfirm({ open: false, topicId: null, topicName: '', activeItemCount: 0 })
+  }
 
   const handleDeleteTopic = async () => {
     if (!deleteConfirm.topicId || !onDelete) return
@@ -735,20 +742,21 @@ const { error } = await supabase
               />
             )}
             
-            <Card 
+            <Card
               variant="bordered"
-              style={{ 
-                animationDelay: `${index * 0.05}s`,
-              }}
-              className="animate-fade-in"
             >
               <CardHeader>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 className="h4">{topic.name}</h3>
                 <div
                   style={{ position: 'relative' }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Learning mode: ${LEARNING_MODES[topic.learning_mode]?.label || 'Steady'}`}
                   onMouseEnter={() => setModeTooltipId(topic.id)}
                   onMouseLeave={() => setModeTooltipId(null)}
+                  onFocus={() => setModeTooltipId(topic.id)}
+                  onBlur={() => setModeTooltipId(null)}
                 >
                   <Badge
                     variant={topic.learning_mode === 'cram' || topic.learning_mode === 'ultracram' ? 'warning' : 'info'}
@@ -812,10 +820,11 @@ const { error } = await supabase
                 </div>
                 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <Button 
-                    variant="primary" 
+                  <Button
+                    variant="primary"
                     size="small"
                     onClick={() => toggleTopic(topic.id)}
+                    aria-expanded={isExpanded}
                   >
                     {isExpanded ? 'Collapse' : 'View Items'}
                   </Button>
@@ -858,7 +867,8 @@ const { error } = await supabase
                             background: 'none',
                             textAlign: 'left',
                             cursor: 'pointer',
-                            fontSize: 'var(--text-sm)'
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--color-text-primary)'
                           }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -869,21 +879,14 @@ const { error } = await supabase
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              
-                              // Check if topic has active (non-archived) items
+
                               const activeItemCount = stats.total
                               if (activeItemCount > 0) {
-                                const confirmArchive = window.confirm(
-                                  `This topic has ${activeItemCount} active item${activeItemCount > 1 ? 's' : ''}. ` +
-                                  `Archiving the topic will hide it from your main list, but the items will remain active. ` +
-                                  `Continue?`
-                                )
-                                if (!confirmArchive) {
-                                  setOpenMenuId(null)
-                                  return
-                                }
+                                setArchiveConfirm({ open: true, topicId: topic.id, topicName: topic.name, activeItemCount })
+                                setOpenMenuId(null)
+                                return
                               }
-                              
+
                               onArchive(topic.id)
                               setOpenMenuId(null)
                             }}
@@ -1232,6 +1235,7 @@ const { error } = await supabase
                                     size="small"
                                     onClick={() => setDeleteItemConfirm({ open: true, item })}
                                     style={{ padding: '0.25rem 0.5rem' }}
+                                    aria-label={`Delete "${item.content.substring(0, 30)}"`}
                                   >
                                     <X size={16} />
                                   </Button>
@@ -1296,6 +1300,17 @@ const { error } = await supabase
         )
         })}
       </div>
+
+      {/* Archive Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={archiveConfirm.open}
+        onClose={() => setArchiveConfirm({ open: false, topicId: null, topicName: '', activeItemCount: 0 })}
+        onConfirm={handleArchiveTopic}
+        title="Archive Topic"
+        message={`This topic has ${archiveConfirm.activeItemCount} active item${archiveConfirm.activeItemCount > 1 ? 's' : ''}. Archiving the topic will hide it from your main list, but the items will remain active. Continue?`}
+        confirmText="Archive"
+        variant="danger"
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
