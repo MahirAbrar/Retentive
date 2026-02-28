@@ -244,7 +244,7 @@ export class GamificationService {
         .select('reviewed_at')
         .eq('user_id', userId)
         .order('reviewed_at', { ascending: false })
-        .limit(365)
+        .limit(100)
 
       let streakDays = 0
       if (recentSessions && recentSessions.length > 0) {

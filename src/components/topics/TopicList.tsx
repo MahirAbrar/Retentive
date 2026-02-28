@@ -78,7 +78,6 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set())
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set())
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; topicId: string | null; topicName: string }>({ open: false, topicId: null, topicName: '' })
-  const [archiveConfirm, setArchiveConfirm] = useState<{ open: boolean; topicId: string | null; topicName: string; activeItemCount: number }>({ open: false, topicId: null, topicName: '', activeItemCount: 0 })
   const [deleteItemConfirm, setDeleteItemConfirm] = useState<{ open: boolean; item: LearningItem | null }>({ open: false, item: null })
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null)
   const [editingItem, setEditingItem] = useState<string | null>(null)
@@ -88,14 +87,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   const [newItemContent, setNewItemContent] = useState('')
   const [masteryDialogItem, setMasteryDialogItem] = useState<LearningItem | null>(null)
   const [showArchiveSuggestions, setShowArchiveSuggestions] = useState<Set<string>>(new Set())
-  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem('dismissed-archive-suggestions')
-      return stored ? new Set(JSON.parse(stored)) : new Set()
-    } catch {
-      return new Set()
-    }
-  })
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
   const [modeTooltipId, setModeTooltipId] = useState<string | null>(null)
   const { addToast } = useToast()
   const { user } = useAuth()
@@ -276,12 +268,6 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   // formatNextReview is now imported from utils/formatters
 
   // Removed unused function
-
-  const handleArchiveTopic = async () => {
-    if (!archiveConfirm.topicId || !onArchive) return
-    onArchive(archiveConfirm.topicId)
-    setArchiveConfirm({ open: false, topicId: null, topicName: '', activeItemCount: 0 })
-  }
 
   const handleDeleteTopic = async () => {
     if (!deleteConfirm.topicId || !onDelete) return
@@ -738,7 +724,6 @@ const { error } = await supabase
                   setDismissedSuggestions(prev => {
                     const newSet = new Set(prev)
                     newSet.add(topic.id)
-                    try { localStorage.setItem('dismissed-archive-suggestions', JSON.stringify([...newSet])) } catch { /* ignore */ }
                     return newSet
                   })
                   setShowArchiveSuggestions(prev => {
@@ -753,7 +738,7 @@ const { error } = await supabase
             <Card 
               variant="bordered"
               style={{ 
-                animationDelay: `${Math.min(index, 10) * 0.05}s`,
+                animationDelay: `${index * 0.05}s`,
               }}
               className="animate-fade-in"
             >
@@ -762,13 +747,8 @@ const { error } = await supabase
                 <h3 className="h4">{topic.name}</h3>
                 <div
                   style={{ position: 'relative' }}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Learning mode: ${LEARNING_MODES[topic.learning_mode]?.label || 'Steady'}`}
                   onMouseEnter={() => setModeTooltipId(topic.id)}
                   onMouseLeave={() => setModeTooltipId(null)}
-                  onFocus={() => setModeTooltipId(topic.id)}
-                  onBlur={() => setModeTooltipId(null)}
                 >
                   <Badge
                     variant={topic.learning_mode === 'cram' || topic.learning_mode === 'ultracram' ? 'warning' : 'info'}
@@ -832,11 +812,10 @@ const { error } = await supabase
                 </div>
                 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <Button
-                    variant="primary"
+                  <Button 
+                    variant="primary" 
                     size="small"
                     onClick={() => toggleTopic(topic.id)}
-                    aria-expanded={isExpanded}
                   >
                     {isExpanded ? 'Collapse' : 'View Items'}
                   </Button>
@@ -866,59 +845,109 @@ const { error } = await supabase
                         minWidth: '120px'
                       }}>
                         <button
-                          className="dropdown-menu-item"
                           onClick={(e) => {
                             e.stopPropagation()
                             setEditingTopic(topic)
                             setOpenMenuId(null)
                           }}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: 'var(--text-sm)'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           Edit
                         </button>
                         {!isArchived && onArchive && (
                           <button
-                            className="dropdown-menu-item"
                             onClick={(e) => {
                               e.stopPropagation()
-
+                              
                               // Check if topic has active (non-archived) items
                               const activeItemCount = stats.total
                               if (activeItemCount > 0) {
-                                setArchiveConfirm({ open: true, topicId: topic.id, topicName: topic.name, activeItemCount })
-                                setOpenMenuId(null)
-                                return
+                                const confirmArchive = window.confirm(
+                                  `This topic has ${activeItemCount} active item${activeItemCount > 1 ? 's' : ''}. ` +
+                                  `Archiving the topic will hide it from your main list, but the items will remain active. ` +
+                                  `Continue?`
+                                )
+                                if (!confirmArchive) {
+                                  setOpenMenuId(null)
+                                  return
+                                }
                               }
-
+                              
                               onArchive(topic.id)
                               setOpenMenuId(null)
                             }}
-                            style={{ color: 'var(--color-warning)' }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'none',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              color: 'var(--color-warning)',
+                              fontSize: 'var(--text-sm)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                           >
                             Archive
                           </button>
                         )}
                         {isArchived && onUnarchive && (
                           <button
-                            className="dropdown-menu-item"
                             onClick={(e) => {
                               e.stopPropagation()
                               onUnarchive(topic.id)
                               setOpenMenuId(null)
                             }}
-                            style={{ color: 'var(--color-info)' }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'none',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              color: 'var(--color-info)',
+                              fontSize: 'var(--text-sm)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                           >
                             Restore
                           </button>
                         )}
                         {onDelete && (
                           <button
-                            className="dropdown-menu-item"
                             onClick={(e) => {
                               e.stopPropagation()
                               setDeleteConfirm({ open: true, topicId: topic.id, topicName: topic.name })
                               setOpenMenuId(null)
                             }}
-                            style={{ color: 'var(--color-error)' }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'none',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              color: 'var(--color-error)',
+                              fontSize: 'var(--text-sm)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-50)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                           >
                             Delete
                           </button>
@@ -975,8 +1004,9 @@ const { error } = await supabase
                                 </div>
                               ) : (
                                 <>
-                                  <p
-                                    className="body-small editable-text"
+                                  <p 
+                                    className="body-small" 
+                                    style={{ cursor: 'pointer' }}
                                     onClick={() => {
                                       setEditingItem(item.id)
                                       setEditItemContent(item.content)
@@ -1169,26 +1199,15 @@ const { error } = await supabase
                                       </Button>
                                     </div>
                                   ) : (itemIsDue || item.review_count === 0) ? (
-                                    item.review_count === 0 ? (
-                                      <Button
-                                        variant="primary"
-                                        size="small"
-                                        onClick={() => handleReviewItem(item)}
-                                        loading={isProcessing}
-                                        disabled={isProcessing}
-                                      >
-                                        Study
-                                      </Button>
-                                    ) : (
-                                      <Link to={`/topics/${item.topic_id}`}>
-                                        <Button
-                                          variant="primary"
-                                          size="small"
-                                        >
-                                          Review
-                                        </Button>
-                                      </Link>
-                                    )
+                                    <Button 
+                                      variant="primary" 
+                                      size="small"
+                                      onClick={() => handleReviewItem(item)}
+                                      loading={isProcessing}
+                                      disabled={isProcessing}
+                                    >
+                                      Study
+                                    </Button>
                                   ) : (
                                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                       <span className="body-small" style={{ color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1213,7 +1232,6 @@ const { error } = await supabase
                                     size="small"
                                     onClick={() => setDeleteItemConfirm({ open: true, item })}
                                     style={{ padding: '0.25rem 0.5rem' }}
-                                    aria-label={`Delete "${item.content.substring(0, 30)}"`}
                                   >
                                     <X size={16} />
                                   </Button>
@@ -1278,17 +1296,6 @@ const { error } = await supabase
         )
         })}
       </div>
-
-      {/* Archive Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={archiveConfirm.open}
-        onClose={() => setArchiveConfirm({ open: false, topicId: null, topicName: '', activeItemCount: 0 })}
-        onConfirm={handleArchiveTopic}
-        title="Archive Topic"
-        message={`This topic has ${archiveConfirm.activeItemCount} active item${archiveConfirm.activeItemCount > 1 ? 's' : ''}. Archiving the topic will hide it from your main list, but the items will remain active. Continue?`}
-        confirmText="Archive"
-        variant="danger"
-      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

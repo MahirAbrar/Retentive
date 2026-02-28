@@ -40,7 +40,7 @@ function formatRelativeTime(dateStr: string): string {
 export function HomePage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [isGuideExpanded, setIsGuideExpanded] = useState(true)
+  const [isGuideExpanded, setIsGuideExpanded] = useState(!user)
   const [stats, setStats] = useState({
     overdue: 0,
     dueToday: 0,
@@ -73,13 +73,6 @@ export function HomePage() {
     loadStats()
   }, [loadStats])
 
-  // Auto-collapse guide once the user has created topics
-  useEffect(() => {
-    if (!loading && stats.totalTopics > 0) {
-      setIsGuideExpanded(false)
-    }
-  }, [loading, stats.totalTopics])
-
   const totalDueItems = useMemo(() => stats.overdue + stats.dueToday, [stats.overdue, stats.dueToday])
 
   const lastStudiedOver24h = useMemo(() => {
@@ -93,19 +86,18 @@ export function HomePage() {
   return (
     <div>
       <header style={{ textAlign: 'center', marginBottom: '4rem' }}>
-        <h2 className="h1" style={{ marginBottom: '1rem' }}>
+        <h1 className="h1" style={{ marginBottom: '1rem' }}>
           Retentive
-        </h2>
+        </h1>
         <p className="body-large text-secondary">Master anything with spaced repetition learning</p>
       </header>
 
-      {user && !loading && (lastStudiedOver24h || stats.overdue > 0) && (
-        <LastStudiedBanner lastStudiedText={lastStudiedText} overdueCount={stats.overdue} />
+      {user && !loading && lastStudiedOver24h && (
+        <LastStudiedBanner lastStudiedText={lastStudiedText} />
       )}
 
       <div style={{ display: 'grid', gap: '2rem', marginBottom: '3rem' }}>
-        <section
-          aria-label="Study statistics"
+        <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -120,7 +112,7 @@ export function HomePage() {
             mastered={stats.mastered}
             reviewedToday={stats.reviewedToday}
           />
-        </section>
+        </div>
 
         {user && (
           <div

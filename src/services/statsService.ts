@@ -142,8 +142,8 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       .select('reviewed_at')
       .eq('user_id', userId)
       .order('reviewed_at', { ascending: false })
-      .limit(365)
-
+      .limit(100)
+    
     const lastStudiedAt = recentSessions?.[0]?.reviewed_at || null
 
     // Count today's reviews from already-fetched sessions
@@ -156,20 +156,15 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
     if (recentSessions && recentSessions.length > 0) {
       const dates = new Set<string>()
       recentSessions.forEach(session => {
-        // Use UTC date to avoid timezone issues (matches gamificationService)
-        const date = new Date(session.reviewed_at)
-        const utcDate = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
-        dates.add(utcDate)
+        const date = new Date(session.reviewed_at).toDateString()
+        dates.add(date)
       })
-
-      // Check consecutive days from today backwards (in UTC)
+      
+      // Check consecutive days from today backwards
       const checkDate = new Date()
-      let currentUtcDate = `${checkDate.getUTCFullYear()}-${String(checkDate.getUTCMonth() + 1).padStart(2, '0')}-${String(checkDate.getUTCDate()).padStart(2, '0')}`
-
-      while (dates.has(currentUtcDate)) {
+      while (dates.has(checkDate.toDateString())) {
         streakDays++
-        checkDate.setUTCDate(checkDate.getUTCDate() - 1)
-        currentUtcDate = `${checkDate.getUTCFullYear()}-${String(checkDate.getUTCMonth() + 1).padStart(2, '0')}-${String(checkDate.getUTCDate()).padStart(2, '0')}`
+        checkDate.setDate(checkDate.getDate() - 1)
       }
     }
     
