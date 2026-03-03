@@ -90,6 +90,8 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   const [showArchiveSuggestions, setShowArchiveSuggestions] = useState<Set<string>>(new Set())
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
   const [modeTooltipId, setModeTooltipId] = useState<string | null>(null)
+  const [itemsVisible, setItemsVisible] = useState<Record<string, number>>({})
+  const [itemFilter, setItemFilter] = useState<Record<string, 'all' | 'due' | 'new' | 'upcoming' | 'mastered' | 'archived'>>({})
   const { addToast } = useToast()
   const { user } = useAuth()
   const { showAchievements } = useAchievements()
@@ -163,6 +165,8 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
     
     if (newExpanded.has(topicId)) {
       newExpanded.delete(topicId)
+      setItemsVisible(prev => { const next = {...prev}; delete next[topicId]; return next })
+      setItemFilter(prev => { const next = {...prev}; delete next[topicId]; return next })
     } else {
       newExpanded.add(topicId)
       
@@ -970,8 +974,83 @@ const { error } = await supabase
                       {items.length === 0 && (
                         <p className="body-small text-secondary">No items in this topic</p>
                       )}
-                      <div style={{ display: 'grid', gap: '0.75rem' }}>
-                      {items.map((item) => {
+                      {items.length > 0 && (() => {
+                        const currentFilter = itemFilter[topic.id] || 'all'
+                        const filteredItems = items.filter(item => {
+                          switch (currentFilter) {
+                            case 'due': return item.review_count > 0 && isDue(item)
+                            case 'new': return item.review_count === 0
+                            case 'upcoming': return item.review_count > 0 && !isDue(item)
+                              && item.mastery_status !== 'mastered'
+                              && item.mastery_status !== 'archived'
+                            case 'mastered': return item.mastery_status === 'mastered'
+                              || item.mastery_status === 'maintenance'
+                            case 'archived': return item.mastery_status === 'archived'
+                            default: return true
+                          }
+                        })
+                        const visibleCount = itemsVisible[topic.id] || 10
+                        const displayedItems = filteredItems.slice(0, visibleCount)
+                        const hasMore = filteredItems.length > visibleCount
+
+                        // Compute counts for filter pills
+                        const counts = {
+                          all: items.length,
+                          due: items.filter(i => i.review_count > 0 && isDue(i)).length,
+                          new: items.filter(i => i.review_count === 0).length,
+                          upcoming: items.filter(i => i.review_count > 0 && !isDue(i) && i.mastery_status !== 'mastered' && i.mastery_status !== 'archived').length,
+                          mastered: items.filter(i => i.mastery_status === 'mastered' || i.mastery_status === 'maintenance').length,
+                          archived: items.filter(i => i.mastery_status === 'archived').length,
+                        }
+
+                        const filterOptions = [
+                          { key: 'all' as const, label: 'All' },
+                          { key: 'due' as const, label: 'Due' },
+                          { key: 'new' as const, label: 'New' },
+                          { key: 'upcoming' as const, label: 'Upcoming' },
+                          { key: 'mastered' as const, label: 'Mastered' },
+                          { key: 'archived' as const, label: 'Archived' },
+                        ]
+
+                        return (
+                          <>
+                            {/* Filter pills */}
+                            <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                              {filterOptions
+                                .filter(f => f.key === 'all' || counts[f.key] > 0)
+                                .map(f => (
+                                  <button
+                                    key={f.key}
+                                    onClick={() => {
+                                      setItemFilter(prev => ({ ...prev, [topic.id]: f.key }))
+                                      setItemsVisible(prev => { const next = {...prev}; delete next[topic.id]; return next })
+                                    }}
+                                    style={{
+                                      padding: '0.25rem 0.625rem',
+                                      fontSize: 'var(--text-xs)',
+                                      fontFamily: 'var(--font-mono)',
+                                      border: '1px solid',
+                                      borderColor: currentFilter === f.key ? 'var(--color-primary)' : 'var(--color-gray-300)',
+                                      borderRadius: 'var(--radius-sm)',
+                                      backgroundColor: currentFilter === f.key ? 'var(--color-primary)' : 'transparent',
+                                      color: currentFilter === f.key ? 'white' : 'var(--color-text-secondary)',
+                                      cursor: 'pointer',
+                                      lineHeight: 1.4,
+                                    }}
+                                  >
+                                    {f.label} ({counts[f.key]})
+                                  </button>
+                                ))}
+                            </div>
+
+                            {filteredItems.length === 0 ? (
+                              <p className="body-small text-secondary" style={{ padding: '1rem 0' }}>
+                                No items match this filter
+                              </p>
+                            ) : (
+                              <>
+                                <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                  {displayedItems.map((item) => {
                         const isProcessing = processingItems.has(item.id)
                         
                         // Check if item is due
@@ -1027,17 +1106,63 @@ const { error } = await supabase
                                           const reviewDate = new Date(item.next_review_at)
                                           const now = new Date()
                                           const diffMs = reviewDate.getTime() - now.getTime()
-                                          const isDueNow = diffMs <= 0
-                                          const timeDisplay = isDueNow ? 'Due now' : `Due in ${formatDuration(diffMs)}`
+                                          const hoursDiff = (now.getTime() - reviewDate.getTime()) / (1000 * 60 * 60)
+                                          const mode = GAMIFICATION_CONFIG.LEARNING_MODES[item.learning_mode || 'steady']
+                                          const perfectWindowMs = GAMIFICATION_CONFIG.FEATURES.timePressure.perfectWindow * 60 * 60 * 1000
+                                          const windowAfterMs = mode.windowAfter * 60 * 60 * 1000
                                           const exactDate = formatReviewDate(reviewDate)
-                                          
+
+                                          let timeDisplay: string
+                                          let timeColor: string
+                                          let timingContext: string | null = null
+
+                                          if (Math.abs(hoursDiff) <= GAMIFICATION_CONFIG.FEATURES.timePressure.perfectWindow) {
+                                            // IN PERFECT WINDOW (±30min of due)
+                                            const remainingMs = perfectWindowMs - Math.abs(diffMs)
+                                            timeColor = 'var(--color-success)'
+                                            timeDisplay = diffMs > 0 ? `Due in ${formatDuration(diffMs)}` : 'Due now'
+                                            timingContext = `Perfect timing · ${formatDuration(remainingMs)} left · ${mode.pointsMultiplier.onTime}x pts`
+                                          } else if (diffMs > perfectWindowMs) {
+                                            // NOT YET DUE — before perfect window
+                                            const msTillPerfect = diffMs - perfectWindowMs
+                                            timeColor = 'var(--color-text-secondary)'
+                                            timeDisplay = `Due in ${formatDuration(diffMs)}`
+                                            timingContext = `Perfect window in ${formatDuration(msTillPerfect)}`
+                                          } else if (hoursDiff > 0 && hoursDiff <= mode.windowAfter) {
+                                            // PAST PERFECT but still in good window
+                                            const remainingMs = windowAfterMs - (hoursDiff * 60 * 60 * 1000)
+                                            timeColor = 'var(--color-warning)'
+                                            timeDisplay = `${formatDuration(Math.abs(diffMs))} overdue`
+                                            timingContext = `Good timing · ${formatDuration(remainingMs)} left · ${mode.pointsMultiplier.inWindow}x pts`
+                                          } else if (diffMs > 0 && hoursDiff < 0) {
+                                            // Early but outside perfect window
+                                            const msTillPerfect = diffMs - perfectWindowMs
+                                            timeColor = 'var(--color-text-secondary)'
+                                            timeDisplay = `Due in ${formatDuration(diffMs)}`
+                                            timingContext = `Perfect window in ${formatDuration(msTillPerfect)}`
+                                          } else {
+                                            // LATE — past the good window
+                                            timeColor = 'var(--color-error)'
+                                            timeDisplay = `${formatDuration(Math.abs(diffMs))} overdue`
+                                            timingContext = `Late · ${mode.pointsMultiplier.late}x pts`
+                                          }
+
                                           return (
                                             <>
-                                              <span className="body-small text-secondary" style={{ 
-                                                color: isDueNow ? 'var(--color-warning)' : 'var(--color-text-secondary)' 
+                                              <span className="body-small" style={{
+                                                color: timeColor,
+                                                fontWeight: timingContext?.includes('Perfect timing') ? 600 : 'normal'
                                               }}>
                                                 {timeDisplay}
                                               </span>
+                                              {timingContext && (
+                                                <>
+                                                  <span className="body-small text-secondary">·</span>
+                                                  <span className="body-small" style={{ color: timeColor, opacity: 0.85, fontSize: 'var(--text-xs)' }}>
+                                                    {timingContext}
+                                                  </span>
+                                                </>
+                                              )}
                                               <span className="body-small text-secondary">•</span>
                                               <span className="body-small text-secondary">
                                                 {exactDate}
@@ -1245,8 +1370,65 @@ const { error } = await supabase
                           </div>
                         )
                       })}
-                      </div>
-                      
+                                </div>
+
+                                {/* Show More / Show Less controls */}
+                                <div style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  marginTop: '0.75rem',
+                                  padding: '0.5rem 0',
+                                  fontSize: 'var(--text-xs)',
+                                  color: 'var(--color-text-secondary)',
+                                  fontFamily: 'var(--font-mono)',
+                                }}>
+                                  <span>
+                                    Showing {Math.min(visibleCount, filteredItems.length)} of {filteredItems.length}{currentFilter !== 'all' ? ` ${currentFilter}` : ''} item{filteredItems.length !== 1 ? 's' : ''}
+                                  </span>
+                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    {hasMore && (
+                                      <button
+                                        onClick={() => setItemsVisible(prev => ({ ...prev, [topic.id]: visibleCount + 10 }))}
+                                        style={{
+                                          background: 'none',
+                                          border: '1px solid var(--color-gray-300)',
+                                          borderRadius: 'var(--radius-sm)',
+                                          padding: '0.25rem 0.625rem',
+                                          fontSize: 'var(--text-xs)',
+                                          fontFamily: 'var(--font-mono)',
+                                          color: 'var(--color-primary)',
+                                          cursor: 'pointer',
+                                        }}
+                                      >
+                                        Show 10 More
+                                      </button>
+                                    )}
+                                    {visibleCount > 10 && (
+                                      <button
+                                        onClick={() => setItemsVisible(prev => { const next = {...prev}; delete next[topic.id]; return next })}
+                                        style={{
+                                          background: 'none',
+                                          border: '1px solid var(--color-gray-300)',
+                                          borderRadius: 'var(--radius-sm)',
+                                          padding: '0.25rem 0.625rem',
+                                          fontSize: 'var(--text-xs)',
+                                          fontFamily: 'var(--font-mono)',
+                                          color: 'var(--color-text-secondary)',
+                                          cursor: 'pointer',
+                                        }}
+                                      >
+                                        Show Less
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )
+                      })()}
+
                       {/* Add Item Button */}
                       <div style={{ marginTop: '1rem' }}>
                         {addingItemToTopic === topic.id ? (
