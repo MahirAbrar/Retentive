@@ -1,17 +1,9 @@
 import { supabase } from './supabase'
 import { logger } from '../utils/logger'
 import { cacheService } from './cacheService'
-import { PRICING } from '../types/subscription'
+import { PRICING, type ServiceSubscriptionStatus as SubscriptionStatus } from '../types/subscription'
 
-export type SubscriptionStatus = {
-  hasAccess: boolean
-  isActive: boolean
-  isPaid: boolean
-  isTrial: boolean
-  subscriptionType: 'monthly' | 'yearly' | null
-  expiresAt: Date | null
-  status: 'active' | 'cancelled' | 'expired' | 'trial' | 'inactive'
-}
+export type { SubscriptionStatus }
 
 export class SubscriptionService {
   private static instance: SubscriptionService

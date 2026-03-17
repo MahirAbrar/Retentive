@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuthFixed'
-import { useToast } from '../components/ui'
+import { useAuth } from '../hooks/useAuth'
 import { trialService } from '../services/trialService'
 import { PRICING, PAYWALL_STATS } from '../types/subscription'
 import { logger } from '../utils/logger'
@@ -18,8 +17,6 @@ const renderIcon = (iconName: string, props?: any) => {
 export function PaywallPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { addToast } = useToast()
-  const [loading, setLoading] = useState(false)
   const [trialStatus, setTrialStatus] = useState<any>(null)
 
   const loadTrialStatus = useCallback(async () => {
@@ -41,34 +38,6 @@ export function PaywallPage() {
 
     loadTrialStatus()
   }, [user, navigate, loadTrialStatus])
-
-  const handleStartTrial = async () => {
-    if (!user) return
-    
-    setLoading(true)
-    try {
-      const result = await trialService.startTrial(user.id)
-      
-      if (result.success) {
-        const trialEndDate = new Date()
-        trialEndDate.setDate(trialEndDate.getDate() + 30)
-        const formattedDate = trialEndDate.toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric'
-        })
-        addToast('success', `Welcome to your 30-day free trial! Your trial will end on ${formattedDate}. Enjoy full access to all features.`)
-        navigate('/')
-      } else {
-        addToast('error', result.error || 'Failed to start trial')
-      }
-    } catch (error) {
-      logger.error('Error starting trial:', error)
-      addToast('error', 'Failed to start trial. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="paywall-page">
@@ -146,13 +115,14 @@ export function PaywallPage() {
                     <li key={idx}>✓ {feature}</li>
                   ))}
                 </ul>
-                <button
+                <a
                   className="btn btn-primary btn-large"
-                  onClick={handleStartTrial}
-                  disabled={loading || trialStatus?.hasUsedTrial}
+                  href="https://www.retentive.site/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  {loading ? 'Starting...' : 'Start Free Trial'}
-                </button>
+                  Start Free Trial
+                </a>
                 <p className="no-card-note">No credit card required</p>
               </div>
             )}

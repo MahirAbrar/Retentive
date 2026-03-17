@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuthFixed'
+import { useAuth } from '../hooks/useAuth'
 import { trialService } from '../services/trialService'
 import type { TrialStatus } from '../services/trialService'
 import './TrialBanner.css'

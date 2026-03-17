@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Moon, Sun } from 'lucide-react'
 import { Button, Input, Card, CardHeader, CardContent, useToast } from '../components/ui'
-import { useAuth } from '../hooks/useAuthFixed'
+import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 import { validateEmail, validatePassword } from '../utils/validation'
 

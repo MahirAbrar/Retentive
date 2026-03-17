@@ -28,7 +28,7 @@
     "strictNullChecks": true,
     "strictFunctionTypes": true,
     "strictPropertyInitialization": true,
-    
+
     /* Path Aliases */
     "baseUrl": ".",
     "paths": {

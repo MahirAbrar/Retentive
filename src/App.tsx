@@ -2,17 +2,17 @@ import './App.css'
 import React, { useEffect, useState, Suspense } from 'react'
 import { Analytics } from "@vercel/analytics/react"
 import { HashRouter, Routes, Route } from 'react-router-dom'
-import { ToastProvider } from './components/ui'
-import { AuthProvider } from './hooks/useAuthFixed'
+import { ToastProvider } from './contexts/ToastContext'
+import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { AchievementProvider } from './hooks/useAchievements'
+import { AchievementProvider } from './contexts/AchievementContext'
 import { networkRecovery } from './services/networkRecovery'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OfflineIndicator } from './components/OfflineIndicator'
 import { FocusGoalNotifier } from './components/FocusGoalNotifier'
 import { OfflineDisclaimer } from './components/OfflineDisclaimer'
-import { HeaderFixed } from './components/layout/HeaderFixed'
+import { Header } from './components/layout/Header'
 import { TrialBanner } from './components/TrialBanner'
 import { AccessGuard } from './components/AccessGuard'
 import { clearAuthCache } from './utils/clearAuthCache'
@@ -27,10 +27,6 @@ const NewTopicPage = lazyWithRetry(() => import('./pages/NewTopicPage').then(m =
 const TopicDetailView = lazyWithRetry(() => import('./pages/TopicDetailView').then(m => ({ default: m.TopicDetailView })))
 const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const StatsPage = lazyWithRetry(() => import('./pages/StatsPage').then(m => ({ default: m.StatsPage })))
-const TestGamificationPage = lazyWithRetry(() => import('./pages/TestGamificationPage').then(m => ({ default: m.TestGamificationPage })))
-const DarkModeTest = lazyWithRetry(() => import('./pages/DarkModeTest').then(m => ({ default: m.DarkModeTest })))
-const TestGamificationPersistence = lazyWithRetry(() => import('./pages/TestGamificationPersistence').then(m => ({ default: m.TestGamificationPersistence })))
-const TestAchievements = lazyWithRetry(() => import('./pages/TestAchievements').then(m => ({ default: m.TestAchievements })))
 const PaywallPage = lazyWithRetry(() => import('./pages/PaywallPage').then(m => ({ default: m.PaywallPage })))
 const PaymentSuccess = lazyWithRetry(() => import('./pages/PaymentSuccess').then(m => ({ default: m.PaymentSuccess })))
 
@@ -95,7 +91,7 @@ function App() {
                 <FocusGoalNotifier />
                 <div style={{ minHeight: '100vh' }}>
                   <OfflineDisclaimer />
-                  <HeaderFixed />
+                  <Header />
                   <TrialBanner />
 
                   <main style={{ padding: 'var(--space-8) var(--space-4)' }}>
@@ -153,40 +149,6 @@ function App() {
                       <ProtectedRoute>
                         <AccessGuard>
                           <StatsPage />
-                        </AccessGuard>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/test-gamification"
-                    element={
-                      <ProtectedRoute>
-                        <AccessGuard>
-                          <TestGamificationPage />
-                        </AccessGuard>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/dark-mode-test"
-                    element={<DarkModeTest />}
-                  />
-                  <Route
-                    path="/test-persistence"
-                    element={
-                      <ProtectedRoute>
-                        <AccessGuard>
-                          <TestGamificationPersistence />
-                        </AccessGuard>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/test-achievements"
-                    element={
-                      <ProtectedRoute>
-                        <AccessGuard>
-                          <TestAchievements />
                         </AccessGuard>
                       </ProtectedRoute>
                     }

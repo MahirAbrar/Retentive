@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
-import { getBreakCategory, type BreakActivity } from '../../services/breakActivities'
+import { getBreakCategory } from '../../services/breakActivityService'
+import type { BreakActivity } from '../../config/breakActivities'
 
 interface BreakActivityModalProps {
   isOpen: boolean

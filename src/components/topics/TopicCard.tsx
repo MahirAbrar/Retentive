@@ -1,35 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react'
 import { Card, CardHeader, CardContent, Button, Badge } from '../ui'
 import type { Topic, LearningMode } from '../../types/database'
-import { LEARNING_MODES } from '../../constants/learning'
-
-// Mode guidance for tooltips
-const MODE_TOOLTIP: Record<LearningMode, {
-  schedule: string
-  session: string
-  chunk: string
-}> = {
-  ultracram: {
-    schedule: '30s → 2h → 1d → 3d',
-    session: '15-20 min',
-    chunk: '~50-75 words'
-  },
-  cram: {
-    schedule: '2h → 1d → 3d → 7d',
-    session: '25-30 min',
-    chunk: '~50-75 words'
-  },
-  steady: {
-    schedule: '1d → 3d → 7d → 14d',
-    session: '25-30 min',
-    chunk: '~75-125 words'
-  },
-  extended: {
-    schedule: '3d → 7d → 14d → 30d',
-    session: '30-45 min',
-    chunk: '~100-150 words'
-  }
-}
+import { LEARNING_MODES, MODE_TOOLTIP } from '../../config/learning'
 
 interface TopicCardProps {
   topic: Topic

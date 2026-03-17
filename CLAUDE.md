@@ -39,7 +39,6 @@ This file contains important information for Claude to remember across sessions.
 - ✅ Advanced mastery system (archive/maintenance/repeat options)
 - ✅ Real-time updates and data synchronization
 - ✅ Comprehensive stats and analytics dashboard
-- ✅ Migrated from Electron to PWA
 
 ## Important User Preferences
 - **DO NOT run `npm run dev`** - User manages the dev server themselves

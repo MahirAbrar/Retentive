@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuthFixed'
+import { useAuth } from '../hooks/useAuth'
 import { subscriptionService } from '../services/subscriptionService'
 import { trialService } from '../services/trialService'
 import { logger } from '../utils/logger'

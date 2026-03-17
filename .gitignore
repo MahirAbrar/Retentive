@@ -12,7 +12,6 @@ node_modules
 
 # Build outputs
 dist
-dist-electron
 dist-ssr
 release
 out
@@ -39,11 +38,6 @@ versions/
 .env.development.local
 .env.test.local
 .env.production.local
-
-# Electron specific
-electron-builder.yml
-electron-builder.json5
-.electron-symbols
 
 # TypeScript
 *.tsbuildinfo

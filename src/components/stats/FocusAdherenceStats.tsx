@@ -3,7 +3,7 @@ import { Card, CardHeader, CardContent, Badge, Button } from '../ui'
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Timer, TrendingUp, Clock, Coffee, ChevronLeft, ChevronRight } from 'lucide-react'
 import { focusTimerService, getAdherenceColor, type FocusSession, type SessionTimeFilter } from '../../services/focusTimerService'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 
 interface FocusAdherenceStatsProps {
   userId: string

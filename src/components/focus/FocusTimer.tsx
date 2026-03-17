@@ -9,7 +9,7 @@ const SESSION_GUIDE = [
   { mode: 'Extended', duration: '30-45 min', description: 'Deep learning sessions' },
 ]
 import { useFocusTimer } from '../../hooks/useFocusTimer'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { GoalReachedModal } from './GoalReachedModal'
 import { BreakCompleteModal } from './BreakCompleteModal'
 import { MaxDurationModal } from './MaxDurationModal'

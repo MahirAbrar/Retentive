@@ -4,7 +4,7 @@ import { Button, Input, Card, CardHeader, CardContent, useToast } from '@/compon
 import { dataService } from '@/services/dataService'
 import { useUser } from '@/hooks/useAuth'
 import { validateTopicName, parseItems } from '@/utils/validation'
-import { LEARNING_MODES } from '@/constants/learning'
+import { LEARNING_MODES } from '@/config/learning'
 import type { LearningMode } from '@/types/database'
 import styles from './TopicForm.module.css'
 

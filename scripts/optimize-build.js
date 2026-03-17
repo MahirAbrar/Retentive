@@ -9,7 +9,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const distPath = path.join(__dirname, '..', 'dist');
-const distElectronPath = path.join(__dirname, '..', 'dist-electron');
 
 function formatBytes(bytes) {
   if (bytes === 0) return '0 Bytes';
@@ -132,27 +131,8 @@ function optimizeIndexHtml() {
   }
 }
 
-// Optimize Electron main process
-function optimizeElectron() {
-  const mainPath = path.join(distElectronPath, 'main.js');
-  if (!fs.existsSync(mainPath)) {
-    console.log('⚠️  Electron main.js not found');
-    return;
-  }
-  
-  const mainSize = fs.statSync(mainPath).size;
-  console.log(`\n🖥️  Electron Main Process: ${formatBytes(mainSize)}`);
-  
-  const preloadPath = path.join(distElectronPath, 'preload.js');
-  if (fs.existsSync(preloadPath)) {
-    const preloadSize = fs.statSync(preloadPath).size;
-    console.log(`📦 Electron Preload Script: ${formatBytes(preloadSize)}`);
-  }
-}
-
 // Run optimizations
 console.log('🚀 Running production build optimizations...\n');
 
 analyzeBundle();
 optimizeIndexHtml();
-optimizeElectron();

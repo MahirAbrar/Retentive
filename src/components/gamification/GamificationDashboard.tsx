@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { gamificationService } from '../../services/gamificationService'
 import { logger } from '../../utils/logger'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { useAchievements } from '../../hooks/useAchievements'
 import { useVisibilityAwareInterval } from '../../hooks/useVisibilityAwareInterval'
 import { LevelProgress } from './LevelProgress'

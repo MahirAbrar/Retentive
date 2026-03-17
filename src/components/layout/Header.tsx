@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Bell, Menu, X } from 'lucide-react'
 import { Button } from '../ui'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { GamificationStats } from '../gamification/GamificationStats'
 import { FocusSessionIndicator } from '../focus/FocusSessionIndicator'
 import { QuickRemindersPopup } from './QuickRemindersPopup'
 import { quickRemindersService } from '../../services/quickRemindersService'
 
-export function HeaderFixed() {
+export function Header() {
   const { user, signOut } = useAuth()
   const location = useLocation()
   const [showReminders, setShowReminders] = useState(false)
@@ -77,7 +77,6 @@ export function HeaderFixed() {
       position: 'sticky',
       top: 0,
       zIndex: 'var(--z-sticky)',
-      WebkitAppRegion: 'drag',
       userSelect: 'none'
     }}>
       <div style={{
@@ -90,22 +89,21 @@ export function HeaderFixed() {
       }}>
         {/* Left side: Logo + Desktop Nav */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}>
-          <Link to="/" style={{ textDecoration: 'none', WebkitAppRegion: 'no-drag' }}>
+          <Link to="/" style={{ textDecoration: 'none' }}>
             <h1 className="h4" style={{ margin: 0 }}>Retentive</h1>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="desktop-nav" style={{
             display: 'flex',
-            gap: 'var(--space-4)',
-            WebkitAppRegion: 'no-drag'
+            gap: 'var(--space-4)'
           }}>
             {navLinks}
           </div>
         </nav>
 
         {/* Right side: Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', WebkitAppRegion: 'no-drag' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           {user ? (
             <>
               {/* These show on desktop, hidden on mobile */}

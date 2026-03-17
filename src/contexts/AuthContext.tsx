@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authService } from '../services/authFixed'
+import { authService } from '../services/authService'
 import type { User } from '../types/database'
 import { Loading } from '../components/ui'
 

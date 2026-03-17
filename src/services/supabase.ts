@@ -35,7 +35,7 @@ const supabaseInstance: SupabaseClient | null = (supabaseUrl && supabaseAnonKey)
 
 /**
  * Get Supabase client instance
- * Now synchronous since we no longer need to wait for Electron IPC
+ * Get the initialized Supabase client
  * @throws Error if environment variables are not configured
  */
 export async function getSupabase(): Promise<SupabaseClient> {

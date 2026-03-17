@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, useToast, Input, Pagination, PaginationInfo, Loading } from '../components/ui'
-import { useAuth } from '../hooks/useAuthFixed'
+import { useAuth } from '../hooks/useAuth'
 
 import { lazyWithRetry } from '../utils/lazyWithRetry'
 
 // Lazy load TopicList - it's a large component (~50KB)
 const TopicList = lazyWithRetry(() => import('../components/topics/TopicList').then(m => ({ default: m.TopicList })))
-import { topicsService } from '../services/topicsFixed'
+import { topicsService } from '../services/topicsService'
 import { dataService } from '../services/dataService'
 import { subjectService } from '../services/subjectService'
 import { usePagination } from '../hooks/usePagination'

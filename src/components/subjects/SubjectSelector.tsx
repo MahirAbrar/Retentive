@@ -4,7 +4,7 @@ import { Button, Modal, Input } from '../ui'
 import { subjectService } from '../../services/subjectService'
 import { SubjectSuggestions } from './SubjectSuggestions'
 import type { Subject } from '../../types/database'
-import { DEFAULT_SUBJECT_COLOR, DEFAULT_SUBJECT_ICON } from '../../constants/subjects'
+import { DEFAULT_SUBJECT_COLOR, DEFAULT_SUBJECT_ICON } from '../../config/subjects'
 import { getIconComponent } from '../../utils/icons'
 
 interface SubjectSelectorProps {

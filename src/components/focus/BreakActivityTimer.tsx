@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import { Button } from '../ui'
-import type { BreakActivity } from '../../services/breakActivities'
+import type { BreakActivity } from '../../config/breakActivities'
 
 interface BreakActivityTimerProps {
   activity: BreakActivity

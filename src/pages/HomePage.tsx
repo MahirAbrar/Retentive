@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react'
 import { Card, CardContent, Skeleton } from '../components/ui'
-import { useAuth } from '../hooks/useAuthFixed'
+import { useAuth } from '../hooks/useAuth'
 import { getExtendedStats } from '../services/statsService'
 import { QuickStats } from '../components/home/QuickStats'
 import { ReviewStatusCards } from '../components/home/ReviewStatusCards'

@@ -1,12 +1,8 @@
-import { topicsService } from '../services/topicsFixed'
-import type { Topic, LearningItem } from '../types/database'
+import { topicsService } from '../services/topicsService'
+import type { LearningItem } from '../types/database'
+import type { ExportData } from '../types/data'
 
-export interface ExportData {
-  version: string
-  exportDate: string
-  topics: Topic[]
-  learningItems: LearningItem[]
-}
+export type { ExportData }
 
 export async function exportUserData(userId: string): Promise<ExportData> {
   // Get all topics

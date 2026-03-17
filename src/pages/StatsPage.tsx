@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger'
 import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react'
 import { Card, CardHeader, CardContent, Badge } from '../components/ui'
-import { useAuth } from '../hooks/useAuthFixed'
+import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../services/supabase'
 import { getExtendedStats } from '../services/statsService'
 import { cacheService } from '../services/cacheService'

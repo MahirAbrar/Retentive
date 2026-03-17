@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, memo, lazy, Suspense } from 'react'
 import { Card, CardHeader, CardContent, Badge } from '../ui'
 import { timingStatsService } from '../../services/timingStatsService'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { logger } from '../../utils/logger'
 import { Trophy, CheckCircle, BarChart3, AlertTriangle, BookOpen } from 'lucide-react'
 

@@ -16,44 +16,18 @@ import {
   Package,
   Settings
 } from 'lucide-react'
-import { LEARNING_MODES } from '../../constants/learning'
+import { LEARNING_MODES, MODE_TOOLTIP } from '../../config/learning'
 import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
 
 // Mode guidance for tooltips
-const MODE_TOOLTIP: Record<LearningMode, {
-  schedule: string
-  session: string
-  chunk: string
-}> = {
-  ultracram: {
-    schedule: '30s → 2h → 1d → 3d',
-    session: '15-20 min',
-    chunk: '~50-75 words'
-  },
-  cram: {
-    schedule: '2h → 1d → 3d → 7d',
-    session: '25-30 min',
-    chunk: '~50-75 words'
-  },
-  steady: {
-    schedule: '1d → 3d → 7d → 14d',
-    session: '25-30 min',
-    chunk: '~75-125 words'
-  },
-  extended: {
-    schedule: '3d → 7d → 14d → 30d',
-    session: '30-45 min',
-    chunk: '~100-150 words'
-  }
-}
 import { formatNextReview } from '../../utils/formatters'
 import { getModeRecommendation } from '../../utils/learningScience'
 // import { TopicCard } from './TopicCard' // Will integrate later
 // import { LearningItemRow } from './LearningItemRow' // Will integrate later
-import { topicsService } from '../../services/topicsFixed'
+import { topicsService } from '../../services/topicsService'
 import { dataService } from '../../services/dataService'
 import { supabase } from '../../services/supabase'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { cacheService } from '../../services/cacheService'
 import { spacedRepetitionGamified } from '../../services/spacedRepetitionGamified'
 import { gamificationService } from '../../services/gamificationService'

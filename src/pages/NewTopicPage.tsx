@@ -2,48 +2,15 @@ import { logger } from '../utils/logger'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Card, CardContent, useToast } from '../components/ui'
-import { useAuth } from '../hooks/useAuthFixed'
-import { topicsService } from '../services/topicsFixed'
+import { useAuth } from '../hooks/useAuth'
+import { topicsService } from '../services/topicsService'
 import { SubjectSelector } from '../components/subjects'
-import { LEARNING_MODES } from '../constants/learning'
+import { LEARNING_MODES, MODE_GUIDANCE } from '../config/learning'
 import type { LearningMode } from '../types/database'
 import { sanitizeInput } from '../utils/sanitize'
 import { useAutoSave } from '../hooks/useAutoSave'
 import { cacheService } from '../services/cacheService'
 import { Clock, Layers, BookOpen } from 'lucide-react'
-
-// Guidance for each learning mode
-const MODE_GUIDANCE: Record<LearningMode, {
-  intervals: string
-  sessionLength: string
-  contentLength: string
-  example: string
-}> = {
-  ultracram: {
-    intervals: '30s → 2h → 1d → 3d',
-    sessionLength: '15-20 min, then break',
-    contentLength: '~50-75 words',
-    example: 'ATP definition: page 42\nKrebs cycle: diagram 3.1\nMitosis phases: bullet points'
-  },
-  cram: {
-    intervals: '2h → 1d → 3d → 7d',
-    sessionLength: '25-30 min, then break',
-    contentLength: '~50-75 words',
-    example: 'REST API basics: section 2.1\nHTTP methods: notes p.15\nStatus codes: summary table'
-  },
-  steady: {
-    intervals: '1d → 3d → 7d → 14d',
-    sessionLength: '25-30 min, then break',
-    contentLength: '~75-125 words',
-    example: 'Growth Hormone: paragraphs 1-3\nPhotosynthesis: light reactions section\nReact Hooks: useEffect basics + examples'
-  },
-  extended: {
-    intervals: '3d → 7d → 14d → 30d',
-    sessionLength: '30-45 min, then break',
-    contentLength: '~100-150 words',
-    example: 'Compound interest: chapter 4, worked examples\nNeural networks: architecture + backprop notes\nDesign patterns: singleton with code samples'
-  }
-}
 
 export function NewTopicPage() {
   const navigate = useNavigate()

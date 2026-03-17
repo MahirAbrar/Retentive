@@ -1,23 +1,11 @@
 /**
- * Break Activities Service
+ * Break Activities Config
  * Defines activities for different break categories during focus sessions
  */
 
-export interface BreakActivity {
-  id: string
-  name: string
-  emoji: string
-  durationMinutes: number
-  description: string
-}
+import type { BreakActivity, BreakCategory } from '../types/focus'
 
-export interface BreakCategory {
-  id: 'cognitive-overload' | 'attention-drift' | 'urge-management'
-  title: string
-  emoji: string
-  description: string
-  activities: BreakActivity[]
-}
+export type { BreakActivity, BreakCategory }
 
 export const BREAK_CATEGORIES: BreakCategory[] = [
   {
@@ -108,25 +96,3 @@ export const BREAK_CATEGORIES: BreakCategory[] = [
     ],
   },
 ]
-
-/**
- * Get break category by ID
- */
-export function getBreakCategory(categoryId: string): BreakCategory | undefined {
-  return BREAK_CATEGORIES.find((cat) => cat.id === categoryId)
-}
-
-/**
- * Get all activities across all categories
- */
-export function getAllActivities(): BreakActivity[] {
-  return BREAK_CATEGORIES.flatMap((cat) => cat.activities)
-}
-
-/**
- * Get activity by ID
- */
-export function getActivityById(activityId: string): BreakActivity | undefined {
-  const allActivities = getAllActivities()
-  return allActivities.find((act) => act.id === activityId)
-}

@@ -1,14 +1,9 @@
 import { supabase } from './supabase'
 import { logger } from '../utils/logger'
 import { cacheService } from './cacheService'
+import type { TrialStatus } from '../types/subscription'
 
-export type TrialStatus = {
-  isActive: boolean
-  hasUsedTrial: boolean
-  daysRemaining: number
-  startedAt: Date | null
-  expiresAt: Date | null
-}
+export type { TrialStatus }
 
 export class TrialService {
   private static instance: TrialService
@@ -21,34 +16,6 @@ export class TrialService {
       TrialService.instance = new TrialService()
     }
     return TrialService.instance
-  }
-
-  async startTrial(userId: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      // Check if trial has already been used
-      const status = await this.getTrialStatus(userId)
-      if (status.hasUsedTrial) {
-        return { success: false, error: 'Trial has already been used' }
-      }
-
-      // Call the database function to start trial
-      const { error } = await supabase.rpc('start_user_trial', {
-        user_id: userId
-      })
-
-      if (error) {
-        logger.error('Failed to start trial:', error)
-        return { success: false, error: error.message }
-      }
-
-      // Clear cache to force refresh
-      this.clearTrialCache(userId)
-
-      return { success: true }
-    } catch (error) {
-      logger.error('Error starting trial:', error)
-      return { success: false, error: 'Failed to start trial' }
-    }
   }
 
   async getTrialStatus(userId: string): Promise<TrialStatus> {
@@ -123,44 +90,6 @@ export class TrialService {
         expiresAt: null
       }
     }
-  }
-
-  async checkTrialExpiry(userId: string): Promise<boolean> {
-    const status = await this.getTrialStatus(userId)
-    
-    if (status.isActive && status.daysRemaining <= 0) {
-      // Trial has expired, update database
-      try {
-        const { error } = await supabase
-          .from('user_settings')
-          .update({
-            is_trial: false,
-            trial_ended_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-
-        if (error) {
-          logger.error('Failed to expire trial:', error)
-        }
-
-        this.clearTrialCache(userId)
-        return true // Trial expired
-      } catch (error) {
-        logger.error('Error expiring trial:', error)
-      }
-    }
-
-    return false // Trial not expired or not on trial
-  }
-
-  async getRemainingTrialDays(userId: string): Promise<number> {
-    const status = await this.getTrialStatus(userId)
-    return status.daysRemaining
-  }
-
-  async hasUsedTrial(userId: string): Promise<boolean> {
-    const status = await this.getTrialStatus(userId)
-    return status.hasUsedTrial
   }
 
   clearTrialCache(userId: string) {

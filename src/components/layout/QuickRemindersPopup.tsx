@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Trash2, Plus } from 'lucide-react'
 import { quickRemindersService } from '../../services/quickRemindersService'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../ui'
 import type { QuickReminder } from '../../types/database'
 import { logger } from '../../utils/logger'

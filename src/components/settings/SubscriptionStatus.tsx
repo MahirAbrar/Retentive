@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardHeader, CardContent, Button } from '../ui'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { subscriptionService } from '../../services/subscriptionService'
 import { trialService } from '../../services/trialService'
 import { logger } from '../../utils/logger'

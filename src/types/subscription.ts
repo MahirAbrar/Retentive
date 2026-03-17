@@ -1,5 +1,23 @@
 // Subscription-related types for monetization system
 
+export type TrialStatus = {
+  isActive: boolean
+  hasUsedTrial: boolean
+  daysRemaining: number
+  startedAt: Date | null
+  expiresAt: Date | null
+}
+
+export type ServiceSubscriptionStatus = {
+  hasAccess: boolean
+  isActive: boolean
+  isPaid: boolean
+  isTrial: boolean
+  subscriptionType: 'monthly' | 'yearly' | null
+  expiresAt: Date | null
+  status: 'active' | 'cancelled' | 'expired' | 'trial' | 'inactive'
+}
+
 export type SubscriptionType = 'monthly' | 'yearly' | null;
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'trial' | 'inactive';
 export type PromoDiscountType = 'percentage' | 'fixed';

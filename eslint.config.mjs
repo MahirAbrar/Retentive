@@ -7,7 +7,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'dist-electron', 'release', 'build', 'out', 'node_modules'] },
+  { ignores: ['dist', 'release', 'build', 'out', 'node_modules'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -77,39 +77,6 @@ export default tseslint.config(
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-empty-function': 'warn',
       '@typescript-eslint/no-non-null-assertion': 'warn',
-    },
-  },
-  {
-    // Electron main process files
-    files: ['electron/**/*.ts'],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        process: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-      },
-    },
-    rules: {
-      // Node/Electron specific rules
-      'no-console': 'off', // Console is fine in main process
-      'no-restricted-imports': ['error', {
-        patterns: ['react', 'react-dom', 'react-router-dom'], // No React in main process
-      }],
-      '@typescript-eslint/no-var-requires': 'off', // require() is common in Electron
-    },
-  },
-  {
-    // Electron preload scripts
-    files: ['electron/preload.ts'],
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.node,
-      },
-    },
-    rules: {
-      'no-restricted-globals': ['error', 'window', 'document'], // Use contextBridge instead
     },
   },
 )

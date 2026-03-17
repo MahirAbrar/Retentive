@@ -13,8 +13,8 @@ export type { ModalProps } from './Modal'
 export { Loading, LoadingSpinner } from './Loading'
 export type { LoadingProps, LoadingSpinnerProps } from './Loading'
 
-export { ToastProvider, useToast } from './Toast'
-export type { Toast, ToastType } from './Toast'
+export { ToastProvider, useToast } from '../../contexts/ToastContext'
+export type { Toast, ToastType } from '../../contexts/ToastContext'
 
 export { Badge } from './Badge'
 export type { BadgeProps } from './Badge'

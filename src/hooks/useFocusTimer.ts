@@ -10,7 +10,7 @@ import {
 import { gamificationService } from '../services/gamificationService'
 import { focusSessionQueue } from '../services/focusSessionQueue'
 import { logger } from '../utils/logger'
-import type { BreakActivity } from '../services/breakActivities'
+import type { BreakActivity } from '../config/breakActivities'
 
 type TimerStatus = 'idle' | 'working' | 'break'
 

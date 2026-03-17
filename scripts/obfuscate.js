@@ -82,18 +82,5 @@ console.log('🔒 Starting code obfuscation...\n');
 console.log('Obfuscating renderer process (dist/)...');
 obfuscateDirectory(path.join(__dirname, '../dist/assets'));
 
-// Obfuscate main process file
-console.log('\nObfuscating main process (dist-electron/)...');
-const mainFile = path.join(__dirname, '../dist-electron/main.js');
-if (fs.existsSync(mainFile)) {
-  obfuscateFile(mainFile);
-}
-
-// Obfuscate preload file
-const preloadFile = path.join(__dirname, '../dist-electron/preload.js');
-if (fs.existsSync(preloadFile)) {
-  obfuscateFile(preloadFile);
-}
-
 console.log('\n✅ Code obfuscation complete!');
 console.log('⚠️  Note: Obfuscated code is harder to debug. Keep original source files safe.\n');

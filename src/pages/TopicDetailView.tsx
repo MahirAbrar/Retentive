@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Button, Card, CardContent, useToast, Pagination, PaginationInfo } from '../components/ui'
-import { useAuth } from '../hooks/useAuthFixed'
-import { topicsService } from '../services/topicsFixed'
+import { useAuth } from '../hooks/useAuth'
+import { topicsService } from '../services/topicsService'
 import { usePagination } from '../hooks/usePagination'
-import { LEARNING_MODES } from '../constants/learning'
+import { LEARNING_MODES } from '../config/learning'
 import type { Topic, LearningItem } from '../types/database'
 
 export function TopicDetailView() {

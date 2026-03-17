@@ -1,13 +1,8 @@
 import { supabase } from '../services/supabase'
-import type { ExportData } from './dataExport'
+import type { ExportData, ImportResult } from '../types/data'
 import type { Topic, LearningItem } from '../types/database'
 
-export interface ImportResult {
-  success: boolean
-  topicsImported: number
-  itemsImported: number
-  errors: string[]
-}
+export type { ImportResult }
 
 export async function importUserData(
   data: ExportData, 

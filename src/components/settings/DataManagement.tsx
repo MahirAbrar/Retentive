@@ -1,7 +1,7 @@
 import { logger } from '../../utils/logger'
 import { useState } from 'react'
 import { Button, Card, CardHeader, CardContent, useToast, ConfirmDialog } from '../ui'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { exportUserData, downloadJSON, validateImportData, type ExportData } from '../../utils/dataExport'
 import { importUserData, readJSONFile } from '../../utils/dataImport'
 

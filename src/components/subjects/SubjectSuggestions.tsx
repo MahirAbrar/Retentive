@@ -1,5 +1,5 @@
 import React from 'react'
-import { SUBJECT_SUGGESTIONS } from '../../constants/subjects'
+import { SUBJECT_SUGGESTIONS } from '../../config/subjects'
 import { getIconComponent } from '../../utils/icons'
 
 interface SubjectSuggestionsProps {

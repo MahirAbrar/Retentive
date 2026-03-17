@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useFocusTimer } from '../../hooks/useFocusTimer'
-import { useAuth } from '../../hooks/useAuthFixed'
+import { useAuth } from '../../hooks/useAuth'
 import { Square } from 'lucide-react'
 
 export function FocusSessionIndicator() {
