@@ -178,42 +178,51 @@ export class GamificationService {
         statsToUse = newStats
       }
       
-      // Always recalculate streak from history to ensure accuracy
-      const actualStreak = await this.calculateStreakFromHistory(userId)
-      if (actualStreak !== statsToUse.current_streak) {
-        logger.log(`Streak mismatch detected. DB: ${statsToUse.current_streak}, Actual: ${actualStreak}. Updating...`)
-        await supabase
-          .from('user_gamification_stats')
-          .update({ 
-            current_streak: actualStreak,
-            longest_streak: Math.max(actualStreak, statsToUse.longest_streak || 0)
-          })
-          .eq('user_id', userId)
-        statsToUse.current_streak = actualStreak
-        statsToUse.longest_streak = Math.max(actualStreak, statsToUse.longest_streak || 0)
+      // Only recalculate streak if last_review_date is stale (not today)
+      // This avoids an extra DB round-trip on every call
+      const now = new Date()
+      const todayStr2 = now.toDateString()
+      const lastReview = statsToUse.last_review_date ? new Date(statsToUse.last_review_date).toDateString() : null
+      if (lastReview !== todayStr2) {
+        const actualStreak = await this.calculateStreakFromHistory(userId)
+        if (actualStreak !== statsToUse.current_streak) {
+          logger.log(`Streak mismatch detected. DB: ${statsToUse.current_streak}, Actual: ${actualStreak}. Updating...`)
+          await supabase
+            .from('user_gamification_stats')
+            .update({
+              current_streak: actualStreak,
+              longest_streak: Math.max(actualStreak, statsToUse.longest_streak || 0)
+            })
+            .eq('user_id', userId)
+          statsToUse.current_streak = actualStreak
+          statsToUse.longest_streak = Math.max(actualStreak, statsToUse.longest_streak || 0)
+        }
       }
-      
-      // Get today's stats (handle error gracefully if no stats for today)
+
+      // Fetch today's stats and achievements in parallel
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const todayStr = today.toISOString().split('T')[0]
-      
-      const { data: todayStats, error: todayStatsError } = await supabase
-        .from('daily_stats')
-        .select('points_earned, reviews_completed')
-        .eq('user_id', userId)
-        .eq('date', todayStr)
-        .maybeSingle() // Use maybeSingle instead of single to avoid 406 error when no data
-      
-      if (todayStatsError) {
-        logger.warn('Error fetching today stats:', todayStatsError)
+
+      const [todayStatsResult, achievementsResult] = await Promise.all([
+        supabase
+          .from('daily_stats')
+          .select('points_earned, reviews_completed')
+          .eq('user_id', userId)
+          .eq('date', todayStr)
+          .maybeSingle(),
+        supabase
+          .from('achievements')
+          .select('achievement_id')
+          .eq('user_id', userId)
+      ])
+
+      if (todayStatsResult.error) {
+        logger.warn('Error fetching today stats:', todayStatsResult.error)
       }
-      
-      // Get achievements
-      const { data: achievements } = await supabase
-        .from('achievements')
-        .select('achievement_id')
-        .eq('user_id', userId)
+
+      const todayStats = todayStatsResult.data
+      const achievements = achievementsResult.data
       
       const stats: UserGamificationStats = {
         userId,
@@ -250,20 +259,19 @@ export class GamificationService {
       if (recentSessions && recentSessions.length > 0) {
         const dates = new Set<string>()
         recentSessions.forEach(session => {
-          // Use UTC date to avoid timezone issues
-          const date = new Date(session.reviewed_at)
-          const utcDate = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
-          dates.add(utcDate)
+          // Use local timezone to match statsService streak calculation
+          const date = new Date(session.reviewed_at).toDateString()
+          dates.add(date)
         })
 
-        // Check consecutive days from today backwards (in UTC)
+        // Check consecutive days from today backwards (local timezone)
         const checkDate = new Date()
-        let currentUtcDate = `${checkDate.getUTCFullYear()}-${String(checkDate.getUTCMonth() + 1).padStart(2, '0')}-${String(checkDate.getUTCDate()).padStart(2, '0')}`
+        let currentDate = checkDate.toDateString()
 
-        while (dates.has(currentUtcDate)) {
+        while (dates.has(currentDate)) {
           streakDays++
-          checkDate.setUTCDate(checkDate.getUTCDate() - 1)
-          currentUtcDate = `${checkDate.getUTCFullYear()}-${String(checkDate.getUTCMonth() + 1).padStart(2, '0')}-${String(checkDate.getUTCDate()).padStart(2, '0')}`
+          checkDate.setDate(checkDate.getDate() - 1)
+          currentDate = checkDate.toDateString()
         }
       }
 
@@ -337,8 +345,21 @@ export class GamificationService {
         stats.lastReviewDate = today.toISOString()
       }
       
-      // Save to database
-      const { error: updateError } = await supabase
+      // Update cache BEFORE parallel work so checkAchievements can use it
+      cacheService.set(`gamification:${userId}`, stats, 60 * 1000)
+
+      // Notify listeners of the update
+      this.notifyListeners(stats)
+
+      // These 3 tasks are independent — run them all in parallel:
+      // 1. Save gamification stats to DB
+      // 2. Update daily stats (check + upsert)
+      // 3. Check achievements
+      const todayForDaily = new Date()
+      todayForDaily.setHours(0, 0, 0, 0)
+      const todayStrForDaily = todayForDaily.toISOString().split('T')[0]
+
+      const saveStatsPromise = supabase
         .from('user_gamification_stats')
         .update({
           total_points: stats.totalPoints,
@@ -349,75 +370,61 @@ export class GamificationService {
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId)
-      
-      if (updateError) {
-        logger.error('Error updating gamification stats:', updateError)
-      }
-      
-      // Update daily stats
-      const todayForDaily = new Date()
-      todayForDaily.setHours(0, 0, 0, 0)
-      const todayStrForDaily = todayForDaily.toISOString().split('T')[0]
-      
-      // First check if daily stats exist
-      const { data: existingDaily, error: checkError } = await supabase
-        .from('daily_stats')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('date', todayStrForDaily)
-        .maybeSingle() // Use maybeSingle to avoid error when no row exists
-      
-      if (checkError) {
-        logger.warn('Error checking daily stats:', checkError)
-      }
-      
-      if (existingDaily) {
-        // Update existing
-        const { error: dailyError } = await supabase
+        .then(({ error }) => {
+          if (error) logger.error('Error updating gamification stats:', error)
+        })
+
+      const updateDailyPromise = (async () => {
+        const { data: existingDaily, error: checkError } = await supabase
           .from('daily_stats')
-          .update({
-            points_earned: existingDaily.points_earned + pointsToAdd,
-            reviews_completed: existingDaily.reviews_completed + 1,
-            perfect_timing_count: existingDaily.perfect_timing_count + (reviewData?.wasPerfectTiming ? 1 : 0),
-            items_mastered: existingDaily.items_mastered + (reviewData?.reviewCount === GAMIFICATION_CONFIG.MASTERY.reviewsRequired ? 1 : 0)
-          })
+          .select('*')
           .eq('user_id', userId)
           .eq('date', todayStrForDaily)
-        
-        if (dailyError) {
-          logger.error('Error updating daily stats:', dailyError)
+          .maybeSingle()
+
+        if (checkError) {
+          logger.warn('Error checking daily stats:', checkError)
         }
-      } else {
-        // Create new
-        const { error: dailyError } = await supabase
-          .from('daily_stats')
-          .insert({
-            user_id: userId,
-            date: todayStrForDaily,
-            points_earned: pointsToAdd,
-            reviews_completed: 1,
-            perfect_timing_count: reviewData?.wasPerfectTiming ? 1 : 0,
-            items_mastered: reviewData?.reviewCount === GAMIFICATION_CONFIG.MASTERY.reviewsRequired ? 1 : 0
-          })
-        
-        if (dailyError) {
-          logger.error('Error creating daily stats:', dailyError)
+
+        if (existingDaily) {
+          const { error: dailyError } = await supabase
+            .from('daily_stats')
+            .update({
+              points_earned: existingDaily.points_earned + pointsToAdd,
+              reviews_completed: existingDaily.reviews_completed + 1,
+              perfect_timing_count: existingDaily.perfect_timing_count + (reviewData?.wasPerfectTiming ? 1 : 0),
+              items_mastered: existingDaily.items_mastered + (reviewData?.reviewCount === GAMIFICATION_CONFIG.MASTERY.reviewsRequired ? 1 : 0)
+            })
+            .eq('user_id', userId)
+            .eq('date', todayStrForDaily)
+          if (dailyError) logger.error('Error updating daily stats:', dailyError)
+        } else {
+          const { error: dailyError } = await supabase
+            .from('daily_stats')
+            .insert({
+              user_id: userId,
+              date: todayStrForDaily,
+              points_earned: pointsToAdd,
+              reviews_completed: 1,
+              perfect_timing_count: reviewData?.wasPerfectTiming ? 1 : 0,
+              items_mastered: reviewData?.reviewCount === GAMIFICATION_CONFIG.MASTERY.reviewsRequired ? 1 : 0
+            })
+          if (dailyError) logger.error('Error creating daily stats:', dailyError)
         }
-      }
-      
-      // Clear cache
-      cacheService.delete(`gamification:${userId}`)
-      
-      // Notify listeners of the update
-      this.notifyListeners(stats)
-      
-      // Check for achievements
-      if (reviewData) {
-        const newAchievements = await this.checkAchievements(userId, reviewData)
-        if (newAchievements.length > 0) {
-          // Return achievements to be displayed
-          return { newAchievements }
-        }
+      })()
+
+      const achievementsPromise = reviewData
+        ? this.checkAchievements(userId, reviewData)
+        : Promise.resolve([] as string[])
+
+      const [,, newAchievements] = await Promise.all([
+        saveStatsPromise,
+        updateDailyPromise,
+        achievementsPromise
+      ])
+
+      if (newAchievements && newAchievements.length > 0) {
+        return { newAchievements }
       }
     } catch (error) {
       logger.error('Error updating user points:', error)
@@ -435,24 +442,32 @@ export class GamificationService {
     const newAchievements: string[] = []
 
     try {
-      // Get current stats to check against achievement criteria
+      // getUserStats will hit the cache (set in updateUserPoints above)
       const stats = await this.getUserStats(userId)
       if (!stats) return []
 
-      // Get existing achievements
-      const { data: existingAchievements } = await supabase
-        .from('achievements')
-        .select('achievement_id')
-        .eq('user_id', userId)
-
-      const existingIds = new Set(existingAchievements?.map(a => a.achievement_id) || [])
       const ACHIEVEMENTS = GAMIFICATION_CONFIG.ACHIEVEMENTS
 
-      // Get total review count
-      const { count: totalReviews } = await supabase
-        .from('review_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
+      // Fetch achievements, review count, and mastered count in parallel
+      const [achievementsResult, reviewCountResult, masteredCountResult] = await Promise.all([
+        supabase
+          .from('achievements')
+          .select('achievement_id')
+          .eq('user_id', userId),
+        supabase
+          .from('review_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId),
+        supabase
+          .from('learning_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .gte('review_count', GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+      ])
+
+      const existingIds = new Set(achievementsResult.data?.map(a => a.achievement_id) || [])
+      const totalReviews = reviewCountResult.count
+      const masteredCount = masteredCountResult.count
 
       // === REVIEW ACHIEVEMENTS ===
       if (totalReviews && totalReviews >= 1 && !existingIds.has(ACHIEVEMENTS.FIRST_REVIEW.id)) {
@@ -502,12 +517,9 @@ export class GamificationService {
         newAchievements.push(ACHIEVEMENTS.STREAK_100.id)
       }
 
+
       // === MASTERY ACHIEVEMENTS ===
-      const { count: masteredCount } = await supabase
-        .from('learning_items')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('review_count', GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+      // masteredCount already fetched in parallel above
 
       if (masteredCount && masteredCount >= 1 && !existingIds.has(ACHIEVEMENTS.FIRST_MASTERY.id)) {
         await this.unlockAchievement(userId, ACHIEVEMENTS.FIRST_MASTERY)

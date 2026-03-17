@@ -1,9 +1,10 @@
+import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFocusTimer } from '../../hooks/useFocusTimer'
 import { useAuth } from '../../hooks/useAuth'
 import { Square } from 'lucide-react'
 
-export function FocusSessionIndicator() {
+export const FocusSessionIndicator = memo(function FocusSessionIndicator() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const {
@@ -135,4 +136,4 @@ export function FocusSessionIndicator() {
       `}</style>
     </div>
   )
-}
+})

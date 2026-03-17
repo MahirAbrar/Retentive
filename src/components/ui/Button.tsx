@@ -41,7 +41,7 @@ export const Button = memo(function Button({
       {loading ? (
         <span className={styles.loadingContent}>
           <span className={styles.spinner} />
-          Loading...
+          {size !== 'small' && 'Loading...'}
         </span>
       ) : (
         children

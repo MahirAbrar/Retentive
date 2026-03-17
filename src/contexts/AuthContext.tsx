@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authService } from '../services/authService'
 import type { User } from '../types/database'
@@ -41,43 +41,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { user, error } = await authService.signIn({ email, password })
     if (user) {
       setUser(user)
       navigate('/')
     }
     return { error }
-  }
+  }, [navigate])
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     return authService.signInWithGoogle()
-  }
+  }, [])
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     const { user, error } = await authService.signUp({ email, password })
     if (user) {
       setUser(user)
     }
     return { error }
-  }
+  }, [])
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await authService.signOut()
     setUser(null)
     navigate('/login')
-  }
+  }, [navigate])
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     return authService.resetPassword(email)
-  }
+  }, [])
+
+  const contextValue = useMemo(() => ({
+    user, loading, signIn, signInWithGoogle, signUp, signOut, resetPassword
+  }), [user, loading, signIn, signInWithGoogle, signUp, signOut, resetPassword])
 
   if (loading) {
     return <Loading fullScreen text="Loading..." />
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   )
