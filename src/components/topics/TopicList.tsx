@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { LEARNING_MODES, MODE_TOOLTIP } from '../../config/learning'
 import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
+import { formatRelativeTime } from '../../utils/date'
 
 // Mode guidance for tooltips
 import { formatNextReview } from '../../utils/formatters'
@@ -34,13 +35,24 @@ import { ReviewWindowIndicator } from '../gamification/ReviewWindowIndicator'
 import { useAchievements } from '../../hooks/useAchievements'
 
 type ItemFilterType = 'all' | 'due' | 'new' | 'upcoming' | 'mastered' | 'archived'
+type TopicStats = { total: number; due: number; new: number; archived?: number; lastStudiedAt?: string | null }
+
+function getLastStudiedAt(items: LearningItem[]): string | null {
+  let latest: string | null = null
+  for (const item of items) {
+    if (item.last_reviewed_at && (!latest || item.last_reviewed_at > latest)) {
+      latest = item.last_reviewed_at
+    }
+  }
+  return latest
+}
 
 const EMPTY_ITEMS: LearningItem[] = []
-const DEFAULT_STATS = { total: 0, due: 0, new: 0, archived: 0 }
+const DEFAULT_STATS = { total: 0, due: 0, new: 0, archived: 0, lastStudiedAt: null as string | null }
 
 interface TopicCardProps {
   topic: Topic
-  stats: { total: number; due: number; new: number; archived?: number }
+  stats: TopicStats
   items: LearningItem[]
   isExpanded: boolean
   isArchived: boolean
@@ -58,7 +70,7 @@ interface TopicCardProps {
   setDeleteItemConfirm: React.Dispatch<React.SetStateAction<{ open: boolean; item: LearningItem | null }>>
   setMasteryDialogItem: React.Dispatch<React.SetStateAction<LearningItem | null>>
   setTopicItems: React.Dispatch<React.SetStateAction<Record<string, LearningItem[]>>>
-  setTopicStats: React.Dispatch<React.SetStateAction<Record<string, { total: number; due: number; new: number; archived?: number }>>>
+  setTopicStats: React.Dispatch<React.SetStateAction<Record<string, TopicStats>>>
   setItemFilter: React.Dispatch<React.SetStateAction<Record<string, ItemFilterType>>>
   setItemsVisible: React.Dispatch<React.SetStateAction<Record<string, number>>>
   setShowArchiveSuggestions: React.Dispatch<React.SetStateAction<Set<string>>>
@@ -74,6 +86,15 @@ const TopicCard = memo(function TopicCard({
   setMasteryDialogItem, setTopicItems, setTopicStats, setItemFilter, setItemsVisible,
   setShowArchiveSuggestions, setDismissedSuggestions, isDue,
 }: TopicCardProps) {
+  const lastStudiedAt = stats.lastStudiedAt ?? null
+  const lastStudiedText = lastStudiedAt ? formatRelativeTime(lastStudiedAt) : 'Never'
+  const lastStudiedMs = lastStudiedAt ? Date.now() - new Date(lastStudiedAt).getTime() : Infinity
+  const lastStudiedColor = lastStudiedMs > 7 * 86400000
+    ? 'var(--color-error)'
+    : lastStudiedMs > 3 * 86400000
+      ? 'var(--color-warning)'
+      : 'inherit'
+
   // Per-card local state (avoids cross-card re-renders)
   const [modeTooltipOpen, setModeTooltipOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -158,7 +179,7 @@ const TopicCard = memo(function TopicCard({
       const archivedCount = allItems.filter(item => item.mastery_status === 'archived').length
       const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
       const newCount = activeItems.filter(item => item.review_count === 0).length
-      const newStats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+      const newStats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(allItems) }
 
       setTopicStats(prev => ({
         ...prev,
@@ -265,7 +286,7 @@ const TopicCard = memo(function TopicCard({
         return isDue(i.id === item.id ? updatedItem : i)
       }).length
       const newCount = activeItems.filter(i => i.review_count === 0).length
-      const newStats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+      const newStats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(updatedItems) }
 
       setTopicStats(prev => ({
         ...prev,
@@ -417,6 +438,10 @@ const TopicCard = memo(function TopicCard({
                   <p className="body" style={{ color: 'var(--color-gray-400)' }}>{stats.archived}</p>
                 </div>
               )}
+              <div>
+                <p className="body-small text-secondary">Last Studied</p>
+                <p className="body" style={{ color: lastStudiedColor }}>{lastStudiedText}</p>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1080,7 +1105,8 @@ const TopicCard = memo(function TopicCard({
     prev.stats.total === next.stats.total &&
     prev.stats.due === next.stats.due &&
     prev.stats.new === next.stats.new &&
-    (prev.stats.archived || 0) === (next.stats.archived || 0)
+    (prev.stats.archived || 0) === (next.stats.archived || 0) &&
+    (prev.stats.lastStudiedAt || null) === (next.stats.lastStudiedAt || null)
 
   return (
     topicEqual &&
@@ -1113,7 +1139,7 @@ interface TopicListProps {
 function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicUpdate, isArchived = false, loading }: TopicListProps) {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
   const [topicItems, setTopicItems] = useState<Record<string, LearningItem[]>>({})
-  const [topicStats, setTopicStats] = useState<Record<string, { total: number; due: number; new: number; archived?: number }>>({})
+  const [topicStats, setTopicStats] = useState<Record<string, TopicStats>>({})
   const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set())
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; topicId: string | null; topicName: string }>({ open: false, topicId: null, topicName: '' })
   const [archiveConfirm, setArchiveConfirm] = useState<{ open: boolean; topicId: string | null; topicName: string; activeItemCount: number }>({ open: false, topicId: null, topicName: '', activeItemCount: 0 })
@@ -1155,7 +1181,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   const loadTopicStats = useCallback(async (topicId: string) => {
     // Check cache first for performance
     const cacheKey = `topic-stats-${topicId}`
-    const cached = cacheService.get<{ total: number; due: number; new: number; archived: number }>(cacheKey)
+    const cached = cacheService.get<TopicStats>(cacheKey)
     
     if (cached) {
       setTopicStats(prev => ({
@@ -1175,13 +1201,14 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
       const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
       const newCount = activeItems.filter(item => item.review_count === 0).length
       
-      const stats = { 
-        total: activeItems.length, 
-        due: dueCount, 
+      const stats = {
+        total: activeItems.length,
+        due: dueCount,
         new: newCount,
-        archived: archivedCount 
+        archived: archivedCount,
+        lastStudiedAt: getLastStudiedAt(items)
       }
-      
+
       // Cache for 1 minute
       cacheService.set(cacheKey, stats, 60 * 1000)
       
@@ -1194,7 +1221,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
       // Set default values on error
       setTopicStats(prev => ({
         ...prev,
-        [topicId]: { total: 0, due: 0, new: 0, archived: 0 }
+        [topicId]: { total: 0, due: 0, new: 0, archived: 0, lastStudiedAt: null }
       }))
     }
   }, [isDue])
@@ -1227,7 +1254,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
       const archivedCount = items.filter(item => item.mastery_status === 'archived').length
       const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
       const newCount = activeItems.filter(item => item.review_count === 0).length
-      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(items) }
 
       const cacheKey = `topic-stats-${topicId}`
       cacheService.set(cacheKey, stats, 60 * 1000)
@@ -1249,16 +1276,18 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   }, [addToast, isDue])
 
   // Load stats for all topics on mount and when topics change — batched into a single state update
+  // Also stores fetched items so toggleTopic doesn't re-fetch them
   useEffect(() => {
     const loadAllStats = async () => {
-      const results: Record<string, { total: number; due: number; new: number; archived: number }> = {}
+      const statsResults: Record<string, TopicStats> = {}
+      const itemsResults: Record<string, LearningItem[]> = {}
 
       await Promise.all(topics.map(async (topic) => {
         const cacheKey = `topic-stats-${topic.id}`
-        const cached = cacheService.get<{ total: number; due: number; new: number; archived: number }>(cacheKey)
+        const cached = cacheService.get<TopicStats>(cacheKey)
 
         if (cached) {
-          results[topic.id] = cached
+          statsResults[topic.id] = cached
           return
         }
 
@@ -1267,22 +1296,26 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
           if (error) throw error
 
           const items = data || []
+          itemsResults[topic.id] = items
           const activeItems = items.filter(item => item.mastery_status !== 'archived')
           const archivedCount = items.filter(item => item.mastery_status === 'archived').length
           const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
           const newCount = activeItems.filter(item => item.review_count === 0).length
 
-          const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+          const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(items) }
           cacheService.set(cacheKey, stats, 60 * 1000)
-          results[topic.id] = stats
+          statsResults[topic.id] = stats
         } catch (error) {
           logger.error('Error loading topic stats:', error)
-          results[topic.id] = { total: 0, due: 0, new: 0, archived: 0 }
+          statsResults[topic.id] = { total: 0, due: 0, new: 0, archived: 0, lastStudiedAt: null }
         }
       }))
 
       // Single state update for all topics
-      setTopicStats(prev => ({ ...prev, ...results }))
+      setTopicStats(prev => ({ ...prev, ...statsResults }))
+      if (Object.keys(itemsResults).length > 0) {
+        setTopicItems(prev => ({ ...prev, ...itemsResults }))
+      }
     }
 
     if (topics.length > 0) {
@@ -1362,7 +1395,7 @@ const { error } = await supabase
       const archivedCount = newItems.filter(i => i.mastery_status === 'archived').length
       const dueCount = activeItems.filter(i => i.review_count > 0 && isDue(i)).length
       const newCount = activeItems.filter(i => i.review_count === 0).length
-      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount }
+      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(newItems) }
       
       setTopicStats(prev => ({
         ...prev,

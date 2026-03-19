@@ -1,11 +1,13 @@
-import { lazy, ComponentType } from 'react'
+import { lazy } from 'react'
+import type { ComponentType } from 'react'
 
 /**
  * Wraps React.lazy with retry logic for chunk loading failures.
  * When a new deployment happens, old chunk files may no longer exist.
  * This detects that error and reloads the page to get fresh chunks.
  */
-export function lazyWithRetry<T extends ComponentType<unknown>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function lazyWithRetry<T extends ComponentType<any>>(
   importFn: () => Promise<{ default: T }>
 ): React.LazyExoticComponent<T> {
   return lazy(async () => {
