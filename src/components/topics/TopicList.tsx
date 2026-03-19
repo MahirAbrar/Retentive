@@ -35,20 +35,27 @@ import { ReviewWindowIndicator } from '../gamification/ReviewWindowIndicator'
 import { useAchievements } from '../../hooks/useAchievements'
 
 type ItemFilterType = 'all' | 'due' | 'new' | 'upcoming' | 'mastered' | 'archived'
-type TopicStats = { total: number; due: number; new: number; archived?: number; lastStudiedAt?: string | null }
+type TopicStats = { total: number; due: number; new: number; archived?: number; longestDueAt?: string | null }
 
-function getLastStudiedAt(items: LearningItem[]): string | null {
-  let latest: string | null = null
+function getLongestDueAt(items: LearningItem[]): string | null {
+  const now = new Date().toISOString()
+  let earliest: string | null = null
   for (const item of items) {
-    if (item.last_reviewed_at && (!latest || item.last_reviewed_at > latest)) {
-      latest = item.last_reviewed_at
+    if (
+      item.next_review_at &&
+      item.next_review_at <= now &&
+      item.review_count > 0 &&
+      item.mastery_status !== 'archived' &&
+      (!earliest || item.next_review_at < earliest)
+    ) {
+      earliest = item.next_review_at
     }
   }
-  return latest
+  return earliest
 }
 
 const EMPTY_ITEMS: LearningItem[] = []
-const DEFAULT_STATS = { total: 0, due: 0, new: 0, archived: 0, lastStudiedAt: null as string | null }
+const DEFAULT_STATS = { total: 0, due: 0, new: 0, archived: 0, longestDueAt: null as string | null }
 
 interface TopicCardProps {
   topic: Topic
@@ -86,14 +93,14 @@ const TopicCard = memo(function TopicCard({
   setMasteryDialogItem, setTopicItems, setTopicStats, setItemFilter, setItemsVisible,
   setShowArchiveSuggestions, setDismissedSuggestions, isDue,
 }: TopicCardProps) {
-  const lastStudiedAt = stats.lastStudiedAt ?? null
-  const lastStudiedText = lastStudiedAt ? formatRelativeTime(lastStudiedAt) : 'Never'
-  const lastStudiedMs = lastStudiedAt ? Date.now() - new Date(lastStudiedAt).getTime() : Infinity
-  const lastStudiedColor = lastStudiedMs > 7 * 86400000
+  const longestDueAt = stats.longestDueAt ?? null
+  const longestDueMs = longestDueAt ? Date.now() - new Date(longestDueAt).getTime() : 0
+  const longestDueText = longestDueAt ? formatRelativeTime(longestDueAt) : null
+  const longestDueColor = longestDueMs > 7 * 86400000
     ? 'var(--color-error)'
-    : lastStudiedMs > 3 * 86400000
+    : longestDueMs > 3 * 86400000
       ? 'var(--color-warning)'
-      : 'inherit'
+      : 'var(--color-text-secondary)'
 
   // Per-card local state (avoids cross-card re-renders)
   const [modeTooltipOpen, setModeTooltipOpen] = useState(false)
@@ -179,7 +186,7 @@ const TopicCard = memo(function TopicCard({
       const archivedCount = allItems.filter(item => item.mastery_status === 'archived').length
       const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
       const newCount = activeItems.filter(item => item.review_count === 0).length
-      const newStats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(allItems) }
+      const newStats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, longestDueAt: getLongestDueAt(allItems) }
 
       setTopicStats(prev => ({
         ...prev,
@@ -286,7 +293,7 @@ const TopicCard = memo(function TopicCard({
         return isDue(i.id === item.id ? updatedItem : i)
       }).length
       const newCount = activeItems.filter(i => i.review_count === 0).length
-      const newStats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(updatedItems) }
+      const newStats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, longestDueAt: getLongestDueAt(updatedItems) }
 
       setTopicStats(prev => ({
         ...prev,
@@ -438,10 +445,12 @@ const TopicCard = memo(function TopicCard({
                   <p className="body" style={{ color: 'var(--color-gray-400)' }}>{stats.archived}</p>
                 </div>
               )}
-              <div>
-                <p className="body-small text-secondary">Last Studied</p>
-                <p className="body" style={{ color: lastStudiedColor }}>{lastStudiedText}</p>
-              </div>
+              {longestDueText && (
+                <div>
+                  <p className="body-small text-secondary">Longest Due</p>
+                  <p className="body" style={{ color: longestDueColor }}>{longestDueText}</p>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1106,7 +1115,7 @@ const TopicCard = memo(function TopicCard({
     prev.stats.due === next.stats.due &&
     prev.stats.new === next.stats.new &&
     (prev.stats.archived || 0) === (next.stats.archived || 0) &&
-    (prev.stats.lastStudiedAt || null) === (next.stats.lastStudiedAt || null)
+    (prev.stats.longestDueAt || null) === (next.stats.longestDueAt || null)
 
   return (
     topicEqual &&
@@ -1206,7 +1215,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
         due: dueCount,
         new: newCount,
         archived: archivedCount,
-        lastStudiedAt: getLastStudiedAt(items)
+        longestDueAt: getLongestDueAt(items)
       }
 
       // Cache for 1 minute
@@ -1221,7 +1230,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
       // Set default values on error
       setTopicStats(prev => ({
         ...prev,
-        [topicId]: { total: 0, due: 0, new: 0, archived: 0, lastStudiedAt: null }
+        [topicId]: { total: 0, due: 0, new: 0, archived: 0, longestDueAt: null }
       }))
     }
   }, [isDue])
@@ -1254,7 +1263,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
       const archivedCount = items.filter(item => item.mastery_status === 'archived').length
       const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
       const newCount = activeItems.filter(item => item.review_count === 0).length
-      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(items) }
+      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, longestDueAt: getLongestDueAt(items) }
 
       const cacheKey = `topic-stats-${topicId}`
       cacheService.set(cacheKey, stats, 60 * 1000)
@@ -1302,12 +1311,12 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
           const dueCount = activeItems.filter(item => item.review_count > 0 && isDue(item)).length
           const newCount = activeItems.filter(item => item.review_count === 0).length
 
-          const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(items) }
+          const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, longestDueAt: getLongestDueAt(items) }
           cacheService.set(cacheKey, stats, 60 * 1000)
           statsResults[topic.id] = stats
         } catch (error) {
           logger.error('Error loading topic stats:', error)
-          statsResults[topic.id] = { total: 0, due: 0, new: 0, archived: 0, lastStudiedAt: null }
+          statsResults[topic.id] = { total: 0, due: 0, new: 0, archived: 0, longestDueAt: null }
         }
       }))
 
@@ -1395,7 +1404,7 @@ const { error } = await supabase
       const archivedCount = newItems.filter(i => i.mastery_status === 'archived').length
       const dueCount = activeItems.filter(i => i.review_count > 0 && isDue(i)).length
       const newCount = activeItems.filter(i => i.review_count === 0).length
-      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, lastStudiedAt: getLastStudiedAt(newItems) }
+      const stats = { total: activeItems.length, due: dueCount, new: newCount, archived: archivedCount, longestDueAt: getLongestDueAt(newItems) }
       
       setTopicStats(prev => ({
         ...prev,
