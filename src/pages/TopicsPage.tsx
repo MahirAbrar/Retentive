@@ -121,8 +121,7 @@ export function TopicsPage() {
             new Date(item.next_review_at) <= now
           ).length
           
-          // Mastered items: review_count >= 5 (based on GAMIFICATION_CONFIG)
-          const masteredCount = itemsList.filter(item => item.review_count >= 5).length
+          const masteredCount = itemsList.filter(item => item.review_count >= (topic.target_review_count ?? 5)).length
 
           // Find last studied date
           const lastStudiedAt = itemsList
@@ -189,10 +188,10 @@ export function TopicsPage() {
           const itemsList = items || []
           
           // Calculate stats for archived topics
-          const masteredCount = itemsList.filter(item => 
-            item.mastery_status === 'mastered' || 
+          const masteredCount = itemsList.filter(item =>
+            item.mastery_status === 'mastered' ||
             item.mastery_status === 'maintenance' ||
-            item.review_count >= 5
+            item.review_count >= (topic.target_review_count ?? 5)
           ).length
           
           const archivedCount = itemsList.filter(item => 
@@ -451,10 +450,58 @@ export function TopicsPage() {
 
   return (
     <div style={{ maxWidth: 'var(--container-lg)', margin: '0 auto' }}>
+      {/* Responsive styles */}
+      <style>{`
+        .topics-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .topics-header-actions {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+        }
+        .topics-search-bar {
+          display: flex;
+          gap: 1rem;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+        .topics-filter-group {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+        }
+        .topics-new-subject-label {
+          display: inline;
+        }
+        @media (max-width: 768px) {
+          .topics-header-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+          }
+          .topics-header-actions {
+            width: 100%;
+            flex-wrap: wrap;
+          }
+          .topics-search-bar {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .topics-filter-group {
+            flex-wrap: wrap;
+          }
+          .topics-new-subject-label {
+            display: none;
+          }
+        }
+      `}</style>
       <header style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="topics-header-row">
           <h1 className="h2">My Topics</h1>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div className="topics-header-actions">
             {/* View Toggle */}
             <div style={{
               display: 'flex',
@@ -494,7 +541,7 @@ export function TopicsPage() {
               title="Create new subject"
             >
               <Plus size={16} style={{ marginRight: '0.25rem' }} />
-              New Subject
+              <span className="topics-new-subject-label">New Subject</span>
             </Button>
             <Link to="/topics/new">
               <Button variant="primary">New Topic</Button>
@@ -565,15 +612,16 @@ export function TopicsPage() {
 
       {/* Search and Filter Bar */}
       <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="topics-search-bar">
           <Input
             placeholder="Search topics..."
             value={searchQuery}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-            style={{ flex: '1', minWidth: '200px' }}
+            style={{ flex: '1', minWidth: '0' }}
           />
-          
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+
+          <div className="topics-filter-group">
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <label className="body-small text-secondary">Filter:</label>
             <select
               value={filterBy}
@@ -647,8 +695,9 @@ export function TopicsPage() {
               Clear Filters
             </Button>
           )}
+          </div>
         </div>
-        
+
         {/* Results count */}
         {(searchQuery || filterBy !== 'all') && (
           <p className="body-small text-secondary" style={{ marginTop: '0.5rem' }}>

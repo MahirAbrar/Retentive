@@ -16,6 +16,7 @@ interface TopicWithStats {
   id: string
   name: string
   subject_id?: string | null
+  target_review_count?: number
   masteredCount: number
   itemCount: number
   items?: LearningItem[]
@@ -177,7 +178,7 @@ export function MindmapView({ subjects, topics }: MindmapViewProps) {
         id: item.id,
         content: item.content,
         reviewCount: item.review_count,
-        isMastered: item.mastery_status === 'mastered' || item.review_count >= 5
+        isMastered: item.mastery_status === 'mastered' || item.review_count >= (topic.target_review_count ?? 5)
       }))
     }))
   }, [filteredTopics])

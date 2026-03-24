@@ -242,12 +242,12 @@ export function StatsPage() {
         startDate.setFullYear(2020)
       }
 
-      // Build mastered query based on date range (includes archived topics, review_count >= 5)
+      // Build mastered query based on date range
       const masteredQuery = supabase
         .from('learning_items')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .gte('review_count', 5)
+        .in('mastery_status', ['mastered', 'maintenance'])
       if (dateRange !== 'all') {
         masteredQuery.gte('mastery_date', startDate.toISOString())
       }

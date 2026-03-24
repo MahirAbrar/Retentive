@@ -23,7 +23,7 @@ export class SpacedRepetitionGamifiedService {
     return SpacedRepetitionGamifiedService.instance
   }
 
-  calculateNextReview(item: LearningItem): ReviewResult {
+  calculateNextReview(item: LearningItem, targetReviewCount?: number): ReviewResult {
     // Special handling for maintenance items
     if (item.mastery_status === 'maintenance') {
       // Double the maintenance interval for next review
@@ -62,9 +62,10 @@ export class SpacedRepetitionGamifiedService {
     const intervalDays = hoursUntilNext / 24
     
     // Check if mastered (will be mastered AFTER this review completes)
-    const isMastered = item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired
+    const threshold = targetReviewCount ?? GAMIFICATION_CONFIG.MASTERY.reviewsRequired
+    const isMastered = item.review_count >= threshold
     const masteryProgress = Math.min(
-      (item.review_count + 1) / GAMIFICATION_CONFIG.MASTERY.reviewsRequired,
+      (item.review_count + 1) / threshold,
       1
     )
     
@@ -168,8 +169,9 @@ export class SpacedRepetitionGamifiedService {
     }
   }
 
-  getMasteryStage(reviewCount: number) {
-    const stageNumber = Math.min(reviewCount + 1, GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+  getMasteryStage(reviewCount: number, targetReviewCount?: number) {
+    const threshold = targetReviewCount ?? GAMIFICATION_CONFIG.MASTERY.reviewsRequired
+    const stageNumber = Math.min(reviewCount + 1, threshold)
     return GAMIFICATION_CONFIG.MASTERY.stages[stageNumber as keyof typeof GAMIFICATION_CONFIG.MASTERY.stages]
   }
 
@@ -196,16 +198,17 @@ export class SpacedRepetitionGamifiedService {
     })
   }
 
-  getItemsByStatus(items: LearningItem[]) {
-    
+  getItemsByStatus(items: LearningItem[], targetReviewCount?: number) {
+    const threshold = targetReviewCount ?? GAMIFICATION_CONFIG.MASTERY.reviewsRequired
+
     const overdue: LearningItem[] = []
     const due: LearningItem[] = []
     const upcoming: LearningItem[] = []
     const mastered: LearningItem[] = []
-    
+
     items.forEach(item => {
       // Check if mastered
-      if (item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired) {
+      if (item.review_count >= threshold) {
         mastered.push(item)
         return
       }

@@ -24,7 +24,26 @@ export function StudyProgress({
   showLastStudied,
 }: StudyProgressProps) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+    <div className="study-progress-grid">
+      <style>{`
+        .study-progress-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        .study-progress-value {
+          font-size: var(--text-xl);
+          font-weight: 600;
+        }
+        @media (max-width: 1024px) {
+          .study-progress-grid {
+            grid-template-columns: 1fr;
+          }
+          .study-progress-value {
+            font-size: var(--text-lg);
+          }
+        }
+      `}</style>
       {loading ? (
         <>
           <Card variant="bordered">
@@ -78,17 +97,17 @@ export function StudyProgress({
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div style={flexBetween}>
                 <span className="body">Total Topics</span>
-                <span className="h4">{totalTopics}</span>
+                <span className="study-progress-value">{totalTopics}</span>
               </div>
               <div style={flexBetween}>
                 <span className="body">Total Items</span>
-                <span className="h4">{totalItems}</span>
+                <span className="study-progress-value">{totalItems}</span>
               </div>
               <div style={flexBetween}>
                 <span className="body">Study Streak</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span
-                    className="h4"
+                    className="study-progress-value"
                     style={{
                       color:
                         streakDays >= 30
@@ -110,7 +129,7 @@ export function StudyProgress({
               {showLastStudied && (
                 <div style={flexBetween}>
                   <span className="body">Last Studied</span>
-                  <span className="h4" style={{ color: 'var(--color-text-secondary)' }}>
+                  <span className="study-progress-value" style={{ color: 'var(--color-text-secondary)' }}>
                     {lastStudiedText}
                   </span>
                 </div>

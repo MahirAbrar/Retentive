@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useFocusTimer } from '../../hooks/useFocusTimer'
+import { useFocusTimerContext } from '../../contexts/FocusTimerContext'
 import { useAuth } from '../../hooks/useAuth'
 import { Square } from 'lucide-react'
 
@@ -13,7 +13,7 @@ export const FocusSessionIndicator = memo(function FocusSessionIndicator() {
     stopSession,
     resetSession,
     session,
-  } = useFocusTimer(user?.id || '')
+  } = useFocusTimerContext()
 
   // Don't show if no active session
   if (!user || !session) return null
@@ -25,7 +25,7 @@ export const FocusSessionIndicator = memo(function FocusSessionIndicator() {
   }
 
   const handleClick = () => {
-    navigate('/')
+    navigate('/focus')
   }
 
   return (

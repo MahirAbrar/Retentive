@@ -201,7 +201,7 @@ export class SubjectService {
               (i) => i.review_count > 0 && i.next_review_at && new Date(i.next_review_at) <= now
             ).length,
             newCount: itemsList.filter((i) => i.review_count === 0).length,
-            masteredCount: itemsList.filter((i) => i.review_count >= 5).length,
+            masteredCount: itemsList.filter((i) => i.mastery_status === 'mastered' || i.mastery_status === 'maintenance').length,
           }
         })
       )

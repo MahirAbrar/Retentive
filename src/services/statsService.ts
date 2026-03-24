@@ -2,7 +2,6 @@ import { supabase } from './supabase'
 import { cacheService } from './cacheService'
 import { requestDeduplicator } from './requestDeduplicator'
 import { logger } from '../utils/logger'
-import { GAMIFICATION_CONFIG } from '../config/gamification'
 
 interface Stats {
   overdue: number
@@ -79,7 +78,7 @@ export async function getStudyStats(userId: string): Promise<Stats> {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .in('topic_id', activeTopicIds)
-      .gte('review_count', GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+      .in('mastery_status', ['mastered', 'maintenance'])
 
       return {
         overdue: overdue || 0,

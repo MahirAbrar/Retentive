@@ -57,6 +57,102 @@ function getLongestDueAt(items: LearningItem[]): string | null {
 const EMPTY_ITEMS: LearningItem[] = []
 const DEFAULT_STATS = { total: 0, due: 0, new: 0, archived: 0, longestDueAt: null as string | null }
 
+const TOPIC_CARD_RESPONSIVE_CSS = `
+  @media (max-width: 768px) {
+    .topic-card-content-row {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 0.75rem !important;
+    }
+    .topic-card-stats {
+      gap: 1rem !important;
+      flex-wrap: wrap !important;
+    }
+    .topic-card-actions {
+      width: 100% !important;
+    }
+    .topic-card-actions > a,
+    .topic-card-actions > button {
+      flex: 1 !important;
+    }
+    .topic-card-item-meta {
+      flex-wrap: wrap !important;
+    }
+  }
+`
+
+/** Self-updating countdown that ticks every second — only re-renders itself, not the parent */
+function CountdownTimer({ nextReviewAt, learningMode }: { nextReviewAt: string; learningMode: string }) {
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const reviewDate = new Date(nextReviewAt)
+  const now = new Date()
+  const diffMs = reviewDate.getTime() - now.getTime()
+  const hoursDiff = (now.getTime() - reviewDate.getTime()) / (1000 * 60 * 60)
+  const mode = GAMIFICATION_CONFIG.LEARNING_MODES[learningMode || 'steady']
+  const perfectWindowMs = GAMIFICATION_CONFIG.FEATURES.timePressure.perfectWindow * 60 * 60 * 1000
+  const windowAfterMs = mode.windowAfter * 60 * 60 * 1000
+  const exactDate = formatReviewDate(reviewDate)
+
+  let timeDisplay: string
+  let timeColor: string
+  let timingContext: string | null = null
+
+  if (Math.abs(hoursDiff) <= GAMIFICATION_CONFIG.FEATURES.timePressure.perfectWindow) {
+    const remainingMs = perfectWindowMs - Math.abs(diffMs)
+    timeColor = 'var(--color-success)'
+    timeDisplay = diffMs > 0 ? `Due in ${formatDuration(diffMs)}` : 'Due now'
+    timingContext = `Perfect timing · ${formatDuration(remainingMs)} left · ${mode.pointsMultiplier.onTime}x pts`
+  } else if (diffMs > perfectWindowMs) {
+    const msTillPerfect = diffMs - perfectWindowMs
+    timeColor = 'var(--color-text-secondary)'
+    timeDisplay = `Due in ${formatDuration(diffMs)}`
+    timingContext = `Perfect window in ${formatDuration(msTillPerfect)}`
+  } else if (hoursDiff > 0 && hoursDiff <= mode.windowAfter) {
+    const remainingMs = windowAfterMs - (hoursDiff * 60 * 60 * 1000)
+    timeColor = 'var(--color-warning)'
+    timeDisplay = `${formatDuration(Math.abs(diffMs))} overdue`
+    timingContext = `Good timing · ${formatDuration(remainingMs)} left · ${mode.pointsMultiplier.inWindow}x pts`
+  } else if (diffMs > 0 && hoursDiff < 0) {
+    const msTillPerfect = diffMs - perfectWindowMs
+    timeColor = 'var(--color-text-secondary)'
+    timeDisplay = `Due in ${formatDuration(diffMs)}`
+    timingContext = `Perfect window in ${formatDuration(msTillPerfect)}`
+  } else {
+    timeColor = 'var(--color-error)'
+    timeDisplay = `${formatDuration(Math.abs(diffMs))} overdue`
+    timingContext = `Late · ${mode.pointsMultiplier.late}x pts`
+  }
+
+  return (
+    <>
+      <span className="body-small" style={{
+        color: timeColor,
+        fontWeight: timingContext?.includes('Perfect timing') ? 600 : 'normal'
+      }}>
+        {timeDisplay}
+      </span>
+      {timingContext && (
+        <>
+          <span className="body-small text-secondary">·</span>
+          <span className="body-small" style={{ color: timeColor, opacity: 0.85, fontSize: 'var(--text-xs)' }}>
+            {timingContext}
+          </span>
+        </>
+      )}
+      <span className="body-small text-secondary">•</span>
+      <span className="body-small text-secondary">
+        {exactDate}
+      </span>
+    </>
+  )
+}
+
 interface TopicCardProps {
   topic: Topic
   stats: TopicStats
@@ -218,7 +314,7 @@ const TopicCard = memo(function TopicCard({
 
     try {
       const reviewedAt = new Date()
-      const reviewResult = spacedRepetitionGamified.calculateNextReview(item)
+      const reviewResult = spacedRepetitionGamified.calculateNextReview(item, topic.target_review_count ?? 5)
       const pointsBreakdown = gamificationService.calculateReviewPoints(item, reviewedAt)
       const comboBonus = gamificationService.getComboBonus()
       const totalPoints = pointsBreakdown.totalPoints + comboBonus
@@ -264,7 +360,8 @@ const TopicCard = memo(function TopicCard({
         gamificationService.updateUserPoints(user.id, totalPoints, {
           itemId: item.id,
           wasPerfectTiming: pointsBreakdown.isPerfectTiming,
-          reviewCount: updatedItem.review_count
+          reviewCount: updatedItem.review_count,
+          targetReviewCount: topic.target_review_count ?? 5
         })
       ])
 
@@ -303,14 +400,14 @@ const TopicCard = memo(function TopicCard({
       const cacheKey = `topic-stats-${item.topic_id}`
       cacheService.set(cacheKey, newStats, 60 * 1000)
 
-      const masteryStage = spacedRepetitionGamified.getMasteryStage(updatedItem.review_count)
+      const masteryStage = spacedRepetitionGamified.getMasteryStage(updatedItem.review_count, topic.target_review_count ?? 5)
       let message = `${pointsBreakdown.message} +${totalPoints} points`
 
       if (comboBonus > 0) {
         message += ` (Combo +${comboBonus}!)`
       }
 
-      const shouldShowMasteryDialog = (reviewResult.isMastered || updatedItem.review_count === 5) &&
+      const shouldShowMasteryDialog = (reviewResult.isMastered || updatedItem.review_count === (topic.target_review_count ?? 5)) &&
           item.mastery_status !== 'maintenance' &&
           item.mastery_status !== ('archived' as MasteryStatus) &&
           item.mastery_status !== 'mastered'
@@ -425,8 +522,9 @@ const TopicCard = memo(function TopicCard({
           </div>
         </CardHeader>
         <CardContent>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: '2rem' }}>
+          <style>{TOPIC_CARD_RESPONSIVE_CSS}</style>
+          <div className="topic-card-content-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="topic-card-stats" style={{ display: 'flex', gap: '2rem' }}>
               <div>
                 <p className="body-small text-secondary">Items</p>
                 <p className="body">{stats.total}</p>
@@ -453,7 +551,7 @@ const TopicCard = memo(function TopicCard({
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div className="topic-card-actions" style={{ display: 'flex', gap: '0.5rem' }}>
               <Button
                 variant="primary"
                 size="small"
@@ -721,72 +819,13 @@ const TopicCard = memo(function TopicCard({
                               >
                                 {item.content}
                               </p>
-                              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', alignItems: 'center' }}>
+                              <div className="topic-card-item-meta" style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', alignItems: 'center' }}>
                                 <span className="body-small text-secondary">
                                   Reviews: {item.review_count}
                                 </span>
-                                {item.next_review_at && item.review_count < GAMIFICATION_CONFIG.MASTERY.reviewsRequired && (
+                                {item.next_review_at && item.review_count < (topic.target_review_count ?? 5) && (
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    {(() => {
-                                      const reviewDate = new Date(item.next_review_at)
-                                      const now = new Date()
-                                      const diffMs = reviewDate.getTime() - now.getTime()
-                                      const hoursDiff = (now.getTime() - reviewDate.getTime()) / (1000 * 60 * 60)
-                                      const mode = GAMIFICATION_CONFIG.LEARNING_MODES[item.learning_mode || 'steady']
-                                      const perfectWindowMs = GAMIFICATION_CONFIG.FEATURES.timePressure.perfectWindow * 60 * 60 * 1000
-                                      const windowAfterMs = mode.windowAfter * 60 * 60 * 1000
-                                      const exactDate = formatReviewDate(reviewDate)
-
-                                      let timeDisplay: string
-                                      let timeColor: string
-                                      let timingContext: string | null = null
-
-                                      if (Math.abs(hoursDiff) <= GAMIFICATION_CONFIG.FEATURES.timePressure.perfectWindow) {
-                                        const remainingMs = perfectWindowMs - Math.abs(diffMs)
-                                        timeColor = 'var(--color-success)'
-                                        timeDisplay = diffMs > 0 ? `Due in ${formatDuration(diffMs)}` : 'Due now'
-                                        timingContext = `Perfect timing · ${formatDuration(remainingMs)} left · ${mode.pointsMultiplier.onTime}x pts`
-                                      } else if (diffMs > perfectWindowMs) {
-                                        const msTillPerfect = diffMs - perfectWindowMs
-                                        timeColor = 'var(--color-text-secondary)'
-                                        timeDisplay = `Due in ${formatDuration(diffMs)}`
-                                        timingContext = `Perfect window in ${formatDuration(msTillPerfect)}`
-                                      } else if (hoursDiff > 0 && hoursDiff <= mode.windowAfter) {
-                                        const remainingMs = windowAfterMs - (hoursDiff * 60 * 60 * 1000)
-                                        timeColor = 'var(--color-warning)'
-                                        timeDisplay = `${formatDuration(Math.abs(diffMs))} overdue`
-                                        timingContext = `Good timing · ${formatDuration(remainingMs)} left · ${mode.pointsMultiplier.inWindow}x pts`
-                                      } else if (diffMs > 0 && hoursDiff < 0) {
-                                        const msTillPerfect = diffMs - perfectWindowMs
-                                        timeColor = 'var(--color-text-secondary)'
-                                        timeDisplay = `Due in ${formatDuration(diffMs)}`
-                                        timingContext = `Perfect window in ${formatDuration(msTillPerfect)}`
-                                      } else {
-                                        timeColor = 'var(--color-error)'
-                                        timeDisplay = `${formatDuration(Math.abs(diffMs))} overdue`
-                                        timingContext = `Late · ${mode.pointsMultiplier.late}x pts`
-                                      }
-
-                                      return (
-                                        <>
-                                          <span className="body-small" style={{
-                                            color: timeColor,
-                                            fontWeight: timingContext?.includes('Perfect timing') ? 600 : 'normal'
-                                          }}>
-                                            {timeDisplay}
-                                          </span>
-                                          {timingContext && (
-                                            <>
-                                              <span className="body-small text-secondary">·</span>
-                                              <span className="body-small" style={{ color: timeColor, opacity: 0.85, fontSize: 'var(--text-xs)' }}>
-                                                {timingContext}
-                                              </span>
-                                            </>
-                                          )}
-                                          <span className="body-small text-secondary">•</span>
-                                          <span className="body-small text-secondary">
-                                            {exactDate}
-                                          </span>
+                                    <CountdownTimer nextReviewAt={item.next_review_at} learningMode={item.learning_mode || 'steady'} />
                                           <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
                                             <button
                                               onMouseEnter={(e) => {
@@ -904,12 +943,9 @@ const TopicCard = memo(function TopicCard({
                                               </div>
                                             </button>
                                           </div>
-                                        </>
-                                      )
-                                    })()}
                                   </div>
                                 )}
-                                {item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired && item.mastery_status === 'mastered' && (
+                                {item.review_count >= (topic.target_review_count ?? 5) && item.mastery_status === 'mastered' && (
                                   <span className="body-small" style={{ color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <Check size={14} /> Mastered
                                   </span>
@@ -1093,6 +1129,7 @@ const TopicCard = memo(function TopicCard({
               topicName={topic.name}
               createdAt={topic.created_at}
               archiveDate={topic.archive_date}
+              targetReviewCount={topic.target_review_count ?? 5}
             />
           )}
         </CardContent>
@@ -1348,7 +1385,7 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
         const allMastered = items.every(item => 
           item.mastery_status === 'mastered' || 
           item.mastery_status === 'maintenance' ||
-          (item.mastery_status === 'archived' && item.review_count >= 5) // Only count as mastered if it was reviewed 5+ times
+          (item.mastery_status === 'archived' && item.review_count >= (topic.target_review_count ?? 5))
         )
         
         if (allMastered && items.length > 0) {
@@ -1636,7 +1673,8 @@ const { error } = await supabase
                 .update({
                   name: updatedTopic.name,
                   learning_mode: updatedTopic.learning_mode,
-                  subject_id: updatedTopic.subject_id
+                  subject_id: updatedTopic.subject_id,
+                  target_review_count: updatedTopic.target_review_count ?? 5
                 })
                 .eq('id', updatedTopic.id)
                 .select()
@@ -1754,6 +1792,7 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
   const [name, setName] = useState(topic?.name || '')
   const [learningMode, setLearningMode] = useState<LearningMode>(topic?.learning_mode || 'steady')
   const [subjectId, setSubjectId] = useState<string | null>(topic?.subject_id || null)
+  const [targetReviewCount, setTargetReviewCount] = useState<number>(topic?.target_review_count ?? 5)
 
   // Sync state when topic prop changes
   useEffect(() => {
@@ -1767,6 +1806,7 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
       setName(topic.name)
       setLearningMode(topic.learning_mode)
       setSubjectId(topic.subject_id || null)
+      setTargetReviewCount(topic.target_review_count ?? 5)
     }
   }, [topic])
 
@@ -1798,7 +1838,8 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
         ...topic,
         name: name.trim(),
         learning_mode: learningMode,
-        subject_id: subjectId
+        subject_id: subjectId,
+        target_review_count: targetReviewCount
       })
     }
   }
@@ -1842,6 +1883,26 @@ const EditTopicModal = function EditTopicModal({ topic, onClose, onSave }: EditT
                     }}
                   />
                   <span className="body">{config.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
+              Reviews to Master
+            </label>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              {[3, 5].map((count) => (
+                <label key={count} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="targetReviewCount"
+                    value={count}
+                    checked={targetReviewCount === count}
+                    onChange={() => setTargetReviewCount(count)}
+                  />
+                  <span className="body">{count} reviews</span>
                 </label>
               ))}
             </div>

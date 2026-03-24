@@ -83,7 +83,7 @@ const userEmailStyle: React.CSSProperties = { maxWidth: '150px', overflow: 'hidd
 const reminderWrapperStyle: React.CSSProperties = { position: 'relative' }
 
 const RESPONSIVE_CSS = `
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     .desktop-nav {
       display: none !important;
     }
@@ -94,7 +94,7 @@ const RESPONSIVE_CSS = `
       display: flex !important;
     }
   }
-  @media (min-width: 769px) {
+  @media (min-width: 1025px) {
     .mobile-menu {
       display: none !important;
     }
@@ -153,6 +153,7 @@ export function Header() {
   const navLinks = user ? (
     <>
       <NavLink to="/topics" label="Topics" isActive={pathname === '/topics'} onClick={closeMobileMenu} />
+      <NavLink to="/focus" label="Focus" isActive={pathname === '/focus'} onClick={closeMobileMenu} />
       <NavLink to="/stats" label="Stats" isActive={pathname === '/stats'} onClick={closeMobileMenu} />
       <NavLink to="/settings" label="Settings" isActive={pathname === '/settings'} onClick={closeMobileMenu} />
     </>

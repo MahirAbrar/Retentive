@@ -294,16 +294,55 @@
   font-weight: var(--font-medium);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
+  .container {
+    gap: var(--space-4);
+  }
+
+  .title {
+    font-size: var(--text-lg);
+    margin-bottom: var(--space-4);
+  }
+
   .statsGrid {
     grid-template-columns: 1fr;
+    gap: var(--space-4);
   }
-  
+
   .todayStats {
     justify-content: space-around;
   }
-  
+
+  .todayValue {
+    font-size: var(--text-2xl);
+  }
+
+  .streakValue {
+    font-size: var(--text-xl);
+  }
+
+  .achievementsCard {
+    margin-top: var(--space-4);
+  }
+
   .achievementsGrid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--space-3);
+  }
+
+  .achievement {
+    padding: var(--space-3);
+  }
+
+  .achievementIcon {
+    font-size: 2rem;
+  }
+
+  .achievementName {
+    font-size: var(--text-xs);
+  }
+
+  .achievementDescription {
+    font-size: 0.7rem;
   }
 }

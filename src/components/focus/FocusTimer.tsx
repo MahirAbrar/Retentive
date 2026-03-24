@@ -1,25 +1,25 @@
 import { useState } from 'react'
-import { Button, Card, CardContent, CardHeader } from '../ui'
-import { Play, Pause, Square, Settings as SettingsIcon, Clock, Coffee, Info } from 'lucide-react'
-
-// Session length recommendations by learning mode
-const SESSION_GUIDE = [
-  { mode: 'Ultra-Cram / Cram', duration: '15-30 min', description: 'Short, intense sessions' },
-  { mode: 'Steady', duration: '25-30 min', description: 'Balanced focus sessions' },
-  { mode: 'Extended', duration: '30-45 min', description: 'Deep learning sessions' },
-]
-import { useFocusTimer } from '../../hooks/useFocusTimer'
+import { Button } from '../ui'
+import { Play, Pause, Square, ChevronDown, ChevronUp, Clock, Coffee } from 'lucide-react'
+import { useFocusTimerContext } from '../../contexts/FocusTimerContext'
 import { useAuth } from '../../hooks/useAuth'
 import { GoalReachedModal } from './GoalReachedModal'
 import { BreakCompleteModal } from './BreakCompleteModal'
 import { MaxDurationModal } from './MaxDurationModal'
 import { SessionSummary } from './SessionSummary'
-import { FocusTimerSettings } from './FocusTimerSettings'
 import { BreakActivityModal } from './BreakActivityModal'
 import { BreakActivityTimer } from './BreakActivityTimer'
 import { SessionRecoveryModal } from './SessionRecoveryModal'
 import { SessionStartModal } from './SessionStartModal'
 import { logger } from '../../utils/logger'
+
+const SESSION_GUIDE = [
+  { mode: 'Ultra-Cram / Cram', duration: '15-30 min' },
+  { mode: 'Steady', duration: '25-30 min' },
+  { mode: 'Extended', duration: '30-45 min' },
+]
+
+const GOAL_PRESETS = [25, 45, 60, 90]
 
 interface SummaryData {
   sessionMinutes?: number
@@ -27,7 +27,6 @@ interface SummaryData {
   breakMinutes: number
   adherencePercentage: number
   adherenceColor: { color: string; status: string; emoji: string }
-  // Points breakdown
   basePoints?: number
   pointsPenalty?: number
   netPoints?: number
@@ -75,7 +74,7 @@ export function FocusTimer() {
     closeBreakActivityModal,
     startBreakActivity,
     completeBreakActivity,
-  } = useFocusTimer(user?.id || '')
+  } = useFocusTimerContext()
 
   if (!user) return null
 
@@ -93,501 +92,473 @@ export function FocusTimer() {
     setSummaryData(null)
   }
 
-  const handleSaveGoal = (minutes: number) => {
-    // Update the goal minutes immediately
+  const handlePresetClick = (minutes: number) => {
     setGoalMinutes(minutes)
-
-    // If session is active and user is working, we might want to recalculate progress
-    // The timer will automatically adjust the goal progress calculation
     logger.debug(`Goal updated to ${minutes} minutes`)
-  }
-
-  const getStatusBadge = () => {
-    switch (status) {
-      case 'working':
-        return (
-          <span
-            className="caption"
-            style={{
-              padding: '0.25rem 0.75rem',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--color-success-light)',
-              color: 'var(--color-success)',
-              fontWeight: '600',
-            }}
-          >
-            Working
-          </span>
-        )
-      case 'break':
-        return (
-          <span
-            className="caption"
-            style={{
-              padding: '0.25rem 0.75rem',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--color-warning-light)',
-              color: 'var(--color-warning)',
-              fontWeight: '600',
-            }}
-          >
-            On Break
-          </span>
-        )
-      default:
-        return (
-          <span
-            className="caption"
-            style={{
-              padding: '0.25rem 0.75rem',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--color-gray-100)',
-              color: 'var(--color-text-secondary)',
-              fontWeight: '600',
-            }}
-          >
-            Not Studying
-          </span>
-        )
-    }
   }
 
   return (
     <>
-      <Card variant="bordered">
-        <CardHeader
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <h3 className="h4">Focus Timer</h3>
-          <button
-            onClick={() => setShowSettings(true)}
-            disabled={status !== 'idle'}
-            style={{
-              border: 'none',
-              background: 'none',
-              cursor: status === 'idle' ? 'pointer' : 'not-allowed',
-              padding: '0.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              opacity: status === 'idle' ? 1 : 0.5,
-            }}
-            aria-label="Settings"
-          >
-            <SettingsIcon size={20} />
-          </button>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>
-              <p className="body text-secondary">Loading session...</p>
-            </div>
-          ) : (
-            <>
-              {/* Status Badge */}
-              <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-                {getStatusBadge()}
-              </div>
-
-          {/* Main Timer Display */}
-          <div
-            style={{
-              textAlign: 'center',
-              marginBottom: '1.5rem',
-              padding: '1.5rem',
-              backgroundColor: 'var(--color-gray-50)',
-              borderRadius: 'var(--radius-md)',
-            }}
-          >
-            {/* Session Timer - Main Focus */}
-            {status !== 'idle' ? (
-              <>
-                <p className="caption text-secondary" style={{ marginBottom: '0.5rem' }}>
-                  Session Time
-                </p>
-                <div
-                  className="h1"
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '2.5rem',
-                    fontWeight: '600',
-                    color: 'var(--color-primary)',
-                    marginBottom: '1rem',
-                  }}
-                >
-                  {remainingTime.display}
-                </div>
-                <p className="caption text-secondary" style={{ marginTop: '-0.5rem', marginBottom: '0.5rem' }}>
-                  remaining
-                </p>
-
-                {/* Current Activity Status - No timer, just status */}
-                <div style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: status === 'working' ? 'var(--color-success-light)' : 'var(--color-warning-light)',
-                  borderRadius: 'var(--radius-sm)',
-                  display: 'inline-block',
-                }}>
-                  <p className="body" style={{
-                    fontWeight: '500',
-                    color: status === 'working' ? 'var(--color-success)' : 'var(--color-warning)',
-                    margin: 0,
-                  }}>
-                    {status === 'working' ? '🎯 Working' : '☕ On Break'}
-                  </p>
-                </div>
-
-                {status === 'working' && (
-                  <p className="caption text-secondary" style={{ marginTop: '0.75rem' }}>
-                    Goal: {goalMinutes} minutes
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                {/* Idle state - show placeholder */}
-                <div
-                  className="h1"
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '2.5rem',
-                    marginBottom: '0.5rem',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  00:00:00
-                </div>
-                <p className="body-small text-secondary">
-                  Set goal: {goalMinutes} minutes
-                </p>
-              </>
-            )}
+      <div style={{
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: 'var(--color-surface)',
+        overflow: 'hidden',
+      }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
+            <p className="body text-secondary">Loading session...</p>
           </div>
-
-          {/* Session Length Guide (only in idle state) */}
-          {status === 'idle' && (
+        ) : (
+          <>
+            {/* Timer Display */}
             <div style={{
-              marginBottom: '1.5rem',
-              padding: '0.75rem',
-              backgroundColor: 'var(--color-info-light)',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--color-info)',
+              padding: 'var(--space-10) var(--space-8) var(--space-8)',
+              textAlign: 'center',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <Info size={14} color="var(--color-info)" />
-                <span className="caption" style={{ fontWeight: '600', color: 'var(--color-info)' }}>
-                  Recommended session for 100% adherence
-                </span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                {SESSION_GUIDE.map((guide) => (
-                  <div key={guide.mode} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="caption text-secondary">{guide.mode}</span>
-                    <span className="caption" style={{ fontWeight: '500' }}>{guide.duration}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+              {/* Status label */}
+              {status !== 'idle' && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '0.2rem 0.75rem',
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 600,
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase' as const,
+                    borderRadius: 'var(--radius-full)',
+                    backgroundColor: status === 'working' ? 'var(--color-success)' : 'var(--color-warning)',
+                    color: '#fff',
+                  }}>
+                    {status === 'working' ? 'Working' : 'Break'}
+                  </span>
+                </div>
+              )}
 
-          {/* Progress Bar (only when working) */}
-          {status === 'working' && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div
-                style={{
-                  height: '8px',
-                  backgroundColor: 'var(--color-gray-200)',
-                  borderRadius: '4px',
+              {/* Main time */}
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'clamp(2.5rem, 8vw, 4rem)',
+                fontWeight: 300,
+                lineHeight: 1,
+                letterSpacing: '-0.02em',
+                color: status === 'idle' ? 'var(--color-gray-300)' : 'var(--color-text-primary)',
+                marginBottom: 'var(--space-2)',
+              }}>
+                {status !== 'idle' ? remainingTime.display : '00:00:00'}
+              </div>
+
+              {/* Subtext under time */}
+              {status !== 'idle' ? (
+                <p className="caption text-secondary" style={{ margin: 0 }}>
+                  remaining of {goalMinutes}m goal
+                </p>
+              ) : (
+                <p className="caption text-secondary" style={{ margin: 0 }}>
+                  Goal: {goalMinutes} minutes
+                </p>
+              )}
+            </div>
+
+            {/* Progress bar — only during work */}
+            {status === 'working' && (
+              <div style={{ padding: '0 var(--space-8)' }}>
+                <div style={{
+                  height: '3px',
+                  backgroundColor: 'var(--color-gray-100)',
+                  borderRadius: '2px',
                   overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
+                }}>
+                  <div style={{
                     height: '100%',
                     width: `${goalProgress}%`,
                     backgroundColor: 'var(--color-success)',
-                    transition: 'width 0.3s ease',
-                  }}
-                />
-              </div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginTop: '0.25rem'
-              }}>
-                <p className="caption text-secondary">
-                  Elapsed: {sessionTime.display}
-                </p>
-                <p className="caption text-secondary">
-                  {Math.round(goalProgress)}% complete
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Adherence Display (when session active) */}
-          {status !== 'idle' && (
-            <div
-              style={{
-                padding: '1rem',
-                backgroundColor: adherenceColor.color + '20',
-                borderRadius: 'var(--radius-sm)',
-                marginBottom: '1.5rem',
-              }}
-            >
-              <div
-                style={{
+                    transition: 'width 1s linear',
+                  }} />
+                </div>
+                <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                <span className="body-small" style={{ fontWeight: '600' }}>
-                  Adherence
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.25rem' }}>{adherenceColor.emoji}</span>
-                  <span
-                    className="h4"
-                    style={{ color: adherenceColor.color }}
-                  >
-                    {Math.round(adherencePercentage)}%
+                  marginTop: 'var(--space-1)',
+                }}>
+                  <span className="caption text-secondary">
+                    {sessionTime.display} elapsed
+                  </span>
+                  <span className="caption text-secondary">
+                    {Math.round(goalProgress)}%
                   </span>
                 </div>
               </div>
-              <div
-                style={{
-                  height: '4px',
+            )}
+
+            {/* Adherence — when session active */}
+            {status !== 'idle' && (
+              <div style={{
+                margin: 'var(--space-6) var(--space-8) 0',
+                padding: 'var(--space-4)',
+                backgroundColor: 'var(--color-gray-50)',
+                borderRadius: 'var(--radius-sm)',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  marginBottom: 'var(--space-2)',
+                }}>
+                  <span className="caption" style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                    Adherence
+                  </span>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 'var(--text-lg)',
+                    fontWeight: 600,
+                    color: adherenceColor.color,
+                  }}>
+                    {adherenceColor.emoji} {Math.round(adherencePercentage)}%
+                  </span>
+                </div>
+                <div style={{
+                  height: '3px',
                   backgroundColor: 'var(--color-gray-200)',
                   borderRadius: '2px',
                   overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
+                  marginBottom: 'var(--space-3)',
+                }}>
+                  <div style={{
                     height: '100%',
                     width: `${adherencePercentage}%`,
                     backgroundColor: adherenceColor.color,
                     transition: 'all 0.3s ease',
-                  }}
-                />
-              </div>
-              <div
-                style={{
+                  }} />
+                </div>
+                <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginTop: '0.5rem',
-                }}
-              >
-                <span className="caption text-secondary">
-                  <Clock size={12} style={{ display: 'inline', marginRight: '0.25rem' }} />
-                  Work: {Math.floor(workTime.minutes)}m {workTime.seconds % 60}s
-                </span>
-                <span className="caption text-secondary">
-                  <Coffee size={12} style={{ display: 'inline', marginRight: '0.25rem' }} />
-                  Break: {Math.floor(breakTime.minutes)}m {breakTime.seconds % 60}s
-                </span>
+                }}>
+                  <span className="caption text-secondary">
+                    <Clock size={11} style={{ display: 'inline', verticalAlign: '-1px', marginRight: '4px' }} />
+                    Work {Math.floor(workTime.minutes)}m {workTime.seconds % 60}s
+                  </span>
+                  <span className="caption text-secondary">
+                    <Coffee size={11} style={{ display: 'inline', verticalAlign: '-1px', marginRight: '4px' }} />
+                    Break {Math.floor(breakTime.minutes)}m {breakTime.seconds % 60}s
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Break Suggestion Buttons (only when working) */}
-          {status === 'working' && (
-            <div
-              style={{
-                marginBottom: '1rem',
-                padding: '1rem',
-                backgroundColor: 'var(--color-gray-50)',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <p
-                className="caption"
-                style={{
-                  marginBottom: '0.75rem',
-                  fontWeight: '600',
-                  color: 'var(--color-text-secondary)',
-                }}
-              >
-                Need a quick break?
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <button
-                  onClick={() => openBreakActivityModal('cognitive-overload')}
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--color-background)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
-                    e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
-                    e.currentTarget.style.borderColor = 'var(--color-border)'
-                  }}
-                >
-                  📚 Need to Absorb Info?
-                </button>
-                <button
-                  onClick={() => openBreakActivityModal('attention-drift')}
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--color-background)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
-                    e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
-                    e.currentTarget.style.borderColor = 'var(--color-border)'
-                  }}
-                >
-                  🎯 Losing Focus?
-                </button>
-                <button
-                  onClick={() => openBreakActivityModal('urge-management')}
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--color-background)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'
-                    e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-background)'
-                    e.currentTarget.style.borderColor = 'var(--color-border)'
-                  }}
-                >
-                  🚫 Want to Give Up?
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
-            {status === 'idle' && (
-              <Button
-                variant="primary"
-                size="large"
-                onClick={() => setShowStartConfirmModal(true)}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                }}
-              >
-                <Play size={18} />
-                Start Working
-              </Button>
             )}
 
+            {/* Break suggestion buttons */}
             {status === 'working' && (
-              <>
-                <Button
-                  variant="secondary"
-                  size="large"
-                  onClick={() => startBreak()}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <Pause size={18} />
-                  Take Break
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="small"
-                  onClick={handleStopSession}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <Square size={16} />
-                  Stop Session
-                </Button>
-              </>
+              <div style={{
+                margin: 'var(--space-4) var(--space-8) 0',
+                display: 'flex',
+                gap: 'var(--space-2)',
+              }}>
+                {[
+                  { id: 'cognitive-overload' as const, label: 'Need to absorb' },
+                  { id: 'attention-drift' as const, label: 'Losing focus' },
+                  { id: 'urge-management' as const, label: 'Want to quit' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => openBreakActivityModal(item.id)}
+                    style={{
+                      flex: 1,
+                      padding: 'var(--space-2) var(--space-3)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      fontSize: 'var(--text-xs)',
+                      color: 'var(--color-text-secondary)',
+                      transition: 'var(--transition-fast)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--color-primary)'
+                      e.currentTarget.style.color = 'var(--color-text-primary)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--color-border)'
+                      e.currentTarget.style.color = 'var(--color-text-secondary)'
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             )}
 
-            {status === 'break' && (
-              <>
-                <Button
-                  variant="primary"
-                  size="large"
-                  onClick={() => startWorking()}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <Play size={18} />
-                  Resume Working
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="small"
-                  onClick={handleStopSession}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <Square size={16} />
-                  Stop Session
-                </Button>
-              </>
-            )}
-          </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            {/* Actions */}
+            <div style={{
+              padding: 'var(--space-6) var(--space-8) var(--space-8)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--space-3)',
+            }}>
+              {status === 'idle' && (
+                <>
+                  <Button
+                    variant="primary"
+                    size="large"
+                    onClick={() => setShowStartConfirmModal(true)}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <Play size={18} />
+                    Start Session
+                  </Button>
+                  <button
+                    onClick={() => setShowSettings(prev => !prev)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.375rem',
+                      padding: 'var(--space-2)',
+                      color: 'var(--color-text-secondary)',
+                      fontSize: 'var(--text-xs)',
+                    }}
+                  >
+                    {showSettings ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {showSettings ? 'Hide settings' : 'Timer settings'}
+                  </button>
 
-      {/* Modals */}
+                  {/* Inline settings panel */}
+                  {showSettings && (
+                    <div style={{
+                      borderTop: '1px solid var(--color-gray-100)',
+                      paddingTop: 'var(--space-4)',
+                      marginTop: 'var(--space-1)',
+                    }}>
+                      <p className="caption" style={{
+                        fontWeight: 600,
+                        color: 'var(--color-text-secondary)',
+                        marginBottom: 'var(--space-3)',
+                        letterSpacing: '0.03em',
+                        textTransform: 'uppercase' as const,
+                        fontSize: '0.7rem',
+                      }}>
+                        Goal duration
+                      </p>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        gap: 'var(--space-2)',
+                      }}>
+                        {GOAL_PRESETS.map((minutes) => (
+                          <button
+                            key={minutes}
+                            onClick={() => handlePresetClick(minutes)}
+                            style={{
+                              padding: 'var(--space-2) var(--space-3)',
+                              border: goalMinutes === minutes
+                                ? '2px solid var(--color-primary)'
+                                : '1px solid var(--color-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              backgroundColor: goalMinutes === minutes
+                                ? 'var(--color-gray-50)'
+                                : 'transparent',
+                              cursor: 'pointer',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: 'var(--text-xs)',
+                              fontWeight: goalMinutes === minutes ? 600 : 400,
+                              color: 'var(--color-text-primary)',
+                              transition: 'var(--transition-fast)',
+                            }}
+                          >
+                            {minutes}m
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-2)',
+                        marginTop: 'var(--space-3)',
+                      }}>
+                        <span className="caption text-secondary" style={{ whiteSpace: 'nowrap' }}>Custom:</span>
+                        <input
+                          id="custom-goal-input"
+                          type="number"
+                          min="1"
+                          max="480"
+                          placeholder="minutes"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const val = parseInt((e.target as HTMLInputElement).value)
+                              if (val > 0 && val <= 480) {
+                                handlePresetClick(val);
+                                (e.target as HTMLInputElement).value = ''
+                              }
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: 'var(--space-2) var(--space-3)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: 'var(--text-xs)',
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            const input = document.getElementById('custom-goal-input') as HTMLInputElement
+                            const val = parseInt(input?.value)
+                            if (val > 0 && val <= 480) {
+                              handlePresetClick(val)
+                              input.value = ''
+                            }
+                          }}
+                          style={{
+                            padding: 'var(--space-2) var(--space-3)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            backgroundColor: 'var(--color-gray-50)',
+                            cursor: 'pointer',
+                            fontSize: 'var(--text-xs)',
+                            fontWeight: 500,
+                            color: 'var(--color-text-primary)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Set
+                        </button>
+                      </div>
+                      <p className="caption text-secondary" style={{
+                        marginTop: 'var(--space-3)',
+                        lineHeight: 1.4,
+                      }}>
+                        Set your goal to the total time you want to study, including breaks. The timer will suggest breaks along the way.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {status === 'working' && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="large"
+                    onClick={() => startBreak()}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <Pause size={18} />
+                    Take Break
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onClick={handleStopSession}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <Square size={14} />
+                    End Session
+                  </Button>
+                </>
+              )}
+
+              {status === 'break' && (
+                <>
+                  <Button
+                    variant="primary"
+                    size="large"
+                    onClick={() => startWorking()}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <Play size={18} />
+                    Resume Working
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onClick={handleStopSession}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <Square size={14} />
+                    End Session
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {/* Session guide + optional note — idle only */}
+            {status === 'idle' && (
+              <div style={{
+                borderTop: '1px solid var(--color-gray-100)',
+                padding: 'var(--space-6) var(--space-8)',
+              }}>
+                <p className="caption" style={{
+                  fontWeight: 600,
+                  color: 'var(--color-text-secondary)',
+                  marginBottom: 'var(--space-3)',
+                  letterSpacing: '0.03em',
+                  textTransform: 'uppercase' as const,
+                  fontSize: '0.7rem',
+                }}>
+                  Recommended session lengths
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                  {SESSION_GUIDE.map((guide) => (
+                    <div key={guide.mode} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}>
+                      <span className="caption text-secondary">{guide.mode}</span>
+                      <span className="caption" style={{ fontWeight: 500 }}>{guide.duration}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="caption text-secondary" style={{
+                  marginTop: 'var(--space-5)',
+                  paddingTop: 'var(--space-4)',
+                  borderTop: '1px solid var(--color-gray-100)',
+                  lineHeight: 1.5,
+                }}>
+                  This timer is completely optional. You can review your topics anytime without it — it's just here if you'd like to track your focus.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Modals — unchanged */}
       <GoalReachedModal
         isOpen={showGoalReachedModal}
         workMinutes={Math.floor(workTime.minutes)}
@@ -641,14 +612,6 @@ export function FocusTimer() {
         />
       )}
 
-      <FocusTimerSettings
-        isOpen={showSettings}
-        currentGoalMinutes={goalMinutes}
-        onSaveGoal={handleSaveGoal}
-        onClose={() => setShowSettings(false)}
-      />
-
-      {/* Break Activity Modals */}
       <BreakActivityModal
         isOpen={breakActivityModal.isOpen}
         categoryId={breakActivityModal.categoryId}
@@ -665,7 +628,6 @@ export function FocusTimer() {
         />
       )}
 
-      {/* Session Recovery Modal */}
       <SessionRecoveryModal
         isOpen={showSessionRecoveryModal}
         workMinutes={Math.floor(workTime.minutes)}
@@ -676,7 +638,6 @@ export function FocusTimer() {
         onDiscard={discardSession}
       />
 
-      {/* Session Start Confirmation Modal */}
       <SessionStartModal
         isOpen={showStartConfirmModal}
         goalMinutes={goalMinutes}

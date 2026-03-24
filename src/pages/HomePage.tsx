@@ -14,11 +14,6 @@ const GamificationDashboard = lazy(() =>
   }))
 )
 
-const FocusTimer = lazy(() =>
-  import('../components/focus/FocusTimer').then((m) => ({
-    default: m.FocusTimer,
-  }))
-)
 
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now()
@@ -96,14 +91,41 @@ export function HomePage() {
         <LastStudiedBanner lastStudiedText={lastStudiedText} />
       )}
 
-      <div style={{ display: 'grid', gap: '2rem', marginBottom: '3rem' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem',
-          }}
-        >
+      <div className="home-stats-outer">
+        <div className="home-stats-grid">
+          <style>{`
+            .home-stats-outer {
+              display: grid;
+              gap: 2rem;
+              margin-bottom: 3rem;
+            }
+            .home-stats-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 1rem;
+            }
+            .home-review-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+              gap: 1rem;
+              margin-bottom: 2rem;
+            }
+            @media (max-width: 1024px) {
+              .home-stats-outer {
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+              }
+              .home-stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                gap: 0.5rem;
+              }
+              .home-review-grid {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+                margin-bottom: 1.5rem;
+              }
+            }
+          `}</style>
           <QuickStats
             loading={loading}
             overdue={stats.overdue}
@@ -115,26 +137,13 @@ export function HomePage() {
         </div>
 
         {user && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-              gap: '1rem',
-              marginBottom: '2rem',
-            }}
-          >
+          <div className="home-review-grid">
             <ReviewStatusCards
               loading={loading}
               nextDueIn={stats.nextDueIn}
               newItemsCount={stats.newItemsCount}
             />
           </div>
-        )}
-
-        {user && (
-          <Suspense fallback={<Skeleton style={{ height: '200px', borderRadius: '8px' }} />}>
-            <FocusTimer />
-          </Suspense>
         )}
 
         {user && (

@@ -35,6 +35,7 @@ export function GamificationDashboard() {
   })
   const [loading, setLoading] = useState(true)
   const [checkingAchievements, setCheckingAchievements] = useState(false)
+  const [achievementsExpanded, setAchievementsExpanded] = useState(() => window.innerWidth > 1024)
   const [perfectTimingCount, setPerfectTimingCount] = useState(0)
   const [sessionReviewCount, setSessionReviewCount] = useState(0)
 
@@ -208,19 +209,44 @@ export function GamificationDashboard() {
       </Card>
 
       <Card className={styles.achievementsCard}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-          <h2 className={styles.title} style={{ marginBottom: 0 }}>Achievements</h2>
-          <Button 
-            variant="secondary" 
-            size="small"
-            onClick={handleCheckAchievements}
-            loading={checkingAchievements}
-            disabled={checkingAchievements}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: achievementsExpanded ? 'var(--space-4)' : 0 }}>
+          <button
+            onClick={() => setAchievementsExpanded(prev => !prev)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              color: 'var(--color-text-primary)',
+            }}
           >
-            Check for Achievements
-          </Button>
+            <h2 className={styles.title} style={{ marginBottom: 0 }}>Achievements ({achievements.filter(a => a.unlocked).length}/{achievements.length})</h2>
+            <span style={{
+              fontSize: 'var(--text-xl)',
+              color: 'var(--color-text-secondary)',
+              transition: 'transform 0.2s ease',
+              transform: achievementsExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              lineHeight: 1,
+            }}>
+              ▾
+            </span>
+          </button>
+          {achievementsExpanded && (
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={handleCheckAchievements}
+              loading={checkingAchievements}
+              disabled={checkingAchievements}
+            >
+              Check for Achievements
+            </Button>
+          )}
         </div>
-        <div className={styles.achievementsGrid}>
+        {achievementsExpanded && <div className={styles.achievementsGrid}>
           {achievements.map(achievement => {
             // Calculate progress for locked achievements
             let progress = 0
@@ -300,7 +326,7 @@ export function GamificationDashboard() {
               </div>
             )
           })}
-        </div>
+        </div>}
       </Card>
     </div>
   )

@@ -1,4 +1,4 @@
-export type LearningMode = 'ultracram' | 'cram' | 'extended' | 'steady'
+export type LearningMode = 'ultracram' | 'cram' | 'extended' | 'steady' | 'test'
 export type TimingZone = 'perfect' | 'inWindow' | 'late' | 'earlyAllowed' | 'notYetDue'
 export type MasteryStatus = 'active' | 'mastered' | 'archived' | 'maintenance' | 'repeat'
 export type ArchiveStatus = 'active' | 'archived'
@@ -49,6 +49,7 @@ export interface Topic {
   learning_mode: LearningMode
   archive_status?: ArchiveStatus
   archive_date?: string | null
+  target_review_count?: number
   created_at: string
   updated_at: string
 }

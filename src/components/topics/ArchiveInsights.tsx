@@ -8,6 +8,7 @@ interface ArchiveInsightsProps {
   topicName: string
   createdAt: string
   archiveDate?: string | null
+  targetReviewCount?: number
 }
 
 interface InsightData {
@@ -18,7 +19,7 @@ interface InsightData {
   totalItems: number
 }
 
-export function ArchiveInsights({ topicId, createdAt, archiveDate }: ArchiveInsightsProps) {
+export function ArchiveInsights({ topicId, createdAt, archiveDate, targetReviewCount = 5 }: ArchiveInsightsProps) {
   const [insights, setInsights] = useState<InsightData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -33,7 +34,7 @@ export function ArchiveInsights({ topicId, createdAt, archiveDate }: ArchiveInsi
         const masteredItems = items.filter(item => 
           item.mastery_status === 'mastered' || 
           item.mastery_status === 'maintenance' ||
-          (item.mastery_status === 'archived' && item.review_count >= 5) // Only count archived items that were mastered first
+          (item.mastery_status === 'archived' && item.review_count >= targetReviewCount)
         )
 
         // Get review sessions for all items (to show total effort)

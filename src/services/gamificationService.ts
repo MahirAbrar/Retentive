@@ -289,6 +289,7 @@ export class GamificationService {
       itemId: string
       wasPerfectTiming: boolean
       reviewCount: number
+      targetReviewCount?: number
     }
   ): Promise<{ newAchievements?: string[] } | void> {
     try {
@@ -393,7 +394,7 @@ export class GamificationService {
               points_earned: existingDaily.points_earned + pointsToAdd,
               reviews_completed: existingDaily.reviews_completed + 1,
               perfect_timing_count: existingDaily.perfect_timing_count + (reviewData?.wasPerfectTiming ? 1 : 0),
-              items_mastered: existingDaily.items_mastered + (reviewData?.reviewCount === GAMIFICATION_CONFIG.MASTERY.reviewsRequired ? 1 : 0)
+              items_mastered: existingDaily.items_mastered + (reviewData?.reviewCount === (reviewData?.targetReviewCount ?? GAMIFICATION_CONFIG.MASTERY.reviewsRequired) ? 1 : 0)
             })
             .eq('user_id', userId)
             .eq('date', todayStrForDaily)
@@ -407,7 +408,7 @@ export class GamificationService {
               points_earned: pointsToAdd,
               reviews_completed: 1,
               perfect_timing_count: reviewData?.wasPerfectTiming ? 1 : 0,
-              items_mastered: reviewData?.reviewCount === GAMIFICATION_CONFIG.MASTERY.reviewsRequired ? 1 : 0
+              items_mastered: reviewData?.reviewCount === (reviewData?.targetReviewCount ?? GAMIFICATION_CONFIG.MASTERY.reviewsRequired) ? 1 : 0
             })
           if (dailyError) logger.error('Error creating daily stats:', dailyError)
         }
@@ -462,7 +463,7 @@ export class GamificationService {
           .from('learning_items')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', userId)
-          .gte('review_count', GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+          .in('mastery_status', ['mastered', 'maintenance'])
       ])
 
       const existingIds = new Set(achievementsResult.data?.map(a => a.achievement_id) || [])
@@ -694,7 +695,7 @@ export class GamificationService {
         .from('learning_items')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .gte('review_count', GAMIFICATION_CONFIG.MASTERY.reviewsRequired)
+        .in('mastery_status', ['mastered', 'maintenance'])
 
       if (masteredCount && masteredCount >= 1 && !existingIds.has(ACHIEVEMENTS.FIRST_MASTERY.id)) {
         await this.unlockAchievement(userId, ACHIEVEMENTS.FIRST_MASTERY)

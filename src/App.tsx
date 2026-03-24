@@ -15,6 +15,7 @@ import { OfflineDisclaimer } from './components/OfflineDisclaimer'
 import { Header } from './components/layout/Header'
 import { TrialBanner } from './components/TrialBanner'
 import { AccessGuard } from './components/AccessGuard'
+import { FocusTimerProvider } from './contexts/FocusTimerContext'
 import { clearAuthCache } from './utils/clearAuthCache'
 import { getSupabase } from './services/supabase'
 import { lazyWithRetry } from './utils/lazyWithRetry'
@@ -27,6 +28,7 @@ const NewTopicPage = lazyWithRetry(() => import('./pages/NewTopicPage').then(m =
 const TopicDetailView = lazyWithRetry(() => import('./pages/TopicDetailView').then(m => ({ default: m.TopicDetailView })))
 const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const StatsPage = lazyWithRetry(() => import('./pages/StatsPage').then(m => ({ default: m.StatsPage })))
+const FocusPage = lazyWithRetry(() => import('./pages/FocusPage').then(m => ({ default: m.FocusPage })))
 const PaywallPage = lazyWithRetry(() => import('./pages/PaywallPage').then(m => ({ default: m.PaywallPage })))
 const PaymentSuccess = lazyWithRetry(() => import('./pages/PaymentSuccess').then(m => ({ default: m.PaymentSuccess })))
 
@@ -88,6 +90,7 @@ function App() {
           <ToastProvider>
             <AuthProvider>
               <AchievementProvider>
+                <FocusTimerProvider>
                 <FocusGoalNotifier />
                 <div style={{ minHeight: '100vh' }}>
                   <OfflineDisclaimer />
@@ -153,6 +156,16 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+                  <Route
+                    path="/focus"
+                    element={
+                      <ProtectedRoute>
+                        <AccessGuard>
+                          <FocusPage />
+                        </AccessGuard>
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/paywall" element={<PaywallPage />} />
                   <Route path="/payment-success" element={<PaymentSuccess />} />
                       </Routes>
@@ -160,6 +173,7 @@ function App() {
                   </main>
             </div>
             <OfflineIndicator />
+                </FocusTimerProvider>
           </AchievementProvider>
         </AuthProvider>
       </ToastProvider>

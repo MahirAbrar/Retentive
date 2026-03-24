@@ -2,11 +2,11 @@ import React, { memo, useCallback, useMemo, useState } from 'react'
 import { Button, Input } from '../ui'
 import type { LearningItem } from '../../types/database'
 import { ReviewWindowIndicator } from '../gamification/ReviewWindowIndicator'
-import { GAMIFICATION_CONFIG } from '../../config/gamification'
 import { formatDuration, formatReviewDate, getOptimalReviewWindow } from '../../utils/timeFormat'
 
 interface LearningItemRowProps {
   item: LearningItem
+  targetReviewCount?: number
   isEditing: boolean
   editContent: string
   isProcessing: boolean
@@ -20,6 +20,7 @@ interface LearningItemRowProps {
 
 export const LearningItemRow = memo(function LearningItemRow({
   item,
+  targetReviewCount = 5,
   isEditing,
   editContent,
   isProcessing,
@@ -55,8 +56,8 @@ export const LearningItemRow = memo(function LearningItemRow({
 
   // Memoize the next review display
   const nextReviewInfo = useMemo(() => {
-    if (item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired) {
-      return { 
+    if (item.review_count >= targetReviewCount) {
+      return {
         primary: '✓ Mastered',
         secondary: null,
         exact: null,
@@ -64,19 +65,19 @@ export const LearningItemRow = memo(function LearningItemRow({
       }
     }
     if (!item.next_review_at) return { primary: null, secondary: null, exact: null, isDue: false }
-    
+
     const reviewDate = new Date(item.next_review_at)
     const now = new Date()
     const diffMs = reviewDate.getTime() - now.getTime()
-    
+
     const isDue = diffMs <= 0
     const primary = isDue ? 'Due now' : `Due in ${formatDuration(diffMs)}`
     const exact = formatReviewDate(reviewDate)
-    
-    return { primary, secondary: null, exact, isDue }
-  }, [item.review_count, item.next_review_at])
 
-  const isMastered = item.review_count >= GAMIFICATION_CONFIG.MASTERY.reviewsRequired
+    return { primary, secondary: null, exact, isDue }
+  }, [item.review_count, item.next_review_at, targetReviewCount])
+
+  const isMastered = item.review_count >= targetReviewCount
   const showStudyButton = (nextReviewInfo.isDue || item.review_count === 0) && !isMastered
 
   return (

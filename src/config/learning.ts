@@ -18,6 +18,10 @@ export const LEARNING_MODES: Record<string, { label: string; description: string
     label: 'Extended Mode',
     description: 'Background knowledge, general interest',
   },
+  test: {
+    label: 'Test Mode',
+    description: '30-second intervals for testing',
+  },
 }
 
 export const EASE_FACTOR = {
@@ -63,6 +67,11 @@ export const MODE_TOOLTIP: Record<LearningMode, {
     schedule: '3d → 7d → 14d → 30d',
     session: '30-45 min',
     chunk: '~100-150 words'
+  },
+  test: {
+    schedule: '30s → 30s → 30s → 30s',
+    session: '1-2 min',
+    chunk: 'Any length'
   }
 }
 
@@ -98,5 +107,11 @@ export const MODE_GUIDANCE: Record<LearningMode, {
     sessionLength: '30-45 min, then break',
     contentLength: '~100-150 words',
     example: 'Compound interest: chapter 4, worked examples\nNeural networks: architecture + backprop notes\nDesign patterns: singleton with code samples'
+  },
+  test: {
+    intervals: '30s → 30s → 30s → 30s',
+    sessionLength: '1-2 min',
+    contentLength: 'Any length',
+    example: 'Quick test item 1\nQuick test item 2\nQuick test item 3'
   }
 }

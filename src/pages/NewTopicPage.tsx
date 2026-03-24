@@ -20,13 +20,14 @@ export function NewTopicPage() {
   const [topicName, setTopicName] = useState('')
   const [subjectId, setSubjectId] = useState<string | null>(null)
   const [learningMode, setLearningMode] = useState<LearningMode>('steady')
+  const [targetReviewCount, setTargetReviewCount] = useState<number>(5)
   const [items, setItems] = useState('')
   const [upcomingDate, setUpcomingDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Auto-save draft to localStorage
-  const formData = { topicName, subjectId, learningMode, items, upcomingDate }
+  const formData = { topicName, subjectId, learningMode, targetReviewCount, items, upcomingDate }
   const { isSaving, lastSaved } = useAutoSave(formData, {
     delay: 2000,
     onSave: async (data) => {
@@ -44,6 +45,7 @@ export function NewTopicPage() {
         setTopicName(parsed.topicName || '')
         setSubjectId(parsed.subjectId || null)
         setLearningMode(parsed.learningMode || 'steady')
+        setTargetReviewCount(parsed.targetReviewCount ?? 5)
         setItems(parsed.items || parsed.subtopics || '')
         setUpcomingDate(parsed.upcomingDate || '')
       } catch (error) {
@@ -80,7 +82,8 @@ export function NewTopicPage() {
         user_id: user.id,
         name: sanitizeInput(topicName.trim()),
         learning_mode: learningMode,
-        subject_id: subjectId
+        subject_id: subjectId,
+        target_review_count: targetReviewCount
       })
       
       if (topicError || !topic) {
@@ -269,6 +272,26 @@ export function NewTopicPage() {
                     color: 'var(--color-text-secondary)'
                   }}>{MODE_GUIDANCE[learningMode].example}</pre>
                 </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="body" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                Reviews to Master
+              </label>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {[3, 5].map((count) => (
+                  <label key={count} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="targetReviewCount"
+                      value={count}
+                      checked={targetReviewCount === count}
+                      onChange={() => setTargetReviewCount(count)}
+                    />
+                    <span className="body">{count} reviews</span>
+                  </label>
+                ))}
               </div>
             </div>
 
