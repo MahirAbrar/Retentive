@@ -107,39 +107,42 @@ export function TopicsPage() {
         activeTopics.map(async (topic) => {
           const { data: items } = await topicsService.getTopicItems(topic.id)
           const itemsList = items || []
-          
+
+          // Exclude archived items from counts (consistent with topic card display)
+          const activeItems = itemsList.filter(item => item.mastery_status !== 'archived')
+
           // Calculate stats
           const now = new Date()
-          
+
           // New items: never reviewed (review_count = 0)
-          const newCount = itemsList.filter(item => item.review_count === 0).length
-          
+          const newCount = activeItems.filter(item => item.review_count === 0).length
+
           // Due items: have been reviewed at least once AND are due now (excluding new items)
-          const dueCount = itemsList.filter(item => 
-            item.review_count > 0 && 
-            item.next_review_at && 
+          const dueCount = activeItems.filter(item =>
+            item.review_count > 0 &&
+            item.next_review_at &&
             new Date(item.next_review_at) <= now
           ).length
-          
-          const masteredCount = itemsList.filter(item => item.review_count >= (topic.target_review_count ?? 5)).length
+
+          const masteredCount = activeItems.filter(item => item.review_count >= (topic.target_review_count ?? 5)).length
 
           // Find last studied date
-          const lastStudiedAt = itemsList
+          const lastStudiedAt = activeItems
             .filter(item => item.last_reviewed_at)
             .sort((a, b) => {
               const aTime = a.last_reviewed_at ? new Date(a.last_reviewed_at).getTime() : 0
               const bTime = b.last_reviewed_at ? new Date(b.last_reviewed_at).getTime() : 0
               return bTime - aTime
             })[0]?.last_reviewed_at
-          
+
           return {
             ...topic,
-            itemCount: itemsList.length,
+            itemCount: activeItems.length,
             dueCount,
             newCount,
             masteredCount,
             lastStudiedAt,
-            items: itemsList // Store items for search
+            items: itemsList // Store items for search (keep all items)
           } as TopicWithStats & { items: typeof itemsList }
         })
       )

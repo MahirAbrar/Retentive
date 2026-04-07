@@ -14,6 +14,37 @@ import type { BreakActivity } from '../config/breakActivities'
 
 type TimerStatus = 'idle' | 'working' | 'break'
 
+const TIMER_STATE_KEY = 'focus-timer-state'
+
+interface PersistedTimerState {
+  sessionId: string
+  userId: string
+  goalMinutes: number
+  workSeconds: number
+  breakSeconds: number
+  sessionSeconds: number
+  status: TimerStatus
+  startedAt: string
+  lastUpdatedAt: string
+}
+
+function saveTimerState(data: PersistedTimerState) {
+  try {
+    localStorage.setItem(TIMER_STATE_KEY, JSON.stringify(data))
+  } catch { /* ignore quota errors */ }
+}
+
+function loadTimerState(): PersistedTimerState | null {
+  try {
+    const raw = localStorage.getItem(TIMER_STATE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function clearTimerState() {
+  localStorage.removeItem(TIMER_STATE_KEY)
+}
+
 interface TimerState {
   loading: boolean
   status: TimerStatus
@@ -61,7 +92,6 @@ export function useFocusTimer(userId: string) {
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const segmentStartTimeRef = useRef<number>(0)
-  const syncLockRef = useRef<boolean>(false) // Prevent concurrent syncs
   const breakActivityIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const workPausedForBreakActivityRef = useRef<boolean>(false)
   const stateRef = useRef(state) // Ref to access current state without triggering re-renders
@@ -162,223 +192,108 @@ export function useFocusTimer(userId: string) {
     }
   }, [state.status, state.goalMinutes, state.showGoalReachedModal])
 
-  // ================================================
-  // HANDLE MAX DURATION AUTO-PAUSE
-  // ================================================
-  useEffect(() => {
-    // When max duration modal shows and we have an active segment, end it
-    if (state.showMaxDurationModal && state.currentSegment && state.status === 'idle') {
-      const endCurrentSegment = async () => {
-        if (!state.currentSegment) return
-
-        try {
-          const durationMinutes = Math.floor(
-            (Date.now() - segmentStartTimeRef.current) / 60000
-          )
-
-          await focusTimerService.endSegment(
-            state.currentSegment.id,
-            userId,
-            durationMinutes
-          )
-
-          logger.info('Segment ended due to max duration reached')
-        } catch (error) {
-          logger.error('Error ending segment on max duration:', error)
-        }
-      }
-
-      endCurrentSegment()
-    }
-  }, [state.showMaxDurationModal, state.currentSegment, state.status, userId])
+  // Max duration auto-pause is handled by the timer tick effect above (lines 110-128)
 
   // ================================================
-  // LOAD ACTIVE SESSION ON MOUNT
+  // LOAD ACTIVE SESSION ON MOUNT (localStorage first, DB fallback)
   // ================================================
   useEffect(() => {
     if (!userId) return
 
     const loadActiveSession = async () => {
       try {
-        const session = await focusTimerService.getActiveSession(userId)
+        // Check localStorage for in-progress session
+        const persisted = loadTimerState()
 
-        // Check if this session was recently discarded (prevents race condition)
-        if (session) {
-          const discardedData = localStorage.getItem('focus-session-discarded')
-          if (discardedData) {
-            try {
-              const { sessionId, timestamp } = JSON.parse(discardedData)
-              const isRecent = Date.now() - timestamp < 10000 // Within 10 seconds
-              if (sessionId === session.id && isRecent) {
-                // Clear the discarded flag after checking
-                localStorage.removeItem('focus-session-discarded')
-                setState((prev) => ({
-                  ...prev,
-                  loading: false,
-                  showSessionRecoveryModal: false,
-                }))
-                return
-              }
-            } catch {
-              // Ignore parse errors
-            }
-          }
-        }
+        if (persisted && persisted.userId === userId && persisted.status !== 'idle') {
+          // Calculate how long since last update
+          const timeSinceUpdate = Date.now() - new Date(persisted.lastUpdatedAt).getTime()
+          const maxStaleAge = 2 * 60 * 60 * 1000 // 2 hours
 
-        if (session) {
-          // Get active segment to determine current status
-          const activeSegment = await focusTimerService.getActiveSegment(session.id, userId)
+          if (timeSinceUpdate > maxStaleAge) {
+            // Session is too old — auto-end it in DB and clear
+            logger.log('Found stale localStorage session, auto-ending')
+            const adherence = calculateAdherence(persisted.workSeconds / 60, persisted.breakSeconds / 60)
 
-          // Calculate elapsed times from timestamps
-          const sessionStarted = new Date(session.started_at)
-          const totalElapsed = Math.floor((Date.now() - sessionStarted.getTime()) / 1000)
-
-          // Get all segments for accurate calculation
-          const segments = await focusTimerService.getSessionSegments(session.id, userId)
-
-          // Calculate completed segment times
-          let completedWorkSeconds = 0
-          let completedBreakSeconds = 0
-
-          segments.forEach(segment => {
-            if (segment.ended_at && segment.duration_minutes) {
-              if (segment.segment_type === 'work') {
-                completedWorkSeconds += segment.duration_minutes * 60
-              } else {
-                completedBreakSeconds += segment.duration_minutes * 60
-              }
-            }
-          })
-
-          // Add time from active segment if exists
-          let currentStatus: 'idle' | 'working' | 'break' = 'idle'
-          let workSeconds = completedWorkSeconds
-          let breakSeconds = completedBreakSeconds
-          let validActiveSegment = activeSegment
-
-          if (activeSegment && !activeSegment.ended_at) {
-            const segmentAge = Date.now() - new Date(activeSegment.started_at).getTime()
-            const maxSegmentAge = 2 * 60 * 60 * 1000 // 2 hours
-
-            // Check if segment is stale (app was closed for too long)
-            if (segmentAge > maxSegmentAge) {
-              logger.log('Found stale segment, ending it with reasonable duration')
-
-              // End the stale segment with a reasonable duration
-              const reasonableDuration = activeSegment.segment_type === 'break'
-                ? Math.min(Math.floor(segmentAge / 60000), 30) // Cap breaks at 30 minutes
-                : Math.min(Math.floor(segmentAge / 60000), 120) // Cap work at 2 hours
-
+            if (persisted.workSeconds >= 60) {
+              // Has meaningful work — end it in DB
               try {
-                await focusTimerService.endSegment(
-                  activeSegment.id,
-                  userId,
-                  reasonableDuration
-                )
-
-                if (activeSegment.segment_type === 'work') {
-                  workSeconds += reasonableDuration * 60
-                } else {
-                  breakSeconds += reasonableDuration * 60
-                }
-              } catch (error) {
-                logger.error('Error ending stale segment:', error)
+                await focusTimerService.endSession(persisted.sessionId, userId, {
+                  totalWorkMinutes: Math.floor(persisted.workSeconds / 60),
+                  totalBreakMinutes: Math.floor(persisted.breakSeconds / 60),
+                  adherencePercentage: adherence,
+                })
+              } catch (e) {
+                logger.error('Error auto-ending stale session:', e)
               }
-
-              // Don't auto-resume from stale segments
-              validActiveSegment = null
-              currentStatus = 'idle'
-            } else {
-              // Segment is fresh, continue normally
-              const segmentElapsed = Math.floor(segmentAge / 1000)
-
-              // Cap segment elapsed to prevent integer overflow (max ~24 days in seconds)
-              const MAX_SEGMENT_SECONDS = 2147483 // Just under PostgreSQL int max
-              const cappedSegmentElapsed = Math.min(segmentElapsed, MAX_SEGMENT_SECONDS)
-
-              if (activeSegment.segment_type === 'work') {
-                workSeconds += cappedSegmentElapsed
-                currentStatus = 'working'
-              } else {
-                breakSeconds += cappedSegmentElapsed
-                currentStatus = 'break'
-              }
-
-              // Store segment start time for proper tracking
-              segmentStartTimeRef.current = new Date(activeSegment.started_at).getTime()
             }
-          }
 
-          // Calculate adherence
-          const workMinutes = workSeconds / 60
-          const breakMinutes = breakSeconds / 60
-          const adherence = calculateAdherence(workMinutes, breakMinutes)
-
-          // Determine if we should show recovery modal
-          // Only show modal for truly stale sessions (segment was old and ended)
-          const isStaleSession = validActiveSegment === null && currentStatus === 'idle'
-
-          // Auto-end sessions that are stale AND have no meaningful work (not worth recovering)
-          // Also auto-end if goal_minutes is 0 or invalid
-          const hasNoMeaningfulWork = workSeconds < 60 // Less than 1 minute of work
-          const hasInvalidGoal = !session.goal_minutes || session.goal_minutes <= 0
-          const shouldAutoEnd = isStaleSession && (hasNoMeaningfulWork || hasInvalidGoal)
-
-          if (shouldAutoEnd) {
-            logger.log('Auto-ending stale session with no meaningful work or invalid goal')
-            try {
-              await focusTimerService.endSession(session.id, userId, {
-                totalWorkMinutes: Math.floor(workSeconds / 60),
-                totalBreakMinutes: Math.floor(breakSeconds / 60),
-                adherencePercentage: adherence,
-              })
-            } catch (endError) {
-              logger.error('Error auto-ending stale session:', endError)
-            }
-            // Reset state as if no session exists
-            setState((prev) => ({
-              ...prev,
-              loading: false,
-              showGoalReachedModal: false,
-              showBreakCompleteModal: false,
-              showMaxDurationModal: false,
-              showSessionRecoveryModal: false,
-            }))
+            clearTimerState()
+            setState(prev => ({ ...prev, loading: false }))
             return
           }
 
-          const shouldShowRecoveryModal = isStaleSession
+          // Session is fresh enough — show recovery modal
+          const adherence = calculateAdherence(persisted.workSeconds / 60, persisted.breakSeconds / 60)
 
-          // Restore session state with calculated values
-          setState((prev) => ({
+          // Verify our session still exists in DB
+          const dbSession = await focusTimerService.getActiveSession(userId)
+          if (!dbSession) {
+            // No active session in DB at all — clear localStorage
+            clearTimerState()
+            setState(prev => ({ ...prev, loading: false }))
+            return
+          }
+          if (dbSession.id !== persisted.sessionId) {
+            // DB has a different active session (from another device) — clear our stale localStorage, don't touch their session
+            clearTimerState()
+            setState(prev => ({ ...prev, loading: false }))
+            return
+          }
+
+          setState(prev => ({
             ...prev,
             loading: false,
-            session,
-            currentSegment: validActiveSegment, // Use validated segment (null if stale)
-            goalMinutes: session.goal_minutes,
-            sessionSeconds: totalElapsed,
-            workSeconds,
-            breakSeconds,
+            session: dbSession,
+            currentSegment: null,
+            goalMinutes: persisted.goalMinutes,
+            sessionSeconds: persisted.sessionSeconds,
+            workSeconds: persisted.workSeconds,
+            breakSeconds: persisted.breakSeconds,
             adherencePercentage: adherence,
             adherenceColor: getAdherenceColor(adherence),
-            status: shouldShowRecoveryModal ? 'idle' : currentStatus, // Use current status unless showing modal
-            showSessionRecoveryModal: shouldShowRecoveryModal, // Only show modal for stale sessions
+            status: 'idle', // Pause until user confirms recovery
+            showSessionRecoveryModal: true,
           }))
-        } else {
-          // No active session found, reset all state including modals
-          setState((prev) => ({
-            ...prev,
-            loading: false,
-            showGoalReachedModal: false,
-            showBreakCompleteModal: false,
-            showMaxDurationModal: false,
-            showSessionRecoveryModal: false,
-          }))
+          return
         }
+
+        // No localStorage state — check DB for orphaned sessions
+        const session = await focusTimerService.getActiveSession(userId)
+        if (session) {
+          const sessionAge = Date.now() - new Date(session.started_at).getTime()
+          const maxAge = 2 * 60 * 60 * 1000 // 2 hours
+
+          if (sessionAge > maxAge) {
+            // Stale session (>2h) with no localStorage on any device — safe to auto-end
+            logger.log('Found stale orphaned DB session, auto-ending')
+            try {
+              await focusTimerService.endSession(session.id, userId, {
+                totalWorkMinutes: 0,
+                totalBreakMinutes: 0,
+                adherencePercentage: 100,
+              })
+            } catch (e) {
+              logger.error('Error auto-ending stale session:', e)
+            }
+          }
+          // If session is fresh, leave it alone — it may be active on another device
+        }
+
+        setState(prev => ({ ...prev, loading: false }))
       } catch (error) {
         logger.error('Error loading active session:', error)
-        // Set loading to false even on error
-        setState((prev) => ({ ...prev, loading: false }))
+        setState(prev => ({ ...prev, loading: false }))
       }
     }
 
@@ -427,199 +342,39 @@ export function useFocusTimer(userId: string) {
   }, [userId])
 
   // ================================================
-  // LISTEN FOR SESSION EVENTS FROM OTHER INSTANCES
+  // PERSIST TO LOCALSTORAGE on beforeunload + visibility hidden
   // ================================================
   useEffect(() => {
-    const handleSessionEnded = (e: Event) => {
-      const event = e as CustomEvent
-      // Only reset if it's our session that ended
-      if (state.session?.id === event.detail.sessionId) {
-        logger.log('Session ended in another tab/component, syncing...')
-        resetSession()
-      }
+    if (!state.session || state.status === 'idle') return
+
+    const persistState = () => {
+      if (!stateRef.current.session || stateRef.current.status === 'idle') return
+      saveTimerState({
+        sessionId: stateRef.current.session.id,
+        userId,
+        goalMinutes: stateRef.current.goalMinutes,
+        workSeconds: stateRef.current.workSeconds,
+        breakSeconds: stateRef.current.breakSeconds,
+        sessionSeconds: stateRef.current.sessionSeconds,
+        status: stateRef.current.status,
+        startedAt: stateRef.current.session.started_at,
+        lastUpdatedAt: new Date().toISOString(),
+      })
     }
 
-    const handleSessionBreak = (e: Event) => {
-      const event = e as CustomEvent
-      if (state.session?.id === event.detail.sessionId && state.status !== 'break') {
-        logger.log('Session switched to break in another tab/component')
-        setState(prev => ({ ...prev, status: 'break' }))
-      }
-    }
-
-    const handleSessionWork = (e: Event) => {
-      const event = e as CustomEvent
-      if (state.session?.id === event.detail.sessionId && state.status !== 'working') {
-        logger.log('Session switched to work in another tab/component')
-        setState(prev => ({ ...prev, status: 'working' }))
-      }
-    }
-
-    window.addEventListener('focus-session-ended', handleSessionEnded)
-    window.addEventListener('focus-session-break', handleSessionBreak)
-    window.addEventListener('focus-session-work', handleSessionWork)
-
-    return () => {
-      window.removeEventListener('focus-session-ended', handleSessionEnded)
-      window.removeEventListener('focus-session-break', handleSessionBreak)
-      window.removeEventListener('focus-session-work', handleSessionWork)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.session?.id, state.status])
-
-  // ================================================
-  // PERIODIC SESSION VALIDATION (Fallback)
-  // Only runs when there's an active session to save energy
-  // ================================================
-  useEffect(() => {
-    // Skip if no user OR no active session - saves energy when idle
-    if (!userId || !state.session) return
-
-    // Skip validation when page is hidden to save energy
-    const isPageVisible = () => !document.hidden
-
-    const validateSession = async () => {
-      // Skip if page is hidden
-      if (!isPageVisible()) return
-
-      try {
-        // Check if session is still active in database
-        const activeSession = await focusTimerService.getActiveSession(userId)
-
-        // CASE 1: Have a session, but it no longer exists or is inactive in database
-        if (!activeSession || activeSession.id !== state.session?.id || !activeSession.is_active) {
-          logger.log('Session no longer active in database, syncing state...')
-          resetSession()
-          return
-        }
-
-        // CASE 2: Both have session, sync status based on active segment
-        const activeSegment = await focusTimerService.getActiveSegment(activeSession.id, userId)
-
-        if (activeSegment && !activeSegment.ended_at) {
-          // There's an active segment, sync status
-          const expectedStatus = activeSegment.segment_type === 'work' ? 'working' : 'break'
-          if (state.status !== expectedStatus) {
-            logger.log(`Syncing status from database: ${state.status} → ${expectedStatus}`)
-            setState(prev => ({
-              ...prev,
-              status: expectedStatus,
-              currentSegment: activeSegment
-            }))
-          }
-        } else if (state.status !== 'idle') {
-          // No active segment, should be idle
-          logger.log('No active segment in database, setting status to idle')
-          setState(prev => ({
-            ...prev,
-            status: 'idle',
-            currentSegment: null
-          }))
-        }
-      } catch (error) {
-        // Ignore errors during validation (likely offline)
-        logger.debug('Session validation skipped:', error)
-      }
-    }
-
-    // Check every 15 seconds (increased from 5s to save energy)
-    const interval = setInterval(validateSession, 15000)
-
-    // Handle visibility change - validate when page becomes visible
+    const handleBeforeUnload = () => persistState()
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        validateSession()
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    // Also validate immediately
-    validateSession()
-
-    return () => {
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.session?.id, state.status, userId])
-
-  // ================================================
-  // HANDLE APP CLOSE - End active segments
-  // ================================================
-  useEffect(() => {
-    const handleBeforeUnload = (_e: BeforeUnloadEvent) => {
-      // End active segment if exists
-      if (state.currentSegment && state.status !== 'idle') {
-        const durationMinutes = Math.floor(
-          (Date.now() - segmentStartTimeRef.current) / 60000
-        )
-
-        // Try quick end segment method
-        focusTimerService.quickEndSegment(
-          state.currentSegment.id,
-          userId,
-          durationMinutes
-        )
-      }
+      if (document.hidden) persistState()
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-    }
-  }, [state.currentSegment, state.status, userId])
-
-  // ================================================
-  // HANDLE VISIBILITY CHANGE - Sync when tab is hidden
-  // ================================================
-  useEffect(() => {
-    // Only set up listener if we have an active session
-    if (!state.session || state.status === 'idle') return
-
-    const handleVisibilityChange = async () => {
-      const currentState = stateRef.current
-      if (!document.hidden || !currentState.currentSegment || currentState.status === 'idle') return
-      if (!navigator.onLine || syncLockRef.current) return
-
-      // Sync current progress when tab becomes hidden
-      if (currentState.session) {
-        syncLockRef.current = true
-        try {
-          await focusTimerService.syncSession(
-            currentState.session.id,
-            userId,
-            {
-              totalWorkMinutes: Math.floor(currentState.workSeconds / 60),
-              totalBreakMinutes: Math.floor(currentState.breakSeconds / 60),
-              adherencePercentage: currentState.adherencePercentage,
-              currentSegmentType: currentState.status === 'working' ? 'work' : 'break',
-              currentSegmentId: currentState.currentSegment.id,
-            }
-          )
-        } catch {
-          // Silently ignore sync errors on visibility change
-        } finally {
-          syncLockRef.current = false
-        }
-      }
-    }
-
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [state.session?.id, state.status, userId])
-
-  // ================================================
-  // DATABASE WRITES - Only on important state changes, not periodic
-  // ================================================
-  // Writes are expensive, so we only sync:
-  // 1. When visibility changes (tab hidden) - safety backup
-  // 2. When session ends (stopSession)
-  // 3. When segments change (startWorking, startBreak)
-  // The periodic sync has been removed to reduce unnecessary writes.
 
   // ================================================
   // START WORKING
@@ -635,31 +390,30 @@ export function useFocusTimer(userId: string) {
           session = await focusTimerService.createSession(userId, goal)
         }
 
-        // Create work segment
-        const segment = await focusTimerService.createSegment(
-          session.id,
-          userId,
-          'work'
-        )
-
         segmentStartTimeRef.current = Date.now()
 
         setState((prev) => ({
           ...prev,
           status: 'working',
           session,
-          currentSegment: segment,
+          currentSegment: null,
           goalMinutes: goal,
           showGoalReachedModal: false,
         }))
 
-        // Broadcast session work event
-        window.dispatchEvent(new CustomEvent('focus-session-work', {
-          detail: {
-            sessionId: session.id,
-            userId
-          }
-        }))
+        // Persist to localStorage immediately
+        saveTimerState({
+          sessionId: session.id,
+          userId,
+          goalMinutes: goal,
+          workSeconds: state.workSeconds,
+          breakSeconds: state.breakSeconds,
+          sessionSeconds: state.sessionSeconds,
+          status: 'working',
+          startedAt: session.started_at,
+          lastUpdatedAt: new Date().toISOString(),
+        })
+
       } catch (error) {
         logger.error('Error starting work session:', error)
       }
@@ -673,46 +427,33 @@ export function useFocusTimer(userId: string) {
   const startBreak = useCallback(
     async (recommendedMinutes?: number) => {
       try {
-        // End current work segment if exists
-        if (state.currentSegment && state.status === 'working') {
-          const durationMinutes = Math.floor(
-            (Date.now() - segmentStartTimeRef.current) / 60000
-          )
-          await focusTimerService.endSegment(
-            state.currentSegment.id,
-            userId,
-            durationMinutes
-          )
-        }
-
-        // Create break segment
         if (!state.session) {
           logger.error('Cannot start break: no active session')
           return
         }
-        const segment = await focusTimerService.createSegment(
-          state.session.id,
-          userId,
-          'break'
-        )
 
         segmentStartTimeRef.current = Date.now()
 
         setState((prev) => ({
           ...prev,
           status: 'break',
-          currentSegment: segment,
+          currentSegment: null,
           showGoalReachedModal: false,
           recommendedBreakMinutes: recommendedMinutes || prev.recommendedBreakMinutes,
         }))
 
-        // Broadcast session break event
-        window.dispatchEvent(new CustomEvent('focus-session-break', {
-          detail: {
-            sessionId: state.session.id,
-            userId
-          }
-        }))
+        // Persist to localStorage
+        saveTimerState({
+          sessionId: state.session.id,
+          userId,
+          goalMinutes: state.goalMinutes,
+          workSeconds: state.workSeconds,
+          breakSeconds: state.breakSeconds,
+          sessionSeconds: state.sessionSeconds,
+          status: 'break',
+          startedAt: state.session.started_at,
+          lastUpdatedAt: new Date().toISOString(),
+        })
 
         // Set timer for break completion
         if (recommendedMinutes) {
@@ -751,18 +492,6 @@ export function useFocusTimer(userId: string) {
     }
 
     try {
-      // End current segment
-      if (state.currentSegment) {
-        const durationMinutes = Math.floor(
-          (Date.now() - segmentStartTimeRef.current) / 60000
-        )
-        await focusTimerService.endSegment(
-          state.currentSegment.id,
-          userId,
-          durationMinutes
-        )
-      }
-
       // Calculate and award points with penalty
       const pointsResult = await gamificationService.awardFocusSessionPoints(
         userId,
@@ -787,7 +516,7 @@ export function useFocusTimer(userId: string) {
           // Check for focus achievements
           await gamificationService.checkFocusAchievements(userId, {
             totalWorkMinutes: workMinutes,
-            adherencePercentage: finalAdherence,
+            adherencePercentage: state.adherencePercentage,
           })
         } catch (endError) {
           // If network error, queue for later
@@ -803,13 +532,6 @@ export function useFocusTimer(userId: string) {
           }
         }
 
-        // Broadcast session ended event for other timer instances
-        window.dispatchEvent(new CustomEvent('focus-session-ended', {
-          detail: {
-            sessionId: state.session.id,
-            userId
-          }
-        }))
       }
 
       // Return final stats for summary modal (including points info)
@@ -879,8 +601,7 @@ export function useFocusTimer(userId: string) {
       intervalRef.current = null
     }
 
-    // Reset sync lock
-    syncLockRef.current = false
+    clearTimerState()
 
     setState({
       loading: false,
@@ -966,21 +687,6 @@ export function useFocusTimer(userId: string) {
         })
 
         logger.log('Session discarded successfully')
-
-        // Store discarded session ID to prevent race conditions with other instances
-        // This will be checked by loadActiveSession in other hook instances
-        localStorage.setItem('focus-session-discarded', JSON.stringify({
-          sessionId: state.session.id,
-          timestamp: Date.now()
-        }))
-
-        // Broadcast session ended event for other timer instances
-        window.dispatchEvent(new CustomEvent('focus-session-ended', {
-          detail: {
-            sessionId: state.session.id,
-            userId
-          }
-        }))
       } else {
         logger.warn('No session to discard')
       }
