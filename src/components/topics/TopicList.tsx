@@ -1172,17 +1172,25 @@ const TopicCard = memo(function TopicCard({
   )
 })
 
+export interface TopicStatsChange {
+  total: number
+  due: number
+  new: number
+  archived?: number
+}
+
 interface TopicListProps {
   topics: Topic[]
   onDelete?: (topicId: string) => void
   onArchive?: (topicId: string) => void
   onUnarchive?: (topicId: string) => void
   onTopicUpdate?: (topic: Topic) => void
+  onTopicStatsChange?: (topicId: string, stats: TopicStatsChange) => void
   isArchived?: boolean
   loading?: boolean
 }
 
-function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicUpdate, isArchived = false, loading }: TopicListProps) {
+function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicUpdate, onTopicStatsChange, isArchived = false, loading }: TopicListProps) {
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
   const [topicItems, setTopicItems] = useState<Record<string, LearningItem[]>>({})
   const [topicStats, setTopicStats] = useState<Record<string, TopicStats>>({})
@@ -1206,6 +1214,35 @@ function TopicListComponent({ topics, onDelete, onArchive, onUnarchive, onTopicU
   topicItemsRef.current = topicItems
   const loadingItemsRef = useRef(loadingItems)
   loadingItemsRef.current = loadingItems
+
+  // Notify parent of stats changes so it can keep its topic state in sync
+  // (e.g. for subject header totals that are derived from parent state)
+  const prevTopicStatsRef = useRef<Record<string, TopicStats>>({})
+  useEffect(() => {
+    if (!onTopicStatsChange) {
+      prevTopicStatsRef.current = topicStats
+      return
+    }
+    for (const [topicId, stats] of Object.entries(topicStats)) {
+      const prev = prevTopicStatsRef.current[topicId]
+      if (
+        !prev ||
+        prev.total !== stats.total ||
+        prev.due !== stats.due ||
+        prev.new !== stats.new ||
+        (prev.archived || 0) !== (stats.archived || 0)
+      ) {
+        logger.debug('[TopicList] onTopicStatsChange', topicId, { prev, next: stats })
+        onTopicStatsChange(topicId, {
+          total: stats.total,
+          due: stats.due,
+          new: stats.new,
+          archived: stats.archived,
+        })
+      }
+    }
+    prevTopicStatsRef.current = topicStats
+  }, [topicStats, onTopicStatsChange])
 
   // Sorted topics are handled by the parent component
   // const sortedTopics = useMemo(() => {

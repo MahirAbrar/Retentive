@@ -435,6 +435,24 @@ export function TopicsPage() {
     setShowSubjectCreate(false)
   }, [])
 
+  const handleTopicStatsChange = useCallback((topicId: string, stats: { total: number; due: number; new: number; archived?: number }) => {
+    console.log('[TopicsPage] handleTopicStatsChange', topicId, stats)
+    // Update the topic in the topics list so subject header totals stay in sync
+    setTopics(prev => {
+      const updated = prev.map(t => {
+        if (t.id !== topicId) return t
+        return {
+          ...t,
+          itemCount: stats.total,
+          dueCount: stats.due,
+          newCount: stats.new,
+        }
+      })
+      console.log('[TopicsPage] topics updated, new dueCounts:', updated.map(t => ({ name: t.name, due: t.dueCount })))
+      return updated
+    })
+  }, [])
+
   const handleTopicUpdate = useCallback((updatedTopic: Topic) => {
     // Update the topic in the topics list
     setTopics(prev => prev.map(t =>
@@ -742,6 +760,7 @@ export function TopicsPage() {
                           onArchive={handleArchive}
                           onUnarchive={handleUnarchive}
                           onTopicUpdate={handleTopicUpdate}
+                          onTopicStatsChange={handleTopicStatsChange}
                           isArchived={activeTab === 'archived'}
                           loading={loading}
                         />
@@ -802,6 +821,7 @@ export function TopicsPage() {
                         onArchive={handleArchive}
                         onUnarchive={handleUnarchive}
                         onTopicUpdate={handleTopicUpdate}
+                          onTopicStatsChange={handleTopicStatsChange}
                         isArchived={activeTab === 'archived'}
                         loading={loading}
                       />
@@ -816,6 +836,7 @@ export function TopicsPage() {
                 onArchive={handleArchive}
                 onUnarchive={handleUnarchive}
                 onTopicUpdate={handleTopicUpdate}
+                          onTopicStatsChange={handleTopicStatsChange}
                 isArchived={activeTab === 'archived'}
                 loading={loading}
               />
