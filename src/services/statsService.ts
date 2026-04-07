@@ -40,7 +40,7 @@ export async function getStudyStats(userId: string): Promise<Stats> {
     
     const activeTopicIds = activeTopics?.map(t => t.id) || []
     
-    // Get overdue items (excluding new items with review_count = 0 and archived topics)
+    // Get overdue items (excluding new, archived, mastered, and maintenance items)
     const { count: overdue } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
@@ -49,8 +49,9 @@ export async function getStudyStats(userId: string): Promise<Stats> {
       .lt('next_review_at', now.toISOString())
       .not('next_review_at', 'is', null)
       .gt('review_count', 0)
+      .not('mastery_status', 'in', '(archived,mastered,maintenance)')
 
-    // Get due today items (excluding new items with review_count = 0 and archived topics)
+    // Get due today items (excluding new, archived, mastered, and maintenance items)
     const { count: dueToday } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
@@ -59,11 +60,12 @@ export async function getStudyStats(userId: string): Promise<Stats> {
       .gte('next_review_at', now.toISOString())
       .lte('next_review_at', todayEnd.toISOString())
       .gt('review_count', 0)
+      .not('mastery_status', 'in', '(archived,mastered,maintenance)')
 
     // Get upcoming items (next 7 days)
     const weekFromNow = new Date(now)
     weekFromNow.setDate(weekFromNow.getDate() + 7)
-    
+
     const { count: upcoming } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
@@ -71,6 +73,8 @@ export async function getStudyStats(userId: string): Promise<Stats> {
       .in('topic_id', activeTopicIds)
       .gt('next_review_at', todayEnd.toISOString())
       .lte('next_review_at', weekFromNow.toISOString())
+      .gt('review_count', 0)
+      .not('mastery_status', 'in', '(archived,mastered,maintenance)')
 
     // Get mastered items based on gamification config (excluding archived topics)
     const { count: mastered } = await supabase
@@ -132,6 +136,7 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .in('topic_id', activeTopicIdsForStats)
+        .neq('mastery_status', 'archived')
       totalItems = count || 0
     }
     
@@ -167,7 +172,7 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       }
     }
     
-    // Get next due item (excluding new items and archived topics)
+    // Get next due item (excluding new, archived, mastered, maintenance items and archived topics)
     const { data: dueItems } = await supabase
       .from('learning_items')
       .select('*, topics!inner(archive_status)')
@@ -175,15 +180,16 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       .neq('topics.archive_status', 'archived')
       .lte('next_review_at', now.toISOString())
       .gt('review_count', 0)
+      .not('mastery_status', 'in', '(archived,mastered,maintenance)')
       .order('next_review_at', { ascending: true })
       .limit(10)
-    
+
     let nextDueIn: string | null = null
     if (dueItems && dueItems.length > 0) {
       // If items are due now or overdue, show as "Now"
       nextDueIn = "Now"
     } else {
-      // Get next upcoming item (excluding new items and archived topics)
+      // Get next upcoming item (excluding new, archived, mastered, maintenance items)
       const { data: upcomingItems } = await supabase
         .from('learning_items')
         .select('next_review_at, content, topics!inner(archive_status)')
@@ -191,6 +197,7 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
         .neq('topics.archive_status', 'archived')
         .gt('next_review_at', now.toISOString())
         .gt('review_count', 0)
+        .not('mastery_status', 'in', '(archived,mastered,maintenance)')
         .order('next_review_at', { ascending: true })
         .limit(1)
 
@@ -215,13 +222,14 @@ export async function getExtendedStats(userId: string): Promise<ExtendedStats> {
       }
     }
     
-    // Count new items (never reviewed - review_count = 0, excluding archived topics)
+    // Count new items (never reviewed, excluding archived items and topics)
     const { count: newItemsCount, error: newItemsError } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .in('topic_id', activeTopicIdsForStats.length > 0 ? activeTopicIdsForStats : ['00000000-0000-0000-0000-000000000000'])
       .eq('review_count', 0)
+      .neq('mastery_status', 'archived')
     
     if (newItemsError) {
       logger.error('Error counting new items:', newItemsError)
