@@ -74,6 +74,9 @@ export class SupabaseService {
         case 'USER_UPDATED':
           this.handleUserUpdate(session)
           break
+        case 'PASSWORD_RECOVERY':
+          this.handleSignIn(session)
+          break
       }
     })
     

@@ -66,6 +66,7 @@ export class AuthService {
       case 'SIGNED_IN':
       case 'TOKEN_REFRESHED':
       case 'USER_UPDATED':
+      case 'PASSWORD_RECOVERY':
         if (session?.user) {
           const user = this.mapSupabaseUser(session.user)
           this.updateSessionState({
@@ -334,7 +335,7 @@ export class AuthService {
   async resetPassword(email: string): Promise<{ error: Error | null }> {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+        redirectTo: `${window.location.origin}/#/reset-password`,
       })
       if (error) throw error
       return { error: null }

@@ -23,6 +23,7 @@ import { lazyWithRetry } from './utils/lazyWithRetry'
 // Lazy load all pages with retry logic for deployment cache mismatches
 const HomePage = lazyWithRetry(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })))
 const LoginPage = lazyWithRetry(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
+const ResetPasswordPage = lazyWithRetry(() => import('./pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const TopicsPage = lazyWithRetry(() => import('./pages/TopicsPage').then(m => ({ default: m.TopicsPage })))
 const NewTopicPage = lazyWithRetry(() => import('./pages/NewTopicPage').then(m => ({ default: m.NewTopicPage })))
 const TopicDetailView = lazyWithRetry(() => import('./pages/TopicDetailView').then(m => ({ default: m.TopicDetailView })))
@@ -108,6 +109,7 @@ function App() {
                     </ProtectedRoute>
                   } />
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route
                     path="/topics"
                     element={
