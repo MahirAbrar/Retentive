@@ -12,31 +12,9 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const [showReset, setShowReset] = useState(false)
-  const [resetEmail, setResetEmail] = useState('')
-  const [resetLoading, setResetLoading] = useState(false)
-  const [resetSent, setResetSent] = useState(false)
-
-  const { user, signIn, signInWithGoogle, resetPassword } = useAuth()
+  const { user, signIn, signInWithGoogle } = useAuth()
   const { addToast } = useToast()
   const { theme, toggleTheme } = useTheme()
-
-  const handleResetSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validateEmail(resetEmail)) {
-      addToast('error', 'Please enter a valid email address')
-      return
-    }
-    setResetLoading(true)
-    const { error } = await resetPassword(resetEmail)
-    setResetLoading(false)
-    if (error) {
-      addToast('error', error.message || 'Failed to send reset email')
-    } else {
-      setResetSent(true)
-      addToast('success', 'Check your email for a reset link')
-    }
-  }
 
   if (user) {
     return <Navigate to="/" replace />
@@ -248,77 +226,18 @@ export function LoginPage() {
               </Button>
             </div>
 
-            {!showReset ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowReset(true)
-                  setResetEmail(email)
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  display: 'block',
-                  width: '100%',
-                  marginBottom: '1rem',
-                  padding: 0
-                }}
-              >
-                <span className="body-small text-info">Forgot password?</span>
-              </button>
-            ) : resetSent ? (
-              <div style={{
+            <a
+              href={`https://${import.meta.env.VITE_MARKET_LINK}/auth/reset-password`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
                 textAlign: 'center',
-                marginBottom: '1rem',
-                padding: '0.75rem',
-                border: '1px solid var(--color-border)',
-                borderRadius: '8px',
-                background: 'var(--color-surface)'
-              }}>
-                <p className="body-small text-secondary" style={{ margin: 0 }}>
-                  If an account exists for <strong>{resetEmail}</strong>, a reset link has been sent. Check your inbox.
-                </p>
-              </div>
-            ) : (
-              <div style={{ marginBottom: '1rem' }}>
-                <Input
-                  label="Reset password — enter your email"
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void handleResetSubmit(e as unknown as React.FormEvent)
-                    }
-                  }}
-                  placeholder="you@example.com"
-                  fullWidth
-                />
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    fullWidth
-                    loading={resetLoading}
-                    disabled={resetLoading}
-                    onClick={handleResetSubmit}
-                  >
-                    Send reset link
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={resetLoading}
-                    onClick={() => setShowReset(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
+                display: 'block',
+                marginBottom: '1rem'
+              }}
+            >
+              <span className="body-small text-info">Forgot password?</span>
+            </a>
 
             <div style={{
               display: 'flex',
