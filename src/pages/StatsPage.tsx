@@ -242,14 +242,16 @@ export function StatsPage() {
         startDate.setFullYear(2020)
       }
 
-      // Build mastered query based on date range
+      // Build mastered query based on date range. Archived items with review_count >= 5
+      // count as mastered; their completion timestamp is archive_date (mastery_date may be null).
       const masteredQuery = supabase
         .from('learning_items')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .in('mastery_status', ['mastered', 'maintenance'])
+        .or('mastery_status.in.(mastered,maintenance),and(mastery_status.eq.archived,review_count.gte.5)')
       if (dateRange !== 'all') {
-        masteredQuery.gte('mastery_date', startDate.toISOString())
+        const iso = startDate.toISOString()
+        masteredQuery.or(`mastery_date.gte.${iso},archive_date.gte.${iso}`)
       }
 
       const [sessionsResult, focusSessionsResult, masteredResult] = await Promise.all([

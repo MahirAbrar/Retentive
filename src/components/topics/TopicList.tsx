@@ -724,8 +724,14 @@ const TopicCard = memo(function TopicCard({
                       due: items.filter(i => i.review_count > 0 && isDue(i)).length,
                       new: items.filter(i => i.review_count === 0).length,
                       upcoming: items.filter(i => i.review_count > 0 && !isDue(i) && i.mastery_status !== 'mastered' && i.mastery_status !== 'archived').length,
-                      mastered: items.filter(i => i.mastery_status === 'mastered' || i.mastery_status === 'maintenance').length,
-                      archived: items.filter(i => i.mastery_status === 'archived').length,
+                      mastered: items.filter(i =>
+                        i.mastery_status === 'mastered' ||
+                        i.mastery_status === 'maintenance' ||
+                        (i.mastery_status === 'archived' && i.review_count >= (topic.target_review_count ?? 5))
+                      ).length,
+                      archived: items.filter(i =>
+                        i.mastery_status === 'archived' && i.review_count < (topic.target_review_count ?? 5)
+                      ).length,
                     }
 
                     const filterOptions = [
@@ -999,12 +1005,13 @@ const TopicCard = memo(function TopicCard({
                                      item.mastery_status === 'maintenance' ? (<><RefreshCw size={14} /> {formatNextReview(item.next_review_at || '')}</>) :
                                      formatNextReview(item.next_review_at || '')}
                                   </span>
-                                  {item.mastery_status === 'mastered' && (
+                                  {(item.mastery_status === 'mastered' || item.mastery_status === 'maintenance') && (
                                     <Button
                                       variant="ghost"
                                       size="small"
                                       onClick={() => setMasteryDialogItem(item)}
                                       style={{ padding: '0.25rem 0.5rem' }}
+                                      aria-label={item.mastery_status === 'maintenance' ? 'Change maintenance status' : 'Change mastery status'}
                                     >
                                       <Settings size={14} />
                                     </Button>

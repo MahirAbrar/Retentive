@@ -76,13 +76,15 @@ export async function getStudyStats(userId: string): Promise<Stats> {
       .gt('review_count', 0)
       .not('mastery_status', 'in', '(archived,mastered,maintenance)')
 
-    // Get mastered items based on gamification config (excluding archived topics)
+    // Get mastered items: includes 'mastered', 'maintenance', and 'archived' items
+    // that completed the review cycle (review_count >= 5). Archiving after the cycle
+    // is treated as mastery — the user finished and chose to stop reviewing.
     const { count: mastered } = await supabase
       .from('learning_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .in('topic_id', activeTopicIds)
-      .in('mastery_status', ['mastered', 'maintenance'])
+      .or('mastery_status.in.(mastered,maintenance),and(mastery_status.eq.archived,review_count.gte.5)')
 
       return {
         overdue: overdue || 0,
