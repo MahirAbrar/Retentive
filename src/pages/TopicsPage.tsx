@@ -746,24 +746,35 @@ export function TopicsPage() {
                   const isCollapsed = collapsedSubjects.has(subject.id)
 
                   return (
-                    <div key={subject.id}>
+                    <div
+                      key={subject.id}
+                      style={{
+                        border: `1px solid ${subject.color}40`,
+                        backgroundColor: `${subject.color}08`,
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden',
+                      }}
+                    >
                       <SubjectHeader
                         subject={{ ...subject, topicCount: subjectTopics.length, itemCount: subjectTopics.reduce((sum, t) => sum + t.itemCount, 0), dueCount: subjectTopics.reduce((sum, t) => sum + t.dueCount, 0), newCount: subjectTopics.reduce((sum, t) => sum + t.newCount, 0), masteredCount: subjectTopics.reduce((sum, t) => sum + t.masteredCount, 0) }}
                         isCollapsed={isCollapsed}
                         onToggle={() => toggleSubjectCollapse(subject.id)}
                         onEdit={() => setEditingSubject(subject)}
+                        embedded
                       />
                       {!isCollapsed && (
-                        <TopicList
-                          topics={subjectTopics}
-                          onDelete={handleDelete}
-                          onArchive={handleArchive}
-                          onUnarchive={handleUnarchive}
-                          onTopicUpdate={handleTopicUpdate}
-                          onTopicStatsChange={handleTopicStatsChange}
-                          isArchived={activeTab === 'archived'}
-                          loading={loading}
-                        />
+                        <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-4)' }}>
+                          <TopicList
+                            topics={subjectTopics}
+                            onDelete={handleDelete}
+                            onArchive={handleArchive}
+                            onUnarchive={handleUnarchive}
+                            onTopicUpdate={handleTopicUpdate}
+                            onTopicStatsChange={handleTopicStatsChange}
+                            isArchived={activeTab === 'archived'}
+                            loading={loading}
+                          />
+                        </div>
                       )}
                     </div>
                   )
@@ -771,7 +782,14 @@ export function TopicsPage() {
 
                 {/* Unassigned topics section */}
                 {groupedTopics.get(null)?.length ? (
-                  <div>
+                  <div
+                    style={{
+                      border: '1px solid var(--color-gray-300)',
+                      backgroundColor: 'var(--color-gray-50)',
+                      borderRadius: 'var(--radius-md)',
+                      overflow: 'hidden',
+                    }}
+                  >
                     <div
                       onClick={() => toggleSubjectCollapse('__unassigned__')}
                       style={{
@@ -779,11 +797,10 @@ export function TopicsPage() {
                         alignItems: 'center',
                         gap: '0.75rem',
                         padding: '1rem',
-                        backgroundColor: 'var(--color-surface)',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--color-border)',
-                        marginBottom: collapsedSubjects.has('__unassigned__') ? '0' : '1rem',
                         cursor: 'pointer',
+                        borderBottom: collapsedSubjects.has('__unassigned__')
+                          ? 'none'
+                          : '1px solid var(--color-gray-300)',
                       }}
                     >
                       {collapsedSubjects.has('__unassigned__') ? (
@@ -815,16 +832,18 @@ export function TopicsPage() {
                       </div>
                     </div>
                     {!collapsedSubjects.has('__unassigned__') && (
-                      <TopicList
-                        topics={groupedTopics.get(null) || []}
-                        onDelete={handleDelete}
-                        onArchive={handleArchive}
-                        onUnarchive={handleUnarchive}
-                        onTopicUpdate={handleTopicUpdate}
+                      <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-4)' }}>
+                        <TopicList
+                          topics={groupedTopics.get(null) || []}
+                          onDelete={handleDelete}
+                          onArchive={handleArchive}
+                          onUnarchive={handleUnarchive}
+                          onTopicUpdate={handleTopicUpdate}
                           onTopicStatsChange={handleTopicStatsChange}
-                        isArchived={activeTab === 'archived'}
-                        loading={loading}
-                      />
+                          isArchived={activeTab === 'archived'}
+                          loading={loading}
+                        />
+                      </div>
                     )}
                   </div>
                 ) : null}

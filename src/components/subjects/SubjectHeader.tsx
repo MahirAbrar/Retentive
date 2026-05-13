@@ -9,14 +9,27 @@ interface SubjectHeaderProps {
   isCollapsed: boolean
   onToggle: () => void
   onEdit: () => void
+  /**
+   * When true, the header renders flush as the title bar of an outer panel:
+   * no own border / background / radius / margin. A subtle bottom hairline
+   * in the subject color appears only when expanded, to separate the header
+   * from the panel body.
+   */
+  embedded?: boolean
 }
 
-export function SubjectHeader({ subject, isCollapsed, onToggle, onEdit }: SubjectHeaderProps) {
+export function SubjectHeader({ subject, isCollapsed, onToggle, onEdit, embedded = false }: SubjectHeaderProps) {
   const Icon = getIconComponent(subject.icon)
 
-  return (
-    <div
-      style={{
+  const containerStyle: React.CSSProperties = embedded
+    ? {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        padding: '1rem',
+        borderBottom: isCollapsed ? 'none' : `1px solid ${subject.color}30`,
+      }
+    : {
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
@@ -25,8 +38,10 @@ export function SubjectHeader({ subject, isCollapsed, onToggle, onEdit }: Subjec
         borderRadius: 'var(--radius-md)',
         border: '1px solid var(--color-border)',
         marginBottom: isCollapsed ? '0' : '1rem',
-      }}
-    >
+      }
+
+  return (
+    <div style={containerStyle}>
       <button
         onClick={onToggle}
         aria-label={isCollapsed ? 'Expand section' : 'Collapse section'}

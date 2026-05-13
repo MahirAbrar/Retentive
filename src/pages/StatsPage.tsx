@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger'
-import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react'
-import { Card, CardHeader, CardContent, Badge } from '../components/ui'
+import { useState, useEffect, useCallback, memo, lazy, Suspense } from 'react'
+import { Card, CardHeader, CardContent } from '../components/ui'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../services/supabase'
 import { getExtendedStats } from '../services/statsService'
@@ -77,14 +77,17 @@ type ActivityItem = FocusSessionDisplay | ReviewSessionDisplay
 
 // Memoized chart components
 const DailyActivityChart = memo(function DailyActivityChart({ data }: { data: DailyActivity[] }) {
+  const useShortDate = data.length > 7
   return (
   <ResponsiveContainer width="100%" height={200}>
     <LineChart data={data}>
       <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" />
-      <XAxis 
-        dataKey="date" 
+      <XAxis
+        dataKey="date"
         tick={{ fontSize: 12 }}
-        tickFormatter={(date) => new Date(date).toLocaleDateString('en', { weekday: 'short' })}
+        interval="preserveStartEnd"
+        minTickGap={24}
+        tickFormatter={(date) => new Date(date).toLocaleDateString('en', useShortDate ? { month: 'short', day: 'numeric' } : { weekday: 'short' })}
       />
       <YAxis tick={{ fontSize: 12 }} />
       <Tooltip 
@@ -111,12 +114,14 @@ const DailyActivityChart = memo(function DailyActivityChart({ data }: { data: Da
 export function StatsPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<any>(null)
-  const [formattedSessions, setFormattedSessions] = useState<ReviewSession[]>([])
   const [combinedActivity, setCombinedActivity] = useState<ActivityItem[]>([])
   const [visibleSessions, setVisibleSessions] = useState(5) // Pagination for recent activity
   const [topicStats, setTopicStats] = useState<TopicStats[]>([])
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([])
   const [masteredInPeriod, setMasteredInPeriod] = useState(0)
+  const [reviewsInPeriod, setReviewsInPeriod] = useState(0)
+  const [avgReviewsDisplay, setAvgReviewsDisplay] = useState('0')
+  const [peakDayDisplay, setPeakDayDisplay] = useState(0)
   const [dateRange, setDateRange] = useState('week')
   const [pendingDateRange, setPendingDateRange] = useState('week')
   const [_loading, setLoading] = useState(true)
@@ -129,6 +134,8 @@ export function StatsPage() {
   const [subjectsLoading, setSubjectsLoading] = useState(true)
   const [studyDates, setStudyDates] = useState<Set<string>>(new Set())
   const [adherenceDates, setAdherenceDates] = useState<Set<string>>(new Set())
+  const [showAllSubjects, setShowAllSubjects] = useState(false)
+  const SUBJECTS_PREVIEW_LIMIT = 6
 
   // Load date-range-independent data once (streak, completion, topics, subjects)
   useEffect(() => {
@@ -218,12 +225,17 @@ export function StatsPage() {
       sessions: ReviewSession[]
       dailyActivity: DailyActivity[]
       masteredInPeriod: number
+      reviewsInPeriod: number
+      avgReviews: string
+      peakDay: number
     }>(cacheKey)
 
     if (cached) {
-      setFormattedSessions(cached.sessions)
       setDailyActivity(cached.dailyActivity)
       setMasteredInPeriod(cached.masteredInPeriod)
+      setReviewsInPeriod(cached.reviewsInPeriod)
+      setAvgReviewsDisplay(cached.avgReviews)
+      setPeakDayDisplay(cached.peakDay)
       setSessionsLoading(false)
     }
 
@@ -235,60 +247,82 @@ export function StatsPage() {
     try {
       const startDate = new Date()
       if (dateRange === 'week') {
-        startDate.setDate(startDate.getDate() - 7)
+        startDate.setDate(startDate.getDate() - 6)
+        startDate.setHours(0, 0, 0, 0)
       } else if (dateRange === 'month') {
-        startDate.setMonth(startDate.getMonth() - 1)
+        startDate.setDate(startDate.getDate() - 29)
+        startDate.setHours(0, 0, 0, 0)
       } else if (dateRange === 'all') {
-        startDate.setFullYear(2020)
+        startDate.setFullYear(2000)
+        startDate.setHours(0, 0, 0, 0)
       }
+      const startIso = startDate.toISOString()
 
-      // Build mastered query based on date range. Archived items with review_count >= 5
-      // count as mastered; their completion timestamp is archive_date (mastery_date may be null).
+      // Active topic IDs — matches dashboard's mastered filter so the two counts agree
+      const { data: activeTopics } = await supabase
+        .from('topics')
+        .select('id')
+        .eq('user_id', user.id)
+        .neq('archive_status', 'archived')
+      const activeTopicIds = activeTopics?.map(t => t.id) || []
+
+      // Build mastered query. Archived items with review_count >= 5 count as mastered;
+      // their completion timestamp is archive_date (mastery_date may be null).
       const masteredQuery = supabase
         .from('learning_items')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
+        .in('topic_id', activeTopicIds)
         .or('mastery_status.in.(mastered,maintenance),and(mastery_status.eq.archived,review_count.gte.5)')
       if (dateRange !== 'all') {
-        const iso = startDate.toISOString()
-        masteredQuery.or(`mastery_date.gte.${iso},archive_date.gte.${iso}`)
+        masteredQuery.or(`mastery_date.gte.${startIso},archive_date.gte.${startIso}`)
       }
 
-      const [sessionsResult, focusSessionsResult, masteredResult] = await Promise.all([
-        supabase
-          .from('review_sessions')
-          .select(`
+      // Exact review count for the period (no row data fetched).
+      const reviewsCountQuery = supabase
+        .from('review_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('reviewed_at', startIso)
+
+      // Recent session feed — kept capped at 100 for the activity list UI only.
+      const sessionsListQuery = supabase
+        .from('review_sessions')
+        .select(`
+          id,
+          reviewed_at,
+          interval_days,
+          learning_items!inner (
             id,
-            reviewed_at,
-            interval_days,
-            learning_items!inner (
-              id,
-              content,
-              topics!inner (
-                id,
-                name
-              )
-            )
-          `)
-          .eq('user_id', user.id)
-          .gte('reviewed_at', startDate.toISOString())
-          .order('reviewed_at', { ascending: false })
-          .limit(100),
+            content,
+            topics!inner (id, name)
+          )
+        `)
+        .eq('user_id', user.id)
+        .gte('reviewed_at', startIso)
+        .order('reviewed_at', { ascending: false })
+        .limit(100)
 
-        focusTimerService.getUserSessions(user.id, 50).catch(err => {
-          logger.error('Error fetching focus sessions:', err)
-          return []
-        }),
+      const focusFeedPromise = focusTimerService.getUserSessions(user.id, 50).catch(err => {
+        logger.error('Error fetching focus sessions:', err)
+        return []
+      })
 
+      const [reviewsCountRes, sessionsListRes, focusSessionsList, masteredRes] = await Promise.all([
+        reviewsCountQuery,
+        sessionsListQuery,
+        focusFeedPromise,
         masteredQuery,
       ])
 
-      setMasteredInPeriod(masteredResult.count || 0)
+      const reviewsCount = reviewsCountRes.count || 0
+      setReviewsInPeriod(reviewsCount)
+      setMasteredInPeriod(masteredRes.count || 0)
 
-      // Process sessions
+      // Process sessions for the activity feed
       let formattedSessionsData: ReviewSession[] = []
-      if (!sessionsResult.error && sessionsResult.data) {
-        formattedSessionsData = sessionsResult.data.map((session: any) => ({
+      if (!sessionsListRes.error && sessionsListRes.data) {
+        formattedSessionsData = sessionsListRes.data.map((session: any) => ({
           id: session.id,
           reviewed_at: session.reviewed_at,
           interval_days: session.interval_days,
@@ -299,14 +333,11 @@ export function StatsPage() {
             }
           }
         }))
-      } else if (sessionsResult.error) {
-        logger.error('Error fetching review sessions:', sessionsResult.error)
+      } else if (sessionsListRes.error) {
+        logger.error('Error fetching review sessions:', sessionsListRes.error)
       }
 
-      setFormattedSessions(formattedSessionsData)
-
-      // Process focus sessions
-      const focusSessionsData: FocusSessionDisplay[] = (focusSessionsResult || [])
+      const focusSessionsData: FocusSessionDisplay[] = (focusSessionsList || [])
         .filter(session => new Date(session.created_at) >= startDate)
         .map(session => ({
           id: session.id,
@@ -324,7 +355,6 @@ export function StatsPage() {
           points_penalty: session.points_penalty,
         }))
 
-      // Combine and sort
       const reviewActivities: ReviewSessionDisplay[] = formattedSessionsData.map(s => ({
         ...s,
         type: 'review' as const
@@ -340,40 +370,78 @@ export function StatsPage() {
       setCombinedActivity(allActivity)
       setSessionsLoading(false)
 
-      // Daily activity chart
-      const activityMap = new Map<string, number>()
-      const daysToShow = 7
-      const daysToProcess = dateRange === 'week' ? 7 : dateRange === 'month' ? 30 : Math.min(formattedSessionsData.length, 90)
-
-      for (let i = 0; i < daysToShow; i++) {
-        const date = new Date()
-        date.setDate(date.getDate() - i)
-        const dateStr = date.toISOString().split('T')[0]
-        activityMap.set(dateStr, 0)
+      // Full per-day aggregation across the entire period. Paginated fetch of
+      // reviewed_at only — used to compute Peak Day and (for All Time) the
+      // first-review date that anchors the Avg/Day denominator.
+      const pageSize = 1000
+      const dailyMap = new Map<string, number>()
+      let earliestReviewedAt: string | null = null
+      let from = 0
+      while (true) {
+        const { data, error } = await supabase
+          .from('review_sessions')
+          .select('reviewed_at')
+          .eq('user_id', user.id)
+          .gte('reviewed_at', startIso)
+          .order('reviewed_at', { ascending: true })
+          .range(from, from + pageSize - 1)
+        if (error) {
+          logger.error('Error fetching review session dates:', error)
+          break
+        }
+        if (!data || data.length === 0) break
+        if (earliestReviewedAt === null) earliestReviewedAt = data[0].reviewed_at
+        for (const row of data) {
+          const dateStr = row.reviewed_at.split('T')[0]
+          dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + 1)
+        }
+        if (data.length < pageSize) break
+        from += pageSize
       }
 
-      const cutoffDate = new Date()
-      cutoffDate.setDate(cutoffDate.getDate() - daysToProcess)
+      const peak = dailyMap.size === 0 ? 0 : Math.max(...dailyMap.values())
 
-      formattedSessionsData
-        .filter(session => new Date(session.reviewed_at) >= cutoffDate)
-        .forEach(session => {
-          const dateStr = session.reviewed_at.split('T')[0]
-          if (activityMap.has(dateStr)) {
-            activityMap.set(dateStr, (activityMap.get(dateStr) || 0) + 1)
-          }
-        })
+      // Avg/Day denominator = total days in the selected period.
+      let daysInRange: number
+      if (dateRange === 'week') {
+        daysInRange = 7
+      } else if (dateRange === 'month') {
+        daysInRange = 30
+      } else if (earliestReviewedAt) {
+        const first = new Date(earliestReviewedAt)
+        first.setHours(0, 0, 0, 0)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        daysInRange = Math.max(1, Math.round((today.getTime() - first.getTime()) / 86_400_000) + 1)
+      } else {
+        daysInRange = 1
+      }
+      const avg = reviewsCount > 0 ? (reviewsCount / daysInRange).toFixed(1) : '0'
 
-      const activityData = Array.from(activityMap.entries())
-        .map(([date, reviews]) => ({ date, reviews }))
-        .sort((a, b) => a.date.localeCompare(b.date))
+      // Chart data: trailing window sized to the selected range. For 'all' we cap
+      // at 90 days so the chart stays readable even for long-time users; the
+      // Avg/Day and Peak Day tiles still reflect the full range.
+      const chartDays = dateRange === 'week' ? 7 : dateRange === 'month' ? 30 : 90
+      const chartData: DailyActivity[] = []
+      for (let i = chartDays - 1; i >= 0; i--) {
+        const d = new Date()
+        d.setHours(0, 0, 0, 0)
+        d.setDate(d.getDate() - i)
+        const dateStr = d.toISOString().split('T')[0]
+        chartData.push({ date: dateStr, reviews: dailyMap.get(dateStr) || 0 })
+      }
 
-      setDailyActivity(activityData)
+      setDailyActivity(chartData)
+      setAvgReviewsDisplay(avg)
+      setPeakDayDisplay(peak)
 
       cacheService.set(cacheKey, {
         sessions: formattedSessionsData,
-        dailyActivity: activityData,
-        masteredInPeriod: masteredResult.count || 0
+        dailyActivity: chartData,
+        masteredInPeriod: masteredRes.count || 0,
+        reviewsInPeriod: reviewsCount,
+        avgReviews: avg,
+        peakDay: peak,
       }, 2 * 60 * 1000)
     } catch (error) {
       logger.error('Error loading stats:', error)
@@ -510,21 +578,6 @@ export function StatsPage() {
     return date.toLocaleDateString()
   }, [])
 
-  // Memoized calculations
-  const avgReviewsPerDay = useMemo(() => 
-    dailyActivity.length > 0 && dailyActivity.some(d => d.reviews > 0)
-      ? (dailyActivity.reduce((sum, d) => sum + d.reviews, 0) / dailyActivity.filter(d => d.reviews > 0).length).toFixed(1)
-      : '0'
-  , [dailyActivity])
-
-  const peakDayReviews = useMemo(() => 
-    dailyActivity.length > 0 && dailyActivity.some(d => d.reviews > 0)
-      ? Math.max(...dailyActivity.map(d => d.reviews))
-      : 0
-  , [dailyActivity])
-
-
-
   // Show content progressively as it loads
   return (
     <div style={{ maxWidth: 'var(--container-xl)', margin: '0 auto' }}>
@@ -608,7 +661,7 @@ export function StatsPage() {
                   </>
                 ) : (
                   <>
-                    <p className="h2">{formattedSessions.length}</p>
+                    <p className="h2">{reviewsInPeriod}</p>
                     <p className="body-small text-secondary">Reviews</p>
                   </>
                 )}
@@ -655,7 +708,7 @@ export function StatsPage() {
                   </>
                 ) : (
                   <>
-                    <p className="h2">{avgReviewsPerDay}</p>
+                    <p className="h2">{avgReviewsDisplay}</p>
                     <p className="body-small text-secondary">Avg/Day</p>
                   </>
                 )}
@@ -668,7 +721,7 @@ export function StatsPage() {
                   </>
                 ) : (
                   <>
-                    <p className="h2">{peakDayReviews}</p>
+                    <p className="h2">{peakDayDisplay}</p>
                     <p className="body-small text-secondary">Peak Day</p>
                   </>
                 )}
@@ -729,88 +782,118 @@ export function StatsPage() {
                   <div style={{ height: '100px', backgroundColor: 'var(--color-gray-100)', borderRadius: '8px' }} />
                 </div>
               ) : (
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  {subjectStats.map(subject => {
-                    const Icon = getIconComponent(subject.icon)
-                    const completionRate = subject.itemCount > 0
-                      ? Math.round((subject.masteredCount / subject.itemCount) * 100)
-                      : 0
-                    return (
-                      <div
-                        key={subject.id}
-                        style={{
-                          padding: '1rem',
-                          backgroundColor: subject.color + '10',
-                          borderLeft: `3px solid ${subject.color}`,
-                          borderRadius: 'var(--radius-sm)'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <div style={{
-                              width: '24px',
-                              height: '24px',
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', columnGap: '2rem' }}>
+                    {(showAllSubjects ? subjectStats : subjectStats.slice(0, SUBJECTS_PREVIEW_LIMIT)).map(subject => {
+                      const Icon = getIconComponent(subject.icon)
+                      const completionRate = subject.itemCount > 0
+                        ? Math.round((subject.masteredCount / subject.itemCount) * 100)
+                        : 0
+                      return (
+                        <div
+                          key={subject.id}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '20px minmax(0, 1fr) 64px 36px 56px',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.5rem 0',
+                            borderBottom: '1px solid var(--color-border)',
+                            fontSize: '0.875rem',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '20px',
+                              height: '20px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               backgroundColor: subject.color + '20',
                               color: subject.color,
-                              borderRadius: 'var(--radius-sm)'
-                            }}>
-                              <Icon size={14} />
-                            </div>
-                            <h4 className="body" style={{ fontWeight: '600' }}>{subject.name}</h4>
+                              borderRadius: 'var(--radius-sm)',
+                            }}
+                          >
+                            <Icon size={12} />
                           </div>
-                          <Badge variant="ghost">
-                            {subject.topicCount} topic{subject.topicCount !== 1 ? 's' : ''} • {subject.itemCount} item{subject.itemCount !== 1 ? 's' : ''}
-                          </Badge>
+                          <span
+                            title={`${subject.name} — ${subject.topicCount} topic${subject.topicCount !== 1 ? 's' : ''}${subject.dueCount > 0 ? ` · ${subject.dueCount} due` : ''}`}
+                            style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {subject.name}
+                            {subject.dueCount > 0 && (
+                              <span style={{ color: 'var(--color-warning)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>
+                                · {subject.dueCount} due
+                              </span>
+                            )}
+                          </span>
+                          <div
+                            style={{
+                              height: '4px',
+                              backgroundColor: 'var(--color-gray-200)',
+                              borderRadius: 'var(--radius-full)',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${completionRate}%`,
+                                height: '100%',
+                                backgroundColor: subject.color,
+                                transition: 'width 0.3s ease',
+                              }}
+                            />
+                          </div>
+                          <span
+                            style={{
+                              textAlign: 'right',
+                              fontVariantNumeric: 'tabular-nums',
+                              color: 'var(--color-text-secondary)',
+                            }}
+                          >
+                            {completionRate}%
+                          </span>
+                          <span
+                            style={{
+                              textAlign: 'right',
+                              fontVariantNumeric: 'tabular-nums',
+                              color: 'var(--color-text-secondary)',
+                              fontSize: '0.75rem',
+                            }}
+                          >
+                            {subject.masteredCount}/{subject.itemCount}
+                          </span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '0.75rem' }}>
-                          <div>
-                            <p className="caption text-secondary">Due</p>
-                            <p className="body" style={{ fontWeight: '500', color: subject.dueCount > 0 ? 'var(--color-warning)' : 'inherit' }}>
-                              {subject.dueCount}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="caption text-secondary">Mastered</p>
-                            <p className="body" style={{ fontWeight: '500', color: 'var(--color-success)' }}>
-                              {subject.masteredCount}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="caption text-secondary">Completion</p>
-                            <p className="body" style={{ fontWeight: '500' }}>
-                              {completionRate}%
-                            </p>
-                          </div>
-                        </div>
-                        {/* Progress bar */}
-                        <div style={{
-                          marginTop: '0.75rem',
-                          height: '4px',
-                          backgroundColor: 'var(--color-gray-200)',
-                          borderRadius: '2px',
-                          overflow: 'hidden'
-                        }}>
-                          <div style={{
-                            width: `${completionRate}%`,
-                            height: '100%',
-                            backgroundColor: subject.color,
-                            transition: 'width 0.3s ease'
-                          }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                  {subjectStats.length > SUBJECTS_PREVIEW_LIMIT && (
+                    <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
+                      <button
+                        onClick={() => setShowAllSubjects(prev => !prev)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--color-text-secondary)',
+                          fontSize: '0.75rem',
+                          padding: '0.25rem 0.5rem',
+                        }}
+                      >
+                        {showAllSubjects
+                          ? 'Show fewer'
+                          : `Show all ${subjectStats.length}`}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
         )}
 
         {/* Topic Performance */}
-        <Card variant="bordered">
+        <Card variant="bordered" padding="small">
           <CardHeader>
             <h3 className="h4">Topic Performance</h3>
           </CardHeader>
@@ -818,44 +901,66 @@ export function StatsPage() {
             {topicStats.length === 0 ? (
               <p className="body text-secondary">No topics yet</p>
             ) : (
-              <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', columnGap: '2rem' }}>
                 {topicStats.map(topic => (
-                  <div 
+                  <div
                     key={topic.topic_id}
-                    style={{ 
-                      padding: '1rem',
-                      backgroundColor: 'var(--color-gray-50)',
-                      borderRadius: 'var(--radius-sm)'
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 1fr) 72px 40px 56px',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.25rem 0',
+                      borderBottom: '1px solid var(--color-border)',
+                      fontSize: '0.8125rem',
+                      lineHeight: 1.3,
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <h4 className="body" style={{ fontWeight: '600' }}>{topic.topic_name}</h4>
-                      <Badge variant="ghost">
-                        {topic.reviewed_items}/{topic.total_items} reviewed
-                      </Badge>
+                    <span
+                      title={topic.topic_name}
+                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {topic.topic_name}
+                    </span>
+                    <div
+                      style={{
+                        height: '4px',
+                        backgroundColor: 'var(--color-gray-200)',
+                        borderRadius: 'var(--radius-full)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${topic.completion_rate}%`,
+                          height: '100%',
+                          backgroundColor: 'var(--color-success)',
+                          transition: 'width 0.3s ease',
+                        }}
+                      />
                     </div>
-                    <div>
-                      <p className="body-small text-secondary">Completion</p>
-                      <p className="body">{Math.round(topic.completion_rate)}%</p>
-                    </div>
-                    {/* Progress bar */}
-                    <div style={{ 
-                      marginTop: '0.5rem',
-                      height: '4px',
-                      backgroundColor: 'var(--color-gray-200)',
-                      borderRadius: '2px',
-                      overflow: 'hidden'
-                    }}>
-                      <div style={{
-                        width: `${topic.completion_rate}%`,
-                        height: '100%',
-                        backgroundColor: 'var(--color-success)',
-                        transition: 'width 0.3s ease'
-                      }} />
-                    </div>
+                    <span
+                      style={{
+                        textAlign: 'right',
+                        fontVariantNumeric: 'tabular-nums',
+                        color: 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {Math.round(topic.completion_rate)}%
+                    </span>
+                    <span
+                      style={{
+                        textAlign: 'right',
+                        fontVariantNumeric: 'tabular-nums',
+                        color: 'var(--color-text-secondary)',
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      {topic.reviewed_items}/{topic.total_items}
+                    </span>
                   </div>
                 ))}
-                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -891,147 +996,160 @@ export function StatsPage() {
             {combinedActivity.length === 0 ? (
               <p className="body text-secondary">No recent activity</p>
             ) : (
-              <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <div>
                 {combinedActivity.slice(0, visibleSessions).map(item => {
                   if (item.type === 'review') {
-                    // Review session card
                     return (
                       <div
                         key={item.id}
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
+                          display: 'grid',
+                          gridTemplateColumns: '70px minmax(0, 1fr) auto',
                           alignItems: 'center',
-                          padding: '0.75rem',
-                          backgroundColor: 'var(--color-gray-50)',
-                          borderRadius: 'var(--radius-sm)'
+                          gap: '0.75rem',
+                          padding: '0.5rem 0',
+                          borderBottom: '1px solid var(--color-border)',
+                          fontSize: '0.875rem',
                         }}
                       >
-                        <div style={{ flex: 1 }}>
-                          <p className="body-small" style={{ marginBottom: '0.25rem' }}>
-                            {item.learning_item.content}
-                          </p>
-                          <p className="body-small text-secondary">
-                            {item.learning_item.topic.name} • {formatDate(item.reviewed_at)}
-                          </p>
-                        </div>
+                        <span
+                          style={{
+                            fontVariantNumeric: 'tabular-nums',
+                            color: 'var(--color-text-secondary)',
+                            fontSize: '0.75rem',
+                          }}
+                        >
+                          {formatDate(item.reviewed_at)}
+                        </span>
+                        <span
+                          title={item.learning_item.content}
+                          style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        >
+                          {item.learning_item.content}
+                        </span>
+                        <span
+                          title={item.learning_item.topic.name}
+                          style={{
+                            color: 'var(--color-text-secondary)',
+                            fontSize: '0.75rem',
+                            maxWidth: '160px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.learning_item.topic.name}
+                        </span>
                       </div>
                     )
                   } else {
-                    // Focus session card
                     const adherenceColor = getAdherenceColor(item.adherence_percentage)
                     const hasPenalty = (item.points_penalty ?? 0) > 0
+                    const accent = item.is_incomplete ? 'var(--color-error)' : adherenceColor.color
                     return (
                       <div
                         key={item.id}
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
+                          display: 'grid',
+                          gridTemplateColumns: '70px minmax(0, 1fr) auto auto',
                           alignItems: 'center',
-                          padding: '0.75rem',
-                          backgroundColor: item.is_incomplete ? 'var(--color-error-light)' : adherenceColor.color + '10',
-                          borderLeft: `3px solid ${item.is_incomplete ? 'var(--color-error)' : adherenceColor.color}`,
-                          borderRadius: 'var(--radius-sm)'
+                          gap: '0.75rem',
+                          padding: '0.5rem 0 0.5rem 0.5rem',
+                          borderBottom: '1px solid var(--color-border)',
+                          borderLeft: `2px solid ${accent}`,
+                          fontSize: '0.875rem',
                         }}
                       >
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                            <Timer size={14} color={item.is_incomplete ? 'var(--color-error)' : adherenceColor.color} />
-                            <p className="body-small" style={{ fontWeight: '600' }}>
-                              Focus Session
-                            </p>
-                            {item.is_incomplete && (
-                              <span
-                                className="caption"
-                                style={{
-                                  padding: '0.125rem 0.375rem',
-                                  backgroundColor: 'var(--color-error)',
-                                  borderRadius: 'var(--radius-sm)',
-                                  color: 'white',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem',
-                                }}
-                                title="Session marked incomplete due to low adherence"
-                              >
-                                <AlertTriangle size={10} /> Incomplete
-                              </span>
-                            )}
-                            {item.was_adjusted && (
-                              <span
-                                className="caption"
-                                style={{
-                                  padding: '0.125rem 0.375rem',
-                                  backgroundColor: 'var(--color-info-light)',
-                                  borderRadius: 'var(--radius-sm)',
-                                  color: 'var(--color-info)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem',
-                                }}
-                                title={`Adjusted: ${item.adjustment_reason || 'No reason provided'}`}
-                              >
-                                <Edit2 size={10} /> Edited
-                              </span>
-                            )}
-                          </div>
-                          <p className="body-small text-secondary">
-                            {item.total_work_minutes}m work / {item.goal_minutes}m goal • {formatDate(item.created_at)}
-                          </p>
-                          {/* Points info */}
-                          {(item.points_earned !== undefined || hasPenalty) && (
-                            <p className="caption text-secondary" style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <Award size={12} />
-                              <span style={{ color: 'var(--color-success)' }}>+{item.points_earned ?? 0} pts</span>
-                              {hasPenalty && (
-                                <span style={{ color: 'var(--color-error)' }}>
-                                  (-{item.points_penalty} penalty)
-                                </span>
-                              )}
-                            </p>
+                        <span
+                          style={{
+                            fontVariantNumeric: 'tabular-nums',
+                            color: 'var(--color-text-secondary)',
+                            fontSize: '0.75rem',
+                          }}
+                        >
+                          {formatDate(item.created_at)}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                          <Timer size={14} color={accent} style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            Focus · {item.total_work_minutes}m/{item.goal_minutes}m
+                          </span>
+                          {item.is_incomplete && (
+                            <span
+                              title="Session marked incomplete due to low adherence"
+                              style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--color-error)', flexShrink: 0 }}
+                            >
+                              <AlertTriangle size={12} />
+                            </span>
                           )}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <div style={{
-                            display: 'flex',
+                          {item.was_adjusted && (
+                            <span
+                              title={`Adjusted: ${item.adjustment_reason || 'No reason provided'}`}
+                              style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--color-info)', flexShrink: 0 }}
+                            >
+                              <Edit2 size={12} />
+                            </span>
+                          )}
+                          {(item.points_earned !== undefined || hasPenalty) && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                fontSize: '0.75rem',
+                                color: 'var(--color-text-secondary)',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Award size={12} />
+                              <span style={{ color: 'var(--color-success)' }}>+{item.points_earned ?? 0}</span>
+                              {hasPenalty && (
+                                <span style={{ color: 'var(--color-error)' }}>-{item.points_penalty}</span>
+                              )}
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          style={{
+                            display: 'inline-flex',
                             alignItems: 'center',
                             gap: '0.25rem',
-                            padding: '0.25rem 0.5rem',
-                            backgroundColor: item.is_incomplete ? 'var(--color-error)' : adherenceColor.color,
+                            padding: '0.125rem 0.375rem',
+                            backgroundColor: accent,
                             borderRadius: 'var(--radius-sm)',
-                            color: 'white'
-                          }}>
-                            <span className="caption" style={{ fontWeight: '600' }}>
-                              {Math.round(item.adherence_percentage)}%
-                            </span>
-                            <span style={{ fontSize: '0.875rem' }}>{adherenceColor.emoji}</span>
-                          </div>
-                          <button
-                            onClick={() => handleEditSession(item)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '0.25rem',
-                              color: 'var(--color-text-secondary)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              borderRadius: 'var(--radius-sm)',
-                              transition: 'background-color 0.2s',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = 'var(--color-gray-100)'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent'
-                            }}
-                            title="Edit session duration"
-                            aria-label="Edit session"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                        </div>
+                            color: 'white',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {Math.round(item.adherence_percentage)}% {adherenceColor.emoji}
+                        </span>
+                        <button
+                          onClick={() => handleEditSession(item)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '0.25rem',
+                            color: 'var(--color-text-secondary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: 'var(--radius-sm)',
+                            transition: 'background-color 0.2s',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--color-gray-100)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent'
+                          }}
+                          title="Edit session duration"
+                          aria-label="Edit session"
+                        >
+                          <Edit2 size={14} />
+                        </button>
                       </div>
                     )
                   }

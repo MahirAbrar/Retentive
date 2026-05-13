@@ -10,14 +10,24 @@ import styles from './GamificationDashboard.module.css'
 import { GAMIFICATION_CONFIG } from '../../config/gamification'
 import { supabase } from '../../services/supabase'
 import { Flame } from 'lucide-react'
-import { AchievementIcon } from '../../config/icons'
 
 interface AchievementDisplay {
   id: string
   name: string
   description: string
   icon: string
+  category: string
+  points: number
   unlocked: boolean
+}
+
+const CATEGORY_ORDER = ['reviews', 'streaks', 'mastery', 'focus', 'milestones'] as const
+const CATEGORY_LABELS: Record<string, string> = {
+  reviews: 'Reviews',
+  streaks: 'Streaks',
+  mastery: 'Mastery',
+  focus: 'Focus',
+  milestones: 'Milestones',
 }
 
 export function GamificationDashboard() {
@@ -36,6 +46,16 @@ export function GamificationDashboard() {
   const [loading, setLoading] = useState(true)
   const [checkingAchievements, setCheckingAchievements] = useState(false)
   const [achievementsExpanded, setAchievementsExpanded] = useState(() => window.innerWidth > 1024)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => new Set())
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
+  }
   const [perfectTimingCount, setPerfectTimingCount] = useState(0)
   const [sessionReviewCount, setSessionReviewCount] = useState(0)
 
@@ -109,8 +129,56 @@ export function GamificationDashboard() {
       name: achievement.name,
       description: achievement.description,
       icon: achievement.icon,
+      category: achievement.category,
+      points: achievement.points,
       unlocked: stats.achievements.includes(achievement.id)
     })), [stats.achievements])
+
+  const groupedAchievements = useMemo(() => {
+    return CATEGORY_ORDER.map((category, idx) => {
+      const items = achievements
+        .filter(a => a.category === category)
+        .sort((a, b) => {
+          if (a.unlocked !== b.unlocked) return a.unlocked ? -1 : 1
+          return a.points - b.points
+        })
+        .map((item, rowIndex) => ({ ...item, rowIndex }))
+      const unlockedCount = items.filter(i => i.unlocked).length
+      return {
+        category,
+        label: CATEGORY_LABELS[category],
+        number: String(idx + 1).padStart(2, '0'),
+        items,
+        unlockedCount,
+        totalCount: items.length,
+      }
+    }).filter(g => g.items.length > 0)
+  }, [achievements])
+
+  const getAchievementProgress = (id: string): { percent: number; current: number; target: number } => {
+    switch (id) {
+      case 'first_review':
+        return { percent: stats.todayReviews > 0 ? 100 : 0, current: Math.min(stats.todayReviews, 1), target: 1 }
+      case 'streak_7':
+        return { percent: Math.min((stats.currentStreak / 7) * 100, 100), current: Math.min(stats.currentStreak, 7), target: 7 }
+      case 'streak_30':
+        return { percent: Math.min((stats.currentStreak / 30) * 100, 100), current: Math.min(stats.currentStreak, 30), target: 30 }
+      case 'points_100':
+        return { percent: Math.min((stats.totalPoints / 100) * 100, 100), current: Math.min(stats.totalPoints, 100), target: 100 }
+      case 'points_1000':
+        return { percent: Math.min((stats.totalPoints / 1000) * 100, 100), current: Math.min(stats.totalPoints, 1000), target: 1000 }
+      case 'level_5':
+        return { percent: Math.min((stats.currentLevel / 5) * 100, 100), current: Math.min(stats.currentLevel, 5), target: 5 }
+      case 'level_10':
+        return { percent: Math.min((stats.currentLevel / 10) * 100, 100), current: Math.min(stats.currentLevel, 10), target: 10 }
+      case 'perfect_10':
+        return { percent: Math.min((perfectTimingCount / 10) * 100, 100), current: Math.min(perfectTimingCount, 10), target: 10 }
+      case 'speed_demon':
+        return { percent: Math.min((sessionReviewCount / 50) * 100, 100), current: Math.min(sessionReviewCount, 50), target: 50 }
+      default:
+        return { percent: 0, current: 0, target: 0 }
+    }
+  }
 
   const streakBonus = useMemo(() =>
     gamificationService.getStreakBonus(stats.currentStreak), [stats.currentStreak])
@@ -246,87 +314,75 @@ export function GamificationDashboard() {
             </Button>
           )}
         </div>
-        {achievementsExpanded && <div className={styles.achievementsGrid}>
-          {achievements.map(achievement => {
-            // Calculate progress for locked achievements
-            let progress = 0
-            let progressText = ''
-            
-            if (!achievement.unlocked) {
-              const config = Object.values(GAMIFICATION_CONFIG.ACHIEVEMENTS).find(a => a.id === achievement.id)
-              
-              if (config) {
-                switch (achievement.id) {
-                  case 'first_review':
-                    progress = stats.todayReviews > 0 ? 100 : 0
-                    progressText = stats.todayReviews > 0 ? 'Complete!' : 'Review your first item'
-                    break
-                  case 'streak_7':
-                    progress = Math.min((stats.currentStreak / 7) * 100, 100)
-                    progressText = `${stats.currentStreak}/7 days`
-                    break
-                  case 'streak_30':
-                    progress = Math.min((stats.currentStreak / 30) * 100, 100)
-                    progressText = `${stats.currentStreak}/30 days`
-                    break
-                  case 'points_100':
-                    progress = Math.min((stats.totalPoints / 100) * 100, 100)
-                    progressText = `${stats.totalPoints}/100 points`
-                    break
-                  case 'points_1000':
-                    progress = Math.min((stats.totalPoints / 1000) * 100, 100)
-                    progressText = `${stats.totalPoints}/1000 points`
-                    break
-                  case 'level_5':
-                    progress = Math.min((stats.currentLevel / 5) * 100, 100)
-                    progressText = `Level ${stats.currentLevel}/5`
-                    break
-                  case 'level_10':
-                    progress = Math.min((stats.currentLevel / 10) * 100, 100)
-                    progressText = `Level ${stats.currentLevel}/10`
-                    break
-                  case 'perfect_10':
-                    progress = Math.min((perfectTimingCount / 10) * 100, 100)
-                    progressText = `${perfectTimingCount}/10 perfect timings`
-                    break
-                  case 'speed_demon':
-                    progress = Math.min((sessionReviewCount / 50) * 100, 100)
-                    progressText = `${sessionReviewCount}/50 reviews today`
-                    break
-                  default:
-                    progressText = 'Keep learning!'
-                }
-              }
-            }
-            
-            return (
-              <div 
-                key={achievement.id} 
-                className={`${styles.achievement} ${achievement.unlocked ? styles.unlocked : styles.locked}`}
-                title={achievement.unlocked ? 'Unlocked!' : progressText}
-              >
-                <div className={styles.achievementIcon}>
-                  <AchievementIcon achievementId={achievement.id} size={32} />
-                </div>
-                <h4 className={styles.achievementName}>{achievement.name}</h4>
-                <p className={styles.achievementDescription}>{achievement.description}</p>
-                
-                {!achievement.unlocked && progress > 0 && (
-                  <div className={styles.progressBar}>
-                    <div 
-                      className={styles.progressFill} 
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
+        {achievementsExpanded && (
+          <div className={styles.achievementsList}>
+            {groupedAchievements.map(group => {
+              const isOpen = expandedCategories.has(group.category)
+              return (
+              <section key={group.category} className={styles.categorySection}>
+                <button
+                  type="button"
+                  className={styles.categoryHeader}
+                  onClick={() => toggleCategory(group.category)}
+                  aria-expanded={isOpen}
+                  aria-controls={`achievement-group-${group.category}`}
+                >
+                  <span className={styles.categoryNumber}>N°&nbsp;{group.number}</span>
+                  <span className={styles.categoryName}>{group.label}</span>
+                  <hr className={styles.categoryRule} />
+                  <span className={styles.categoryCount}>
+                    {group.unlockedCount}/{group.totalCount}
+                  </span>
+                  <span
+                    className={styles.categoryChevron}
+                    style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    aria-hidden="true"
+                  >
+                    ▾
+                  </span>
+                </button>
+                {isOpen && (
+                <ul id={`achievement-group-${group.category}`} className={styles.rowList}>
+                  {group.items.map(achievement => {
+                    const progress = achievement.unlocked ? null : getAchievementProgress(achievement.id)
+                    return (
+                      <li
+                        key={achievement.id}
+                        className={`${styles.row} ${achievement.unlocked ? styles.unlocked : styles.locked}`}
+                        style={{ animationDelay: `${achievement.rowIndex * 50}ms` }}
+                        title={achievement.unlocked ? 'Unlocked' : `${progress?.current ?? 0}/${progress?.target ?? '?'}`}
+                      >
+                        <span className={styles.marker} aria-hidden="true">
+                          {achievement.unlocked ? '✦' : '○'}
+                        </span>
+                        <div className={styles.rowText}>
+                          <div className={styles.rowTitle}>{achievement.name}</div>
+                          <div className={styles.rowDescription}>{achievement.description}</div>
+                        </div>
+                        {progress && progress.percent > 0 && progress.target > 0 && (
+                          <div className={styles.rowProgress}>
+                            <div className={styles.progressBar}>
+                              <div
+                                className={styles.progressFill}
+                                style={{ width: `${progress.percent}%` }}
+                              />
+                            </div>
+                            <span className={styles.progressFraction}>
+                              {progress.current}/{progress.target}
+                            </span>
+                          </div>
+                        )}
+                        <span className={styles.rowPoints}>+{achievement.points} pts</span>
+                      </li>
+                    )
+                  })}
+                </ul>
                 )}
-                
-                {!achievement.unlocked && (
-                  <p className={styles.progressText}>{progressText}</p>
-                )}
-              </div>
-            )
-          })}
-        </div>}
+              </section>
+              )
+            })}
+          </div>
+        )}
       </Card>
     </div>
   )
